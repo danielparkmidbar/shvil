@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateWalkSample } from '../walkFilter.js';
-import { makeSample } from './helpers.js';
+import { evaluateWalkSample } from '../walkFilter';
+import { makeSample } from './helpers';
 
 describe('걷기 판별 필터 (지시서 2.2 — 뛰기·차량 제외)', () => {
   it('정상 보행(5 km/h)은 인정', () => {

@@ -4,8 +4,8 @@ import {
   floorMicroToDshv,
   metersToMicroDshv,
   normalizeDifficultyTenths,
-} from '../rates.js';
-import { DEFAULT_ECONOMIC_PARAMS, MICRO_PER_DSHV } from '../params.js';
+} from '../rates';
+import { DEFAULT_ECONOMIC_PARAMS, MICRO_PER_DSHV } from '../params';
 
 describe('3단계 생성 요율 (지시서 2.2)', () => {
   it('등록 코스 회랑 안: 1km = 1 SHV (10 dSHV)', () => {

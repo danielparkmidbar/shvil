@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PendingWalkLedger } from '../ledger.js';
-import { T0, makeSample, walkKm } from './helpers.js';
+import { PendingWalkLedger } from '../ledger';
+import { T0, makeSample, walkKm } from './helpers';
 
 const MEMBER = 'member-0001';
 const DAY_MS = 86_400_000;
@@ -49,7 +49,7 @@ describe('잠정 누적과 정산 (지시서 0-6, 2.2)', () => {
       (m) => !m.startsWith('_') && m !== 'constructor',
     );
     expect(publicApi.sort()).toEqual(
-      ['dateOf', 'getMintedHistory', 'getPending', 'recordSample', 'settleManual', 'settleOnSpend'].sort(),
+      ['dateOf', 'getMintedHistory', 'getPending', 'getState', 'recordSample', 'settleManual', 'settleOnSpend'].sort(),
     );
   });
 
@@ -96,6 +96,19 @@ describe('일일 상한 40 SHV (확정 파라미터)', () => {
     const ledger = newLedger();
     const end = walkKm(ledger, 8, { difficultyTenths: 25 });
     expect(ledger.settleOnSpend(end)!.amountDshv).toBe(200);
+  });
+
+  it('잠정 누적 상태는 스냅숏으로 저장·복원된다 (앱 재시작 대비, 좌표 없음)', () => {
+    const ledger = newLedger();
+    let end = walkKm(ledger, 7);
+    end = walkKm(ledger, 2, { tier: 'ANGEL_DETOUR', detourAngelMemberId: 'angel-77', courseId: undefined }, end);
+
+    const state = ledger.getState();
+    expect(JSON.stringify(state)).not.toMatch(/lat|lon|coord/i);
+
+    const restored = PendingWalkLedger.fromState({ memberId: MEMBER }, state);
+    expect(restored.getPending()).toEqual(ledger.getPending());
+    expect(restored.settleOnSpend(end, 'angel-77')!.amountDshv).toBe(90); // 70 + 20 우회 확정
   });
 
   it('발행 이력은 영속화·복원 가능 (재시작 후에도 상한 유지)', () => {

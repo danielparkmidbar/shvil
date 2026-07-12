@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "쉬빌 지갑",
+    "slug": "shvil-wallet",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "등록 코스 위의 걸음을 판정하기 위해 위치를 사용합니다. 좌표는 판정 즉시 폐기되며 어디에도 저장되지 않습니다.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "걷는 동안 백그라운드에서도 코스 판정을 계속하기 위해 필요합니다. 좌표는 판정 즉시 폐기됩니다.",
+        "NSMotionUsageDescription": "걸음 수 측정(만보기)과 걷기 검증에 모션 센서를 사용합니다.",
+        "NSCameraUsageDescription": "QR 지불을 위해 카메라를 사용합니다.",
+        "UIBackgroundModes": ["location"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACTIVITY_RECOGNITION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "등록 코스 위의 걸음을 판정하기 위해 위치를 사용합니다. 좌표는 판정 즉시 폐기됩니다.",
+          "locationAlwaysAndWhenInUsePermission": "걷는 동안 백그라운드에서도 코스 판정을 계속하기 위해 필요합니다.",
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-camera",
+        { "cameraPermission": "QR 지불을 위해 카메라를 사용합니다." }
+      ],
+      [
+        "expo-sensors",
+        { "motionPermission": "걸음 수 측정과 걷기 검증에 모션 센서를 사용합니다." }
+      ]
+    ]
+  }
+}

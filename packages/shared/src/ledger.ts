@@ -14,11 +14,11 @@ import {
   MICRO_PER_DSHV,
   type EconomicParams,
   type WalkFilterParams,
-} from './params.js';
-import { applyDailyCap, floorMicroToDshv, metersToMicroDshv } from './rates.js';
-import { evaluateWalkSample } from './walkFilter.js';
-import { hashObject } from './crypto.js';
-import type { SettlementKind, WalkSample, WalkSampleVerdict } from './types.js';
+} from './params';
+import { applyDailyCap, floorMicroToDshv, metersToMicroDshv } from './rates';
+import { evaluateWalkSample } from './walkFilter';
+import { hashObject } from './crypto';
+import type { SettlementKind, WalkSample, WalkSampleVerdict } from './types';
 
 export interface LedgerConfig {
   memberId: string;
@@ -40,6 +40,19 @@ export interface SettlementDraft {
   amountDshv: number;
   dailyBreakdown: { date: string; amountDshv: number }[];
   sensorSummaryHash: string;
+}
+
+/** 잠정 원장의 영속화 스냅숏 — 파생 지표만 (좌표 없음). */
+export interface PendingLedgerState {
+  v: 1;
+  days: { date: string; regularMicro: number; detourMicroByAngel: Record<string, number> }[];
+  mintedByDate: Record<string, number>;
+  detourMetersByAngel: Record<string, number>;
+  courseIds: string[];
+  distanceM: number;
+  stepCount: number;
+  startedAt: number | null;
+  sampleCount: number;
 }
 
 export interface PendingSnapshot {
@@ -134,6 +147,48 @@ export class PendingWalkLedger {
 
     this.days.set(date, day);
     return verdict;
+  }
+
+  /**
+   * 영속화용 상태 스냅숏 (앱 재시작 시 잠정 누적 유지 — SQLite에 저장).
+   * 좌표는 애초에 이 원장에 없으므로 스냅숏에도 없다.
+   */
+  getState(): PendingLedgerState {
+    return {
+      v: 1,
+      days: [...this.days.entries()].map(([date, day]) => ({
+        date,
+        regularMicro: day.regularMicro,
+        detourMicroByAngel: Object.fromEntries(day.detourMicroByAngel),
+      })),
+      mintedByDate: Object.fromEntries(this.mintedByDate),
+      detourMetersByAngel: Object.fromEntries(this.detourMetersByAngel),
+      courseIds: [...this.courseIds],
+      distanceM: this.distanceM,
+      stepCount: this.stepCount,
+      startedAt: this.startedAt,
+      sampleCount: this.sampleCount,
+    };
+  }
+
+  /** 스냅숏에서 복원. */
+  static fromState(config: LedgerConfig, state: PendingLedgerState): PendingWalkLedger {
+    const ledger = new PendingWalkLedger(config, state.mintedByDate);
+    for (const day of state.days) {
+      ledger.days.set(day.date, {
+        regularMicro: day.regularMicro,
+        detourMicroByAngel: new Map(Object.entries(day.detourMicroByAngel)),
+      });
+    }
+    for (const [angelId, meters] of Object.entries(state.detourMetersByAngel)) {
+      ledger.detourMetersByAngel.set(angelId, meters);
+    }
+    for (const id of state.courseIds) ledger.courseIds.add(id);
+    ledger.distanceM = state.distanceM;
+    ledger.stepCount = state.stepCount;
+    ledger.startedAt = state.startedAt;
+    ledger.sampleCount = state.sampleCount;
+    return ledger;
   }
 
   /** 표시용 잠정 누적 조회 — 정산이 아니다. 코인을 만들지 않는다. */

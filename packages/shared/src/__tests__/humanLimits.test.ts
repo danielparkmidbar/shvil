@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { generateKeyPair, signerFromKeyPair, type Signer } from '../crypto.js';
-import { buildWalkSegmentProof } from '../proof.js';
-import { mintWalkCoin, splitCoin } from '../coin.js';
-import { checkHumanLimits } from '../humanLimits.js';
-import type { SettlementDraft } from '../ledger.js';
-import type { Coin } from '../types.js';
-import { T0 } from './helpers.js';
+import { generateKeyPair, signerFromKeyPair, type Signer } from '../crypto';
+import { buildWalkSegmentProof } from '../proof';
+import { mintWalkCoin, splitCoin } from '../coin';
+import { checkHumanLimits } from '../humanLimits';
+import type { SettlementDraft } from '../ledger';
+import type { Coin } from '../types';
+import { T0 } from './helpers';
 
 const walker = signerFromKeyPair(generateKeyPair());
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { addressFromPublicKey, generateKeyPair, signerFromKeyPair, type Signer } from '../crypto.js';
-import { PendingWalkLedger } from '../ledger.js';
-import { buildWalkSegmentProof } from '../proof.js';
-import { currentOwnerAddress, mintWalkCoin, splitCoin, verifyCoin } from '../coin.js';
+import { addressFromPublicKey, generateKeyPair, signerFromKeyPair, type Signer } from '../crypto';
+import { PendingWalkLedger } from '../ledger';
+import { buildWalkSegmentProof } from '../proof';
+import { currentOwnerAddress, mintWalkCoin, splitCoin, verifyCoin } from '../coin';
 import {
   acceptPayment,
   buildCharge,
@@ -12,9 +12,9 @@ import {
   verifyCharge,
   verifyConfirm,
   type PaymentMessage,
-} from '../qr.js';
-import type { Coin } from '../types.js';
-import { T0, walkKm } from './helpers.js';
+} from '../qr';
+import type { Coin } from '../types';
+import { T0, walkKm } from './helpers';
 
 const list = signerFromKeyPair(generateKeyPair()); // 리스트 (지불자)
 const angel = signerFromKeyPair(generateKeyPair()); // 엔젤 (수령자)

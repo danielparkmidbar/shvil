@@ -6,8 +6,8 @@
  * - 검증: 수령 기기가 계보(민팅 서명 + 이전 체인)를 로컬에서 즉시 검증.
  *   승인이 아니라 위조 검사다.
  */
-import { addressFromPublicKey, hashObject, signObject, verifyObject, type Signer } from './crypto.js';
-import { verifyWalkSegmentProof } from './proof.js';
+import { addressFromPublicKey, hashObject, signObject, verifyObject, type Signer } from './crypto';
+import { verifyWalkSegmentProof } from './proof';
 import type {
   Coin,
   CoinRejectReason,
@@ -17,7 +17,7 @@ import type {
   SplitRecord,
   TransferLink,
   WalkSegmentProof,
-} from './types.js';
+} from './types';
 
 // ── 민팅 ──────────────────────────────────────────────────────────
 

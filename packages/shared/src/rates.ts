@@ -14,8 +14,8 @@ import {
   type EconomicParams,
   MICRO_PER_DSHV,
   MICRO_PER_METER_BASE,
-} from './params.js';
-import type { WalkTier } from './types.js';
+} from './params';
+import type { WalkTier } from './types';
 
 /** 난이도 계수 정규화: 미지정→×1.0, 상한 클램프, 하한 ×1.0. */
 export function normalizeDifficultyTenths(

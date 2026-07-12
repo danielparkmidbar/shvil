@@ -1,5 +1,5 @@
-import type { WalkSample, WalkTier } from '../types.js';
-import { PendingWalkLedger } from '../ledger.js';
+import type { WalkSample, WalkTier } from '../types';
+import { PendingWalkLedger } from '../ledger';
 
 export const T0 = Date.parse('2026-07-01T06:00:00Z');
 

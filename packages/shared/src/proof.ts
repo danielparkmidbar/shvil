@@ -3,9 +3,9 @@
  * 자기 인증: 검증 서버 없음. 앱이 스스로 규칙을 적용해 만들고, 신뢰성은
  * 앱 무결성 증명(3장)이 보장한다.
  */
-import { signObject, verifyObject, type Signer } from './crypto.js';
-import type { SettlementDraft } from './ledger.js';
-import type { WalkSegmentProof } from './types.js';
+import { signObject, verifyObject, type Signer } from './crypto';
+import type { SettlementDraft } from './ledger';
+import type { WalkSegmentProof } from './types';
 
 export interface ProofOptions {
   /** 앱 무결성 증명 토큰 (Play Integrity / App Attest). M1에서 실토큰 연동. */

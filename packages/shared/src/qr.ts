@@ -8,15 +8,15 @@
  * M1 참고: 코인 수가 많으면 QR 용량을 넘을 수 있다 — 앱 계층에서 분할 프레임
  * (animated QR) 또는 BLE/NFC 폴백을 얹는다. 스키마 자체는 전송 수단 중립.
  */
-import { addressFromPublicKey, signObject, verifyObject, type Signer } from './crypto.js';
+import { addressFromPublicKey, signObject, verifyObject, type Signer } from './crypto';
 import {
   acknowledgeTransfer,
   createTransfer,
   currentOwnerAddress,
   verifyCoin,
   type VerifyCoinOptions,
-} from './coin.js';
-import type { Coin } from './types.js';
+} from './coin';
+import type { Coin } from './types';
 
 // ── 메시지 타입 ───────────────────────────────────────────────────
 

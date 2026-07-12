@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { generateKeyPair, signerFromKeyPair, addressFromPublicKey, type Signer } from '../crypto.js';
-import { PendingWalkLedger } from '../ledger.js';
-import { buildWalkSegmentProof, verifyWalkSegmentProof } from '../proof.js';
+import { generateKeyPair, signerFromKeyPair, addressFromPublicKey, type Signer } from '../crypto';
+import { PendingWalkLedger } from '../ledger';
+import { buildWalkSegmentProof, verifyWalkSegmentProof } from '../proof';
 import {
   acknowledgeTransfer,
   buildGrant,
@@ -11,9 +11,9 @@ import {
   mintWalkCoin,
   splitCoin,
   verifyCoin,
-} from '../coin.js';
-import type { Coin } from '../types.js';
-import { T0, walkKm } from './helpers.js';
+} from '../coin';
+import type { Coin } from '../types';
+import { T0, walkKm } from './helpers';
 
 const alice = signerFromKeyPair(generateKeyPair());
 const bob = signerFromKeyPair(generateKeyPair());

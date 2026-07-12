@@ -6,9 +6,9 @@
  * 인간적으로 가능한가"를 검사한다. 같은 날 40 SHV 초과, 주 300 SHV 같은
  * 물리적 불가능치는 즉시 거부. 탑 100 기준선 연동은 M2+에서 프로파일 갱신으로.
  */
-import { DEFAULT_HUMAN_LIMIT_PROFILE, type HumanLimitProfile } from './params.js';
-import { hashObject } from './crypto.js';
-import type { Coin } from './types.js';
+import { DEFAULT_HUMAN_LIMIT_PROFILE, type HumanLimitProfile } from './params';
+import { hashObject } from './crypto';
+import type { Coin } from './types';
 
 export interface DailyMintRecord {
   /** 걷기 증명의 해시 — 분할 형제 코인들이 같은 증명을 이중 계상하지 않도록 dedup 키. */

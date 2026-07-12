@@ -8,7 +8,7 @@
 import { ed25519 } from '@noble/curves/ed25519';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils';
-import { stableStringify } from './canonical.js';
+import { stableStringify } from './canonical';
 
 export interface KeyPair {
   publicKeyHex: string;

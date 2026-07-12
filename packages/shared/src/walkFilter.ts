@@ -8,8 +8,8 @@
  * 사용자 패턴 학습 모델(이상 탐지)은 verification-engineer 담당으로 M1에서
  * 별도 모듈로 연동한다. 이 필터는 결정적 규칙 계층이다.
  */
-import { DEFAULT_WALK_FILTER_PARAMS, type WalkFilterParams } from './params.js';
-import type { WalkRejectReason, WalkSample, WalkSampleVerdict } from './types.js';
+import { DEFAULT_WALK_FILTER_PARAMS, type WalkFilterParams } from './params';
+import type { WalkRejectReason, WalkSample, WalkSampleVerdict } from './types';
 
 export function evaluateWalkSample(
   sample: WalkSample,
