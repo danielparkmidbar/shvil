@@ -1,0 +1,21 @@
+{
+  "name": "@shvil/shared",
+  "version": "0.1.0",
+  "description": "쉬빌 코인 코어 — 키·온디바이스 민팅·정산·계보 서명 체인·QR 스키마·로컬 검증. 앱과 서버가 동일 코드를 공유한다.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.6.0",
+    "@noble/hashes": "^1.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.7"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@shvil/wallet",
+  "private": true,
+  "version": "0.0.0",
+  "description": "쉬빌 지갑 앱 (React Native/Expo) — M1에서 본격 구현. 리스트/엔젤 이중 모드, 만보기형 걷기 기록, QR 왕복 지불.",
+  "dependencies": {
+    "@shvil/shared": "*"
+  }
+}

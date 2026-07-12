@@ -1,0 +1,9 @@
+{
+  "name": "@shvil/server",
+  "private": true,
+  "version": "0.0.0",
+  "description": "디렉토리 서버 — M2에서 본격 구현. 엔젤 디렉토리·메신저 릴레이·마켓 에스크로·경로 데이터 배포. 거래 승인 기능 없음.",
+  "dependencies": {
+    "@shvil/shared": "*"
+  }
+}

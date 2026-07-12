@@ -1,0 +1,9 @@
+{
+  "name": "@shvil/web-angel",
+  "private": true,
+  "version": "0.0.0",
+  "description": "shvilangel.org (Next.js) — M3에서 본격 구현. 엔젤 지도, 지갑 다운로드, 코인 마켓·에스크로.",
+  "dependencies": {
+    "@shvil/shared": "*"
+  }
+}

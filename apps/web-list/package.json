@@ -1,0 +1,9 @@
+{
+  "name": "@shvil/web-list",
+  "private": true,
+  "version": "0.0.0",
+  "description": "shvilist.org (Next.js) — M4에서 본격 구현. 코스 등록부, 클레임 게시판, 완주 인증(격려 코인), 탑 100 리더보드.",
+  "dependencies": {
+    "@shvil/shared": "*"
+  }
+}

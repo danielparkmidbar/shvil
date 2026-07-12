@@ -1,0 +1,19 @@
+{
+  "name": "shvil-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "쉬빌 코인 시스템 — 지갑 앱 + shvilangel.org + shvilist.org 모노레포",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "server"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
