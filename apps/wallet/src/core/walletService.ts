@@ -15,21 +15,26 @@ import {
   buildWalkSegmentProof,
   checkHumanLimits,
   decodeQr,
+  mintGrantCoin,
   mintWalkCoin,
   splitCoin,
+  verifyCoin,
   verifyConfirm,
   type ChargeMessage,
   type Coin,
   type ConfirmMessage,
   type PaymentMessage,
   type PendingSnapshot,
+  type SignedGrant,
   type WalkSample,
   type WalkSampleVerdict,
 } from '@shvil/shared';
 import type { LiveWalkStatus } from '../walk/corridorEngine';
-import { loadOrCreateIdentity, type Identity } from './identity';
+import { loadOrCreateIdentity, persistMemberId, type Identity } from './identity';
 import {
   isKnownCoinId,
+  kvGet,
+  kvSet,
   loadOwnedCoins,
   loadPendingState,
   openDb,
@@ -41,10 +46,17 @@ import {
   type StoredCoin,
 } from './db';
 
+/** 하나의 앱, 두 모드 — "오늘의 엔젤이 내일의 쉬빌리스트" (지시서 1장). */
+export type WalletMode = 'LIST' | 'ANGEL';
+
+const MODE_KEY = 'walletMode.v1';
+
 export interface WalletState {
   ready: boolean;
   memberId: string;
   address: string;
+  /** 모드 전환은 토글 한 번 — 지갑·코인·키는 두 모드가 공유한다. */
+  mode: WalletMode;
   pending: PendingSnapshot;
   coins: StoredCoin[];
   /** 걸어서 생성한 코인 잔액 (dSHV) — 계보상 영구 구분. */
@@ -85,6 +97,7 @@ class WalletService {
     ready: false,
     memberId: '',
     address: '',
+    mode: 'LIST',
     pending: EMPTY_PENDING,
     coins: [],
     walkedBalanceDshv: 0,
@@ -126,12 +139,53 @@ class WalletService {
     const config = { memberId: this.#identity.memberId };
     this.#ledger = saved ? PendingWalkLedger.fromState(config, saved) : new PendingWalkLedger(config);
     await this.#reloadCoins();
+    const savedMode = await kvGet(MODE_KEY);
     this.#set({
       ready: true,
       memberId: this.#identity.memberId,
       address: this.#identity.address,
+      mode: savedMode === 'ANGEL' ? 'ANGEL' : 'LIST',
       pending: this.#ledger.getPending(),
     });
+  }
+
+  /** 모드 전환 — 토글 한 번. 걷기 추적·지갑 상태는 그대로 유지된다. */
+  async setMode(mode: WalletMode): Promise<void> {
+    await kvSet(MODE_KEY, mode);
+    this.#set({ mode });
+  }
+
+  /**
+   * 가입 성공 시 서버 발급 회원 번호("SHV-123456")로 갱신.
+   * 잠정 원장도 새 번호로 이어받는다 — 이후 정산 코인에는 정식 번호가 새겨진다.
+   */
+  async updateMemberId(memberId: string): Promise<void> {
+    await persistMemberId(memberId);
+    this.#identity = { ...this.identity, memberId };
+    this.#ledger = PendingWalkLedger.fromState({ memberId }, this.#ledger!.getState());
+    await savePendingState(this.#ledger.getState());
+    this.#set({ memberId });
+  }
+
+  /**
+   * 발행 승인서(SignedGrant)로 보너스 코인 민팅 — 엔젤 등록 20 / 첫 접대 30 SHV
+   * (지시서 2.4). 신뢰 발행 키 대조 포함 로컬 검증 후 지갑에 저장한다.
+   */
+  async mintFromGrant(grant: SignedGrant, trustedIssuerKeys: Record<string, string>, now: number): Promise<Coin> {
+    if (grant.recipientPublicKey !== this.identity.signer.publicKeyHex) {
+      throw new Error('이 기기 앞으로 발행된 승인서가 아닙니다');
+    }
+    const coin = mintGrantCoin(grant);
+    const verdict = verifyCoin(coin, { trustedIssuerKeys });
+    if (!verdict.valid) {
+      throw new Error(`승인서 검증 실패: ${verdict.reasons.join(', ')}`);
+    }
+    if (await isKnownCoinId(coin.id)) {
+      throw new Error('이미 발행된 보너스입니다');
+    }
+    await saveCoin(coin, 'BONUS', now);
+    await this.#reloadCoins();
+    return coin;
   }
 
   async #reloadCoins(): Promise<void> {

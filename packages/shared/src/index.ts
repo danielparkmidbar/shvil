@@ -14,3 +14,7 @@ export * from './proof';
 export * from './coin';
 export * from './humanLimits';
 export * from './qr';
+export * from './encoding';
+export * from './courses';
+export * from './messaging';
+export * from './apiAuth';

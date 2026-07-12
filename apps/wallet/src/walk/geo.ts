@@ -5,10 +5,9 @@
  * 좌표를 저장·전송하지 않으며, 반환값은 거리(m)·인덱스 같은 파생 지표뿐이다.
  */
 
-export interface GeoPoint {
-  lat: number;
-  lon: number;
-}
+import type { GeoPoint } from '@shvil/shared';
+
+export type { GeoPoint };
 
 const EARTH_RADIUS_M = 6_371_000;
 const DEG_TO_RAD = Math.PI / 180;

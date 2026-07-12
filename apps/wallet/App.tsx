@@ -1,25 +1,55 @@
-/** 쉬빌 지갑 — 리스트 모드 (M1). 엔젤 모드·메신저는 M2. */
+/**
+ * 쉬빌 지갑 — 하나의 앱, 두 모드 (M2: 엔젤 모드 + 메신저 + 디렉토리 연동).
+ * 탭: 홈 · 걷기 · 지갑 · 거래(지불/수령) · 더보기(엔젤 지도·메시지·내 포인트·가입/설정).
+ */
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { wallet } from './src/core/walletService';
+import { chatService } from './src/core/chatService';
+import { syncCourses } from './src/core/directory';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WalkScreen } from './src/screens/WalkScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
-import { PayScreen } from './src/screens/PayScreen';
-import { ReceiveScreen } from './src/screens/ReceiveScreen';
+import { TransactScreen } from './src/screens/TransactScreen';
+import { MoreScreen } from './src/screens/MoreScreen';
+import { AngelMapScreen } from './src/screens/AngelMapScreen';
+import { MessagesScreen } from './src/screens/MessagesScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
+import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import type { MoreStackParamList } from './src/screens/navTypes';
 
 const Tab = createBottomTabNavigator();
+const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 
 const TAB_ICON: Record<string, string> = {
   홈: '🏠',
   걷기: '🚶',
   지갑: '👛',
-  지불: '📲',
-  수령: '🤝',
+  거래: '🔄',
+  더보기: '☰',
 };
+
+function MoreStackScreen() {
+  return (
+    <MoreStack.Navigator>
+      <MoreStack.Screen name="더보기" component={MoreScreen} options={{ headerTitle: '쉬빌 — 더보기' }} />
+      <MoreStack.Screen name="엔젤 지도" component={AngelMapScreen} />
+      <MoreStack.Screen name="메시지" component={MessagesScreen} />
+      <MoreStack.Screen
+        name="채팅"
+        component={ChatScreen}
+        options={({ route }) => ({ headerTitle: route.params.peerName })}
+      />
+      <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
+      <MoreStack.Screen name="가입/설정" component={OnboardingScreen} />
+    </MoreStack.Navigator>
+  );
+}
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -28,8 +58,14 @@ export default function App() {
   useEffect(() => {
     wallet
       .init()
-      .then(() => setReady(true))
+      .then(() => {
+        setReady(true);
+        // 서버 연동은 편의 기능 — 실패해도 앱 동작에 영향 없음 (오프라인 우선).
+        syncCourses().catch(() => {});
+        chatService.startPolling();
+      })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
+    return () => chatService.stopPolling();
   }, []);
 
   if (error) {
@@ -60,8 +96,8 @@ export default function App() {
         <Tab.Screen name="홈" component={HomeScreen} />
         <Tab.Screen name="걷기" component={WalkScreen} />
         <Tab.Screen name="지갑" component={WalletScreen} />
-        <Tab.Screen name="지불" component={PayScreen} />
-        <Tab.Screen name="수령" component={ReceiveScreen} />
+        <Tab.Screen name="거래" component={TransactScreen} />
+        <Tab.Screen name="더보기" component={MoreStackScreen} options={{ headerShown: false }} />
       </Tab.Navigator>
     </NavigationContainer>
   );

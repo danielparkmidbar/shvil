@@ -1,9 +1,23 @@
 {
   "name": "@shvil/server",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
-  "description": "디렉토리 서버 — M2에서 본격 구현. 엔젤 디렉토리·메신저 릴레이·마켓 에스크로·경로 데이터 배포. 거래 승인 기능 없음.",
+  "type": "module",
+  "description": "쉬빌 디렉토리 서버 — 엔젤 디렉토리·메신저 릴레이(E2E 암호문만 중계)·코스 배포·프로모션 발행. 거래 승인 기능 없음.",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
-    "@shvil/shared": "*"
+    "@shvil/shared": "*",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.7"
   }
 }

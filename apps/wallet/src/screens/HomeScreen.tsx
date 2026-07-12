@@ -1,8 +1,10 @@
 /** 홈 — 걸음 수·잠정 누적 진행 바·확정 잔액·다음 엔젤 거리 (지시서 4장). */
 import React from 'react';
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Button, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useWallet } from '../core/walletService';
 import { walkService } from '../core/walkService';
+import { isProvisionalMemberId } from '../core/identity';
 import { Card, Muted, Title, colors, fmtKm, fmtShv } from '../ui/common';
 
 const STANDARD_DSHV = 200; // 하루의 성실한 걸음 ≈ 20 SHV
@@ -10,12 +12,25 @@ const CAP_DSHV = 400; // 1일 상한 40 SHV
 
 export function HomeScreen() {
   const w = useWallet();
+  const navigation = useNavigation();
   const totalBalance = w.walkedBalanceDshv + w.receivedBalanceDshv + w.bonusBalanceDshv;
   const pendingRatio = Math.min(1, w.pending.pendingDshvEstimate / CAP_DSHV);
   const standardMark = STANDARD_DSHV / CAP_DSHV;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {isProvisionalMemberId(w.memberId) && (
+        <Pressable
+          style={styles.joinBanner}
+          onPress={() =>
+            // @ts-expect-error 탭 → 중첩 스택 내비게이션 (전역 파라미터 타입은 M2 후속 정리)
+            navigation.navigate('더보기', { screen: '가입/설정' })
+          }
+        >
+          <Text style={styles.joinText}>가입하고 정식 회원 번호 받기 →</Text>
+          <Text style={styles.joinSub}>가입 없이도 걷기·지불은 전부 동작합니다 (선택 사항)</Text>
+        </Pressable>
+      )}
       <Card>
         <Title>이번 구간 걸음</Title>
         <Text style={styles.big}>{w.pending.stepCount.toLocaleString()} 걸음</Text>
@@ -73,6 +88,14 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: 16, gap: 4 },
+  joinBanner: {
+    backgroundColor: colors.detour,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  joinText: { color: 'white', fontWeight: '800', fontSize: 15 },
+  joinSub: { color: '#DCE7F5', fontSize: 12, marginTop: 2 },
   big: { fontSize: 28, fontWeight: '800', marginBottom: 6 },
   medium: { fontSize: 18, fontWeight: '600' },
   barTrack: {

@@ -13,6 +13,7 @@ import * as Location from 'expo-location';
 import { Pedometer } from 'expo-sensors';
 import { CorridorEngine } from '../walk/corridorEngine';
 import { SAMPLE_ANGELS, SHVIL_ISRAEL_NORTH_SAMPLE } from '../walk/data/shvilIsraelSample';
+import { loadCachedAngels, loadCachedCourses } from './directory';
 import { wallet } from './walletService';
 
 const WINDOW_MS = 60_000;
@@ -44,7 +45,20 @@ class WalkService {
       await Pedometer.requestPermissionsAsync().catch(() => null);
     }
 
-    this.#engine = new CorridorEngine([SHVIL_ISRAEL_NORTH_SAMPLE], SAMPLE_ANGELS);
+    // 코스·엔젤 포인트: 디렉토리 캐시 우선, 없으면 내장 데이터 (오프라인 동작 필수).
+    // 캐시는 공개 지도 데이터다 — 사용자 이동 궤적 좌표가 아니다.
+    const cachedCourses = await loadCachedCourses().catch(() => null);
+    const cachedAngels = await loadCachedAngels().catch(() => null);
+    const angelPoints =
+      cachedAngels && cachedAngels.length > 0
+        ? cachedAngels
+            .filter((a) => a.visible)
+            .map((a) => ({ memberId: a.memberId, name: a.name, location: a.location }))
+        : SAMPLE_ANGELS;
+    this.#engine = new CorridorEngine(
+      cachedCourses && cachedCourses.length > 0 ? cachedCourses : [SHVIL_ISRAEL_NORTH_SAMPLE],
+      angelPoints,
+    );
 
     this.#locationSub = await Location.watchPositionAsync(
       {

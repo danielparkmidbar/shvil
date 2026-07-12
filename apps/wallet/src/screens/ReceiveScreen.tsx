@@ -8,6 +8,7 @@ import { Alert, Button, ScrollView, StyleSheet, Text, TextInput, View } from 're
 import QRCode from 'react-native-qrcode-svg';
 import { encodeQr, RECOMMENDED_PRICES_DSHV, type ChargeMessage, type ConfirmMessage } from '@shvil/shared';
 import { wallet } from '../core/walletService';
+import { maybeClaimFirstHosting } from '../core/angelService';
 import { QrScanner } from '../ui/QrScanner';
 import { Card, Muted, Title, colors, fmtShv } from '../ui/common';
 
@@ -45,7 +46,23 @@ export function ReceiveScreen() {
   const onPaymentScanned = (charge: ChargeMessage) => (data: string) => {
     void wallet
       .acceptIncomingPayment(data, Date.now())
-      .then((confirm) => setStep({ name: 'showConfirm', confirm, amountDshv: charge.amountDshv }))
+      .then((confirm) => {
+        setStep({ name: 'showConfirm', confirm, amountDshv: charge.amountDshv });
+        // 첫 접대 보너스(30 SHV, 지시서 2.4): 엔젤 모드이고 미수령이면 방금 받은
+        // 수령 코인을 증빙으로 자동 청구. 오프라인 실패는 조용히 넘어간다 —
+        // 내 포인트 화면의 수동 재시도 버튼으로 나중에 청구할 수 있다.
+        if (wallet.getState().mode === 'ANGEL') {
+          maybeClaimFirstHosting()
+            .then((coin) => {
+              if (coin) {
+                Alert.alert('첫 접대 보너스', `${fmtShv(coin.amountDshv)}가 지갑에 발행되었습니다. 첫 접대를 축하합니다!`);
+              }
+            })
+            .catch(() => {
+              /* 오프라인 — 내 포인트 화면에서 수동 재시도 */
+            });
+        }
+      })
       .catch((e) =>
         Alert.alert('수령 거부', String(e instanceof Error ? e.message : e), [{ text: '확인', onPress: reset }]),
       );
@@ -79,7 +96,7 @@ export function ReceiveScreen() {
               onPress={() => createCharge(Math.round(parseFloat(amountText || '0') * 10), null)}
             />
           </Card>
-          <Muted>엔젤 모드 전체 기능(서비스 등록·수령 내역)은 M2에서 제공됩니다.</Muted>
+          <Muted>서비스 등록·위치 공개·보너스는 더보기 → 내 포인트(엔젤)에서 관리하세요.</Muted>
         </ScrollView>
       );
 
