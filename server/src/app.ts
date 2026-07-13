@@ -21,18 +21,16 @@ import {
   buildGrant,
   buildMembershipCertificate,
   currentOwnerAddress,
-  generateKeyPair,
   sha256Hex,
-  signerFromKeyPair,
   verifyAuthHeaders,
   verifyCoin,
   type Coin,
-  type KeyPair,
   type MembershipCertificate,
   type MessageEnvelope,
   type SignedGrant,
 } from '@shvil/shared';
-import { createDb, kvGet, kvSet } from './db';
+import { createDb } from './db';
+import { SealedKeystore } from './keystore';
 import { verifyIntegrityToken } from './integrity';
 import { haversineKm } from './geo';
 import { MockChainAdapter, type ChainAdapter } from './chain';
@@ -104,21 +102,15 @@ export function buildApp(
   const devMode = options.devMode ?? false;
   const chain = options.chain ?? new MockChainAdapter();
 
-  // 발행 서명 키들 — 프로모션(엔젤 보너스)·클레임·격려 코인. 전부 기간·수량/규칙
-  // 한정 발급 키이며, 지갑들은 GET /keys로 신뢰 목록에 넣는다. 발행 현황은 공시된다.
-  function loadOrCreateKey(kvKey: string): KeyPair {
-    const saved = kvGet(db, kvKey);
-    if (saved) return JSON.parse(saved) as KeyPair;
-    const pair = generateKeyPair();
-    kvSet(db, kvKey, JSON.stringify(pair));
-    return pair;
-  }
-  const promoSigner = signerFromKeyPair(loadOrCreateKey('promoKey'));
-  const claimSigner = signerFromKeyPair(loadOrCreateKey('claimKey'));
-  const rewardSigner = signerFromKeyPair(loadOrCreateKey('rewardKey'));
+  // 발행 서명 키들 — 프로모션(엔젤 보너스)·클레임·격려 코인·회원 증서 루트.
+  // 전부 기간·수량/규칙 한정 발급 키이며, 지갑들은 GET /keys로 신뢰 목록에 넣는다.
+  // 보안 감사 H-2: 개인키는 KEK로 봉인해 저장한다(평문 저장 금지). KEK는 DB에 없다.
+  const keystore = new SealedKeystore(db, devMode);
+  const promoSigner = keystore.loadOrCreateSigner('promoKey');
+  const claimSigner = keystore.loadOrCreateSigner('claimKey');
+  const rewardSigner = keystore.loadOrCreateSigner('rewardKey');
   // 회원 증서 루트 키 — 회원 번호↔기기 공개키를 결속 서명한다 (보안 감사 C-2).
-  // promo/claim/reward와 동일 패턴. 발급만 온라인, 검증·거래는 오프라인.
-  const membershipRootSigner = signerFromKeyPair(loadOrCreateKey('membershipRootKey'));
+  const membershipRootSigner = keystore.loadOrCreateSigner('membershipRootKey');
 
   /** 무결성 검증 통과 시 회원 번호↔기기 키를 결속한 증서를 발급한다. */
   function issueMembershipCertificate(

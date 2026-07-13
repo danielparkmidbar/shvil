@@ -31,9 +31,15 @@
 ## 실행
 
 ```
-npm run dev     # tsx watch, http://localhost:8787
-npm test        # M2 완료 기준 통합 테스트 (가입→등록→지도→채팅→접대→보너스)
+npm run dev     # tsx watch, http://localhost:8787 (개발 — SHVIL_DEV_MODE=1 권장)
+npm test        # 통합·마켓·커뮤니티·회원증서·봉인키 테스트
 ```
+
+### 운영 환경변수 (보안 감사)
+- `SHVIL_KEK` — **운영 필수.** 발행 개인키 봉인용 키 암호화 키(16자 이상, 권장 hex 64자).
+  없으면 기동 실패(fail-closed, H-2). DB에는 봉인문만 저장되고 KEK는 저장하지 않는다.
+- `SHVIL_DEV_MODE=1` — dev 라우트(OTP 코드 반환·dev-deposit·소명 수동 등재·무결성 모의)
+  활성화. 운영에서는 설정하지 말 것 (C-1).
 
 ## 마켓·에스크로 (M3)
 

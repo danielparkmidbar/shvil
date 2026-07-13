@@ -19,3 +19,4 @@ export * from './encoding';
 export * from './courses';
 export * from './messaging';
 export * from './apiAuth';
+export * from './sealing';
