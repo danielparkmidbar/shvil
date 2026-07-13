@@ -19,6 +19,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import {
   buildGrant,
   hashObject,
+  signDistribution,
   type CourseData,
   type SignedGrant,
   type Signer,
@@ -38,6 +39,9 @@ export interface CommunityContext {
   /** 격려 코인 발행 키. */
   rewardSigner: Signer;
   rewardKeyId: string;
+  /** 배포 서명 키 — /limits/flagged 응답에 _sig 부착 (보안 감사 H-3). */
+  distSigner: Signer;
+  distKeyId: string;
   /** 공식 승격 기준 완주 인원 (지시서: 100명. 테스트에서 축소 가능). */
   promotionThreshold: number;
   /** 클레임 인정 투표 기준 인원 (제안 5명 — 결정 대기 8번). */
@@ -446,10 +450,16 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
     const rows = db
       .prepare("SELECT member_id, reason, flagged_at FROM flagged_members WHERE status = 'PENDING'")
       .all() as unknown as { member_id: string; reason: string; flagged_at: number }[];
-    return {
-      members: rows.map((r) => ({ memberId: r.member_id, reason: r.reason, flaggedAt: r.flagged_at })),
-      note: '소명 통과 시 해제됩니다. 이미 유통 중인 정상 코인과 타인의 거래는 영향받지 않습니다.',
-    };
+    // 배포 서명(_sig) 부착 — MITM의 소명 목록 조작 차단 (보안 감사 H-3).
+    return signDistribution(
+      {
+        members: rows.map((r) => ({ memberId: r.member_id, reason: r.reason, flaggedAt: r.flagged_at })),
+        note: '소명 통과 시 해제됩니다. 이미 유통 중인 정상 코인과 타인의 거래는 영향받지 않습니다.',
+      },
+      ctx.distSigner,
+      ctx.distKeyId,
+      Date.now(),
+    );
   });
 
   if (ctx.devMode) {

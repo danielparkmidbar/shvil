@@ -20,3 +20,4 @@ export * from './courses';
 export * from './messaging';
 export * from './apiAuth';
 export * from './sealing';
+export * from './distribution';

@@ -22,6 +22,7 @@ import {
   buildMembershipCertificate,
   currentOwnerAddress,
   sha256Hex,
+  signDistribution,
   verifyAuthHeaders,
   verifyCoin,
   type Coin,
@@ -42,6 +43,8 @@ export const CLAIM_KEY_ID = 'community-claim-2026';
 export const REWARD_KEY_ID = 'community-reward-2026';
 /** 회원 증서 발행 루트 키 ID — 지갑이 신뢰 루트로 핀한다 (보안 감사 C-2). */
 export const MEMBERSHIP_ROOT_KEY_ID = 'membership-root-2026';
+/** 배포 서명 키 ID — 신뢰 발행 키 목록·소명 목록·코스 데이터 서명 (보안 감사 H-3). */
+export const DISTRIBUTION_KEY_ID = 'distribution-2026';
 const OTP_TTL_MS = 10 * 60 * 1000;
 /** 회원 증서 유효기간 — 만료 전 갱신으로 무결성 재확인 강제 (30일). */
 const MEMBERSHIP_CERT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -111,6 +114,9 @@ export function buildApp(
   const rewardSigner = keystore.loadOrCreateSigner('rewardKey');
   // 회원 증서 루트 키 — 회원 번호↔기기 공개키를 결속 서명한다 (보안 감사 C-2).
   const membershipRootSigner = keystore.loadOrCreateSigner('membershipRootKey');
+  // 배포 서명 키 — /keys·/courses·/limits/flagged 응답 본문에 _sig를 붙여 MITM의
+  // 발행키 교체·소명 목록 조작·코스 주입을 차단한다 (보안 감사 H-3). KEK로 봉인 저장.
+  const distSigner = keystore.loadOrCreateSigner('distKey');
 
   /** 무결성 검증 통과 시 회원 번호↔기기 키를 결속한 증서를 발급한다. */
   function issueMembershipCertificate(
@@ -302,10 +308,16 @@ export function buildApp(
 
   // ── 코스 데이터 배포 (원본: shvilist.org 코스 등록부 — M4 연동) ──
 
-  app.get('/courses', async () => ({
-    // 기본 코스 + 코스 등록부에서 공식 승격된 코스 (지시서 6장 3절).
-    courses: [SHVIL_ISRAEL_NORTH_SAMPLE, ...officialCourses(db)],
-  }));
+  app.get('/courses', async () =>
+    // 배포 서명(_sig) 부착 (보안 감사 H-3). 기존 소비자는 {courses}만 읽어 하위 호환.
+    signDistribution(
+      // 기본 코스 + 코스 등록부에서 공식 승격된 코스 (지시서 6장 3절).
+      { courses: [SHVIL_ISRAEL_NORTH_SAMPLE, ...officialCourses(db)] },
+      distSigner,
+      DISTRIBUTION_KEY_ID,
+      Date.now(),
+    ),
+  );
 
   // ── 엔젤 디렉토리 ──────────────────────────────────────────────
 
@@ -464,16 +476,25 @@ export function buildApp(
 
   app.get('/keys/promo', async () => ({ keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex }));
 
-  /** 신뢰 발행 키 전체 목록 — 지갑이 캐시해 GRANT 계보 검증에 사용. */
-  app.get('/keys', async () => ({
-    keys: [
-      { keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex, purpose: 'ANGEL_BONUS' },
-      { keyId: CLAIM_KEY_ID, publicKey: claimSigner.publicKeyHex, purpose: 'COMMUNITY_CLAIM' },
-      { keyId: REWARD_KEY_ID, publicKey: rewardSigner.publicKeyHex, purpose: 'COMMUNITY_REWARD' },
-      // 회원 증서 신뢰 루트 — 지갑이 핀해 수신 코인의 회원 증서를 검증 (보안 감사 C-2).
-      { keyId: MEMBERSHIP_ROOT_KEY_ID, publicKey: membershipRootSigner.publicKeyHex, purpose: 'MEMBERSHIP_ROOT' },
-    ],
-  }));
+  /** 신뢰 발행 키 전체 목록 — 지갑이 캐시해 GRANT 계보 검증에 사용. 배포 서명(_sig). */
+  app.get('/keys', async () =>
+    signDistribution(
+      {
+        keys: [
+          { keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex, purpose: 'ANGEL_BONUS' },
+          { keyId: CLAIM_KEY_ID, publicKey: claimSigner.publicKeyHex, purpose: 'COMMUNITY_CLAIM' },
+          { keyId: REWARD_KEY_ID, publicKey: rewardSigner.publicKeyHex, purpose: 'COMMUNITY_REWARD' },
+          // 회원 증서 신뢰 루트 — 지갑이 핀해 수신 코인의 회원 증서를 검증 (보안 감사 C-2).
+          { keyId: MEMBERSHIP_ROOT_KEY_ID, publicKey: membershipRootSigner.publicKeyHex, purpose: 'MEMBERSHIP_ROOT' },
+          // 배포 서명 공개키 — 지갑이 TOFU 핀 후 자기 일관성 확인용 (핀 기준은 _sig.distPublicKey).
+          { keyId: DISTRIBUTION_KEY_ID, publicKey: distSigner.publicKeyHex, purpose: 'DISTRIBUTION' },
+        ],
+      },
+      distSigner,
+      DISTRIBUTION_KEY_ID,
+      Date.now(),
+    ),
+  );
 
   /** 투명성 페이지 데이터 — 프로모션 발행 현황 공시 (지시서 2.4, 5장). */
   app.get('/transparency/promo', async () => ({
@@ -506,6 +527,9 @@ export function buildApp(
     claimKeyId: CLAIM_KEY_ID,
     rewardSigner,
     rewardKeyId: REWARD_KEY_ID,
+    // 배포 서명 키 — /limits/flagged 응답에 _sig 부착 (보안 감사 H-3).
+    distSigner,
+    distKeyId: DISTRIBUTION_KEY_ID,
     promotionThreshold: options.promotionThreshold ?? 100,
     claimVoteThreshold: options.claimVoteThreshold ?? 5,
     claimMonthlyLimit: options.claimMonthlyLimit ?? 2,

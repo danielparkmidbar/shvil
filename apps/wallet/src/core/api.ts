@@ -18,6 +18,7 @@ import {
   type GeoPoint,
   type MembershipCertificate,
   type MessageEnvelope,
+  type Signed,
   type SignedGrant,
   type Signer,
 } from '@shvil/shared';
@@ -345,9 +346,12 @@ export class DirectoryApi {
 
   // ── 코스 데이터 배포 ──
 
-  async getCourses(): Promise<CourseData[]> {
-    const res = await this.#request<{ courses: CourseData[] }>('GET', '/courses', null, false);
-    return res.courses;
+  /**
+   * 배포 서명 포함 원본 응답 (보안 감사 H-3). 검증(_sig)·TOFU 핀은
+   * directory.ts가 수행한다 — 이 계층은 전송만 담당.
+   */
+  getCourses(): Promise<Signed<{ courses: CourseData[] }>> {
+    return this.#request('GET', '/courses', null, false);
   }
 
   // ── 엔젤 디렉토리 ──
@@ -373,10 +377,12 @@ export class DirectoryApi {
     return this.#request('GET', '/keys/promo', null, false);
   }
 
-  /** 신뢰 발행 키 3종 전체(프로모·클레임·격려) — /keys/promo를 대체한다. */
-  async getTrustedKeys(): Promise<TrustedKeyInfo[]> {
-    const res = await this.#request<{ keys: TrustedKeyInfo[] }>('GET', '/keys', null, false);
-    return res.keys;
+  /**
+   * 신뢰 발행 키 + 회원 증서 루트 (배포 서명 포함 원본 — 보안 감사 H-3).
+   * 검증·TOFU 핀은 directory.ts에서.
+   */
+  getTrustedKeys(): Promise<Signed<{ keys: TrustedKeyInfo[] }>> {
+    return this.#request('GET', '/keys', null, false);
   }
 
   // ── 커뮤니티: 코스 등록부 (지시서 6장 3절 — 온라인 전용 서버 기능) ──
@@ -447,10 +453,13 @@ export class DirectoryApi {
 
   // ── 커뮤니티: 소명 대기 목록 (지시서 3장 5절) ──
 
-  /** 소명 대기 회원 번호 목록 (비서명) — 수신 지갑들이 캐시해 수령 보류에 사용. */
-  async getFlaggedMembers(): Promise<FlaggedMemberEntry[]> {
-    const res = await this.#request<{ members: FlaggedMemberEntry[] }>('GET', '/limits/flagged', null, false);
-    return res.members;
+  /**
+   * 소명 대기 회원 번호 목록 (비서명, 배포 서명 포함 원본 — 보안 감사 H-3).
+   * 조작된 목록으로 정상 회원을 차단하거나 악성 회원을 통과시키는 MITM을
+   * directory.ts의 검증이 막는다.
+   */
+  getFlaggedMembers(): Promise<Signed<{ members: FlaggedMemberEntry[] }>> {
+    return this.#request('GET', '/limits/flagged', null, false);
   }
 
   // ── 메신저 릴레이 (서버는 암호문 봉투만 중계) ──

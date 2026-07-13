@@ -6,7 +6,7 @@
  * 캐시 대상은 공개 데이터뿐이다 — 코스 폴리라인, 엔젤 포인트(본인 자발 공개),
  * 프로모션 발행 공개키. 사용자 이동 궤적 좌표는 어디에도 저장하지 않는다.
  */
-import type { CourseData } from '@shvil/shared';
+import type { CourseData, Signed } from '@shvil/shared';
 import {
   DEFAULT_SERVER_URL,
   DirectoryApi,
@@ -14,6 +14,7 @@ import {
   type FlaggedMemberEntry,
   type TrustedKeyInfo,
 } from './api';
+import { DIST_PIN_KEY, guardDistribution } from './distributionGuard';
 import { kvGet, kvSet } from './db';
 import { FLAGGED_CACHE_KEY, parseFlaggedCache } from './flagged';
 import { getIntegrityToken } from './integrity';
@@ -39,14 +40,31 @@ export const directoryApi = new DirectoryApi({
   getAuth: () => ({ memberId: wallet.identity.memberId, signer: wallet.identity.signer }),
 });
 
+// ── 배포 서명 검증 + TOFU 핀 (보안 감사 H-3) ─────────────────────
+
+/**
+ * 배포 응답(_sig)을 검증하고 본문만 돌려준다. 첫 수신이면 배포 공개키를
+ * 핀으로 고정(TOFU). 검증 실패 시 throw — 호출부의 기존 캐시 폴백이 그대로
+ * 동작해 조작된 데이터가 캐시에 반영되지 않는다.
+ */
+async function verifyAndPin<T extends object>(response: Signed<T>): Promise<T> {
+  const pinned = await kvGet(DIST_PIN_KEY);
+  const { body, pinToStore } = guardDistribution(response, pinned);
+  if (pinToStore) await kvSet(DIST_PIN_KEY, pinToStore);
+  return body;
+}
+
 // ── 신뢰 키 (GET /keys) — 발행 키 + 회원 증서 루트 (보안 감사 C-2) ──
 
-/** 전체 신뢰 키 목록을 서버에서 갱신 시도 → 실패 시 캐시 → 없으면 빈 목록. */
+/**
+ * 전체 신뢰 키 목록을 서버에서 갱신 시도 → 배포 서명 검증(H-3) 실패 포함 모든
+ * 실패 시 기존 캐시 → 없으면 빈 목록. 조작된 키 목록은 캐시에 닿지 않는다.
+ */
 async function fetchKeyInfos(): Promise<TrustedKeyInfo[]> {
   try {
-    const infos = await directoryApi.getTrustedKeys();
-    await kvSet(KEYS_INFO_CACHE, JSON.stringify(infos));
-    return infos;
+    const { keys } = await verifyAndPin(await directoryApi.getTrustedKeys());
+    await kvSet(KEYS_INFO_CACHE, JSON.stringify(keys));
+    return keys;
   } catch {
     return loadCachedKeyInfos();
   }
@@ -112,7 +130,8 @@ export async function renewMembershipIfDue(now: number = Date.now()): Promise<vo
  * 실패해도 앱 동작에 영향 없음 (기존 캐시 유지). 반환: 갱신된 목록.
  */
 export async function syncFlaggedList(): Promise<FlaggedMemberEntry[]> {
-  const members = await directoryApi.getFlaggedMembers();
+  // 배포 서명 검증(H-3): 조작된 소명 목록(정상 회원 차단·악성 회원 통과)은 캐시 갱신 거부.
+  const { members } = await verifyAndPin(await directoryApi.getFlaggedMembers());
   await kvSet(FLAGGED_CACHE_KEY, JSON.stringify(members));
   return members;
 }
@@ -125,7 +144,8 @@ export async function loadFlaggedMembers(): Promise<FlaggedMemberEntry[]> {
 // ── 코스 데이터 갱신분 내려받기 (지시서 2.2 — 오프라인 동작 필수) ──
 
 export async function syncCourses(): Promise<void> {
-  const courses = await directoryApi.getCourses();
+  // 배포 서명 검증(H-3): 코스 폴리라인 주입 차단. 실패 시 기존 캐시/내장 데이터 유지.
+  const { courses } = await verifyAndPin(await directoryApi.getCourses());
   if (courses.length > 0) await kvSet(COURSES_CACHE, JSON.stringify(courses));
 }
 

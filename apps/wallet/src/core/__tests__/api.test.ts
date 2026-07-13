@@ -203,9 +203,10 @@ describe('DirectoryApi', () => {
         responseBody: { keys: [{ keyId: 'claim-2026', publicKey: 'aa', purpose: 'COMMUNITY_CLAIM' }] },
       }),
     );
-    const keys = await publicApi.getTrustedKeys();
+    // 배포 응답은 원본( _sig 포함 가능) 그대로 — 검증·언랩은 directory.ts (H-3)
+    const keysRes = await publicApi.getTrustedKeys();
     expect(seenHeaders[AUTH_HEADER_MEMBER]).toBeUndefined(); // 공개 — 지갑들이 캐시한다
-    expect(keys[0]!.purpose).toBe('COMMUNITY_CLAIM');
+    expect(keysRes.keys[0]!.purpose).toBe('COMMUNITY_CLAIM');
 
     const flaggedApi = makeApi(
       fakeFetch({
@@ -213,9 +214,9 @@ describe('DirectoryApi', () => {
         responseBody: { members: [{ memberId: 'SHV-000009', reason: 'baseline', flaggedAt: 1 }] },
       }),
     );
-    const flagged = await flaggedApi.getFlaggedMembers();
+    const flaggedRes = await flaggedApi.getFlaggedMembers();
     expect(seenHeaders[AUTH_HEADER_MEMBER]).toBeUndefined(); // 공개 배포 — 수령 보류용
-    expect(flagged[0]!.memberId).toBe('SHV-000009');
+    expect(flaggedRes.members[0]!.memberId).toBe('SHV-000009');
 
     let claimUrl = '';
     const signedApi = makeApi(

@@ -5,10 +5,12 @@ const KEK = 'a'.repeat(64); // 32바이트 hex
 
 describe('발행 개인키 봉인 저장 (보안 감사 H-2)', () => {
   it('봉인→해제 왕복이 무손실이다', () => {
-    const secret = JSON.stringify({ publicKeyHex: 'ab', secretKeyHex: 'cd' });
+    // 봉인문은 hex 문자열이므로, 평문 노출 검사는 hex에 존재할 수 없는 마커로 한다
+    // (짧은 hex 시퀀스는 랜덤 논스·암호문에 우연히 나타날 수 있음).
+    const secret = JSON.stringify({ publicKeyHex: 'ab', secretKeyHex: 'SECRET-MARKER-Z' });
     const sealed = sealSecret(secret, KEK);
     expect(isSealed(sealed)).toBe(true);
-    expect(sealed).not.toContain('cd'); // 평문 비밀이 노출되지 않는다
+    expect(sealed).not.toContain('SECRET-MARKER-Z'); // 평문 비밀이 노출되지 않는다
     expect(openSecret(sealed, KEK)).toBe(secret);
   });
 
