@@ -10,7 +10,8 @@ import * as SQLite from 'expo-sqlite';
 import type { Coin, PendingLedgerState } from '@shvil/shared';
 import type { ConfirmMessage } from '@shvil/shared';
 
-export type CoinStatus = 'OWNED' | 'SPENT' | 'SPLIT_CONSUMED';
+/** ESCROWED: 마켓 에스크로에 이전 서명을 제출해 잠긴 코인 (M3) — 완료 시 SPENT. */
+export type CoinStatus = 'OWNED' | 'SPENT' | 'SPLIT_CONSUMED' | 'ESCROWED';
 /** 잔액 구분 표시용 — 계보상 영구 구분 (지시서 4장 지갑 화면). */
 export type CoinOrigin = 'WALK_SELF' | 'BONUS' | 'RECEIVED';
 

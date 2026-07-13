@@ -10,10 +10,13 @@ import { useSyncExternalStore } from 'react';
 import {
   PendingWalkLedger,
   acceptPayment,
+  acknowledgeTransfer,
   buildCharge,
   buildPayment,
   buildWalkSegmentProof,
   checkHumanLimits,
+  createTransfer,
+  currentOwnerAddress,
   decodeQr,
   mintGrantCoin,
   mintWalkCoin,
@@ -30,6 +33,7 @@ import {
   type WalkSampleVerdict,
 } from '@shvil/shared';
 import type { LiveWalkStatus } from '../walk/corridorEngine';
+import { planCoinSelection, type CoinSelectionPlan } from './coinSelection';
 import { loadOrCreateIdentity, persistMemberId, type Identity } from './identity';
 import {
   isKnownCoinId,
@@ -50,6 +54,25 @@ import {
 export type WalletMode = 'LIST' | 'ANGEL';
 
 const MODE_KEY = 'walletMode.v1';
+const SALES_KEY = 'market.sales.v1';
+
+/** 내 마켓 판매 기록 (로컬 kv) — 리스팅 → 승인 → 에스크로 → 완료 추적용. */
+export interface SaleRecord {
+  listingId: number;
+  amountDshv: number;
+  createdAt: number;
+  /**
+   * 리스팅 시점에 선택해 둔 코인 ID — 기록일 뿐, 상태는 OWNED 유지.
+   * 잠금(ESCROWED)은 승인 후 이전 서명을 제출하는 시점에만 이루어진다.
+   */
+  reservedCoinIds: string[];
+  /** 승인 후 붙는 에스크로 ID. */
+  escrowId: number | null;
+  /** 에스크로에 이전 서명을 제출해 잠근 코인 ID — COMPLETED 확인 시 SPENT 처리. */
+  escrowCoinIds: string[];
+  /** COMPLETED 확인·정리(finalizeEscrowSale) 완료 여부. */
+  settled: boolean;
+}
 
 export interface WalletState {
   ready: boolean;
@@ -333,6 +356,196 @@ class WalletService {
     this.#incomingCharge = null;
     await this.#reloadCoins();
     return result.confirm;
+  }
+
+  // ── 마켓 (M3): 리스팅·에스크로 코인 커스터디 (지시서 0-8, 5장 4절) ──
+  //
+  // 서버의 역할은 에스크로 상태 관리뿐 — SHV 이전 자체는 판매자의 지불 서명
+  // (createTransfer)과 구매자의 확인 서명(acknowledgeTransfer)으로 완결된다.
+  // 마켓은 온라인 전용 서버 기능이다 (대면 지불과 달리 통신을 전제한다).
+
+  /**
+   * directory.ts가 이 모듈의 wallet을 정적 참조하므로, 순환 import를 피해
+   * 마켓 경로에서만 지연 로드한다. 마켓은 온라인 전용이라 지연 비용이 없다.
+   */
+  async #directory(): Promise<typeof import('./directory')> {
+    return import('./directory');
+  }
+
+  async loadSales(): Promise<SaleRecord[]> {
+    const json = await kvGet(SALES_KEY);
+    return json ? (JSON.parse(json) as SaleRecord[]) : [];
+  }
+
+  async #saveSales(sales: SaleRecord[]): Promise<void> {
+    await kvSet(SALES_KEY, JSON.stringify(sales));
+  }
+
+  async #updateSale(listingId: number, patch: Partial<SaleRecord>): Promise<void> {
+    const sales = await this.loadSales();
+    await this.#saveSales(sales.map((s) => (s.listingId === listingId ? { ...s, ...patch } : s)));
+  }
+
+  /** 선택 계획 실행 — 필요하면 잔돈 분할 (payCharge의 분할 패턴과 동일). */
+  async #executeSelection(plan: CoinSelectionPlan, now: number): Promise<Coin[]> {
+    if (!plan.split) return plan.whole;
+    const { coin, keepDshv, changeDshv } = plan.split;
+    const [keep, change] = splitCoin(coin, this.identity.signer, [keepDshv, changeDshv], now);
+    await setCoinStatus(coin.id, 'SPLIT_CONSUMED');
+    const origin = rootOriginOf(coin, this.identity.memberId);
+    await saveCoin(keep!, origin, now);
+    await saveCoin(change!, origin, now);
+    return [...plan.whole, keep!];
+  }
+
+  /**
+   * 마켓 리스팅 (엔젤): 수량만 올린다 — 가격은 정하지 않는다 (무정가).
+   * 보유 코인에서 오래된 것부터 선택하고 필요하면 분할해 정확히 맞춘 뒤,
+   * 코인 ID를 리스팅과 함께 기록만 한다. 상태는 OWNED 유지 — 리스팅 단계에서는
+   * 잠그지 않고, 잠금은 승인 후 이전 서명 제출 시점(submitEscrowCoins)이다.
+   */
+  async listCoinsForSale(amountDshv: number, now: number): Promise<SaleRecord> {
+    if (!Number.isInteger(amountDshv) || amountDshv <= 0) {
+      throw new Error('판매 수량이 올바르지 않습니다 (0.1 SHV 단위)');
+    }
+    // 잔액 검사 겸 선택 가능성 확인 — 부족하면 서버 호출 전에 여기서 던진다.
+    planCoinSelection(this.getState().coins.map((c) => c.coin), amountDshv);
+
+    const { directoryApi } = await this.#directory();
+    const { listingId } = await directoryApi.createListing(amountDshv);
+
+    // 서버 등록 성공 후 실제 선택·분할 실행 (상태는 OWNED 유지).
+    const plan = planCoinSelection(this.getState().coins.map((c) => c.coin), amountDshv);
+    const picked = await this.#executeSelection(plan, now);
+    await this.#reloadCoins();
+
+    const record: SaleRecord = {
+      listingId,
+      amountDshv,
+      createdAt: now,
+      reservedCoinIds: picked.map((c) => c.id),
+      escrowId: null,
+      escrowCoinIds: [],
+      settled: false,
+    };
+    await this.#saveSales([record, ...(await this.loadSales())]);
+    return record;
+  }
+
+  /** 가격 제시 승인 후 판매 기록에 에스크로 ID를 연결한다. */
+  async attachEscrowToSale(listingId: number, escrowId: number): Promise<void> {
+    await this.#updateSale(listingId, { escrowId });
+  }
+
+  /**
+   * 에스크로 코인 이전 서명 제출 (판매자): 구매자 USDC 입금 확인(DEPOSITED)
+   * 후에만. 구매자 앞 미완결 이전(createTransfer)을 만들어 올리고, 해당 코인을
+   * ESCROWED로 잠근다. 완결은 구매자의 확인 서명 — 서버는 운반·상태 전이만 한다.
+   */
+  async submitEscrowCoins(escrowId: number, now: number): Promise<Coin[]> {
+    const { directoryApi } = await this.#directory();
+    const escrow = await directoryApi.getEscrow(escrowId);
+    if (escrow.status !== 'DEPOSITED') {
+      throw new Error(`구매자 입금 확인 후에 제출할 수 있습니다 (현재 상태: ${escrow.status})`);
+    }
+
+    // 리스팅 때 기록해 둔 코인이 아직 전부 보유 중이면 우선 사용, 아니면 새로 선택.
+    const owned = this.getState().coins;
+    const sale = (await this.loadSales()).find((s) => s.escrowId === escrowId);
+    const reserved = sale
+      ? owned.filter((c) => sale.reservedCoinIds.includes(c.coin.id)).map((c) => c.coin)
+      : [];
+    let picked: Coin[];
+    if (reserved.reduce((sum, c) => sum + c.amountDshv, 0) === escrow.amountDshv) {
+      picked = reserved;
+    } else {
+      const plan = planCoinSelection(owned.map((c) => c.coin), escrow.amountDshv);
+      picked = await this.#executeSelection(plan, now);
+    }
+
+    const transferred = picked.map((coin) =>
+      createTransfer(coin, this.identity.signer, escrow.buyerDevicePublicKey, now),
+    );
+    await directoryApi.submitEscrowCoins(escrowId, transferred);
+
+    // 제출 성공 — 이 코인들은 이제 에스크로에 잠긴다 (잔액에서 제외).
+    for (const coin of picked) await setCoinStatus(coin.id, 'ESCROWED');
+    if (sale) await this.#updateSale(sale.listingId, { escrowCoinIds: picked.map((c) => c.id) });
+    await this.#reloadCoins();
+    return transferred;
+  }
+
+  /**
+   * 판매 마무리 (판매자): 에스크로가 COMPLETED로 확인되면 ESCROWED 코인을
+   * SPENT로 정리한다. USDC 방출은 ack 시점에 서버 에스크로가 이미 수행했다.
+   * COMPLETED가 아니면 null — 자동으로 어떤 것도 정산하지 않는다.
+   */
+  async finalizeEscrowSale(escrowId: number): Promise<{ releasedUsdcMicro: number; feeUsdcMicro: number } | null> {
+    const { directoryApi } = await this.#directory();
+    const escrow = await directoryApi.getEscrow(escrowId);
+    if (escrow.status !== 'COMPLETED') return null;
+    const sale = (await this.loadSales()).find((s) => s.escrowId === escrowId);
+    if (sale && !sale.settled) {
+      for (const id of sale.escrowCoinIds) await setCoinStatus(id, 'SPENT');
+      await this.#updateSale(sale.listingId, { settled: true });
+      await this.#reloadCoins();
+    }
+    return {
+      releasedUsdcMicro: escrow.totalUsdcMicro - escrow.feeUsdcMicro,
+      feeUsdcMicro: escrow.feeUsdcMicro,
+    };
+  }
+
+  /**
+   * 구매 수령 확인 (구매자): 판매자가 제출한 코인을 로컬에서 위조 검사
+   * (계보 서명 + 신뢰 발행 키 + 인간 한계 + 이중 수령)한 뒤 확인 서명으로
+   * 완결하고, ack 제출로 USDC 방출을 트리거한다. 코인은 'RECEIVED'로 저장된다
+   * — 구매 코인은 계보상 걸음 코인과 영구 구분된다 (확정 파라미터).
+   */
+  async ackEscrowPurchase(
+    escrowId: number,
+    now: number,
+  ): Promise<{ coins: Coin[]; amountDshv: number; releasedUsdcMicro: number; feeUsdcMicro: number }> {
+    const { directoryApi, getTrustedIssuerKeys } = await this.#directory();
+    const escrow = await directoryApi.getEscrow(escrowId);
+    if (escrow.status !== 'COINS_SUBMITTED' || !escrow.coins || escrow.coins.length === 0) {
+      throw new Error(`판매자의 코인 제출을 기다리는 중입니다 (현재 상태: ${escrow.status})`);
+    }
+
+    const trustedIssuerKeys = await getTrustedIssuerKeys();
+    const knownCoins = this.getState().coins.map((c) => c.coin);
+    const acked: Coin[] = [];
+    for (const coin of escrow.coins) {
+      // 이중 수령 로컬 차단 — 이미 아는 코인 ID는 거부.
+      if (await isKnownCoinId(coin.id)) throw new Error('이미 수령한 코인입니다 (이중 수령 차단)');
+      // 위조 검사: 미완결 마지막 링크(나에게 오는 지불 서명)를 허용한 계보 검증.
+      const pending = verifyCoin(coin, { allowPendingLastLink: true, trustedIssuerKeys });
+      if (!pending.valid) throw new Error(`코인 검증 실패: ${pending.reasons.join(', ')}`);
+      // 인간 한계 프로파일 검증 (지시서 3장) — 수신 시 로컬 대조.
+      const limits = checkHumanLimits(coin, knownCoins);
+      if (!limits.ok) {
+        const v = limits.violations[0]!;
+        throw new Error(`인간 한계 초과 코인 거부: ${v.date} ${v.totalDshv / 10} SHV (${v.kind})`);
+      }
+      // 확인 서명으로 완결 → 완결 상태 재검증.
+      const done = acknowledgeTransfer(coin, this.identity.signer);
+      const final = verifyCoin(done, { trustedIssuerKeys });
+      if (!final.valid || currentOwnerAddress(done) !== this.identity.address) {
+        throw new Error(`완결 검증 실패: ${final.reasons.join(', ')}`);
+      }
+      acked.push(done);
+    }
+
+    const res = await directoryApi.ackEscrow(escrowId, acked);
+    // 구매 코인 — 계보상 영구 구분 ('RECEIVED', 걸음 코인으로 둔갑 불가).
+    for (const coin of acked) await saveCoin(coin, 'RECEIVED', now);
+    await this.#reloadCoins();
+    return {
+      coins: acked,
+      amountDshv: escrow.amountDshv,
+      releasedUsdcMicro: res.releasedUsdcMicro,
+      feeUsdcMicro: res.feeUsdcMicro,
+    };
   }
 }
 

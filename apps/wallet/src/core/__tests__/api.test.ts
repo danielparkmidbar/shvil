@@ -151,4 +151,45 @@ describe('DirectoryApi', () => {
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).status).toBe(0);
   });
+
+  // ── 마켓 (M3) — 기존 서명 인증 패턴 재사용·경로·응답 언랩 계약 ──
+
+  it('POST /market/listings — 무정가 리스팅은 수량만 서명 제출한다', async () => {
+    let seenUrl = '';
+    let seenHeaders: Record<string, string> = {};
+    const api = makeApi(
+      fakeFetch({ url: (u) => (seenUrl = u), headers: (h) => (seenHeaders = h), responseBody: { listingId: 7 } }),
+    );
+    const res = await api.createListing(125);
+    expect(seenUrl).toBe('http://localhost:8787/market/listings');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456');
+    expect(seenHeaders[AUTH_HEADER_SIG]).toBeTruthy();
+    expect(res.listingId).toBe(7);
+  });
+
+  it('GET /market/listings는 공개(비서명), 에스크로 조회는 당사자 서명 — 응답 언랩', async () => {
+    let seenHeaders: Record<string, string> = {};
+    const publicApi = makeApi(
+      fakeFetch({
+        headers: (h) => (seenHeaders = h),
+        responseBody: { listings: [{ listingId: 1, sellerMemberId: 'SHV-000001', amountDshv: 50 }] },
+      }),
+    );
+    const listings = await publicApi.getListings();
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBeUndefined(); // 공개 조회 — 무정가
+    expect(listings[0]!.amountDshv).toBe(50);
+
+    let escrowUrl = '';
+    const signedApi = makeApi(
+      fakeFetch({
+        url: (u) => (escrowUrl = u),
+        headers: (h) => (seenHeaders = h),
+        responseBody: { escrowId: 3, status: 'COINS_SUBMITTED', coins: [] },
+      }),
+    );
+    const escrow = await signedApi.getEscrow(3);
+    expect(escrowUrl).toBe('http://localhost:8787/market/escrows/3');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 당사자 전용 — 서명 인증
+    expect(escrow.status).toBe('COINS_SUBMITTED');
+  });
 });

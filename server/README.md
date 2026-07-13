@@ -12,7 +12,8 @@
 | 메신저 릴레이 (E2E 암호문만 중계·저장) | `POST /messages` · `GET /messages?sinceId=` |
 | 코스 데이터 배포 | `GET /courses` |
 | 프로모션 발행 (등록 20 + 첫 접대 30 SHV, 수량 한정 서명 키) | `PUT /angels/me` 응답 · `POST /angels/first-hosting` · `GET /keys/promo` |
-| 투명성 공시 | `GET /transparency/promo` |
+| 코인 마켓 (M3): 무정가 리스팅 → 가격 제시 → 승인 → 에스크로 | `POST/GET /market/listings` · `POST /market/listings/:id/offers` · `POST /market/offers/:id/approve` · `/market/escrows/:id` (coins/ack) |
+| 투명성 공시 | `GET /transparency/promo` · `GET /transparency/market` |
 
 - 인증: 세션·비밀번호 없음. 가입 시 등록한 기기 키로 요청을 서명
   (`buildAuthHeaders`, 경로는 쿼리스트링 제외).
@@ -28,8 +29,18 @@ npm run dev     # tsx watch, http://localhost:8787
 npm test        # M2 완료 기준 통합 테스트 (가입→등록→지도→채팅→접대→보너스)
 ```
 
-## 남은 항목 (M3~)
+## 마켓·에스크로 (M3)
 
-- 마켓 에스크로 (리스팅→가격 제시→승인→USDC) — M3
+- 흐름: 엔젤 무정가 리스팅 → 구매자 가격 제시 → 엔젤 승인 → 에스크로
+  (USDC 예치 확인 → 코인 이전 **두 지갑의 서명 체인** → 방출, 수수료 2.5% 제안).
+- 서버의 역할은 에스크로 상태 관리뿐 — SHV 이전은 판매자의 지불 서명과
+  구매자의 확인 서명으로 완결되며 서버는 승인하지 않는다.
+- 체인 어댑터(`src/chain.ts`): 협약 스테이블코인·체인 확정(결정 대기 1번,
+  권고 USDC on Base) 전까지 Mock. 확정 후 동일 인터페이스로 테스트넷 어댑터 교체.
+
+## 남은 항목 (M4~)
+
+- 실체인(USDC 테스트넷) 어댑터 — 결정 대기 1번 확정 후
 - 클레임 구제·격려 코인 발행 API — M4 (shvilist.org 연동)
 - 실 SMS·이메일 발송 연동, 소명 대기 목록 배포, 동기화 통계 수집(익명)
+- 에스크로 타임아웃·환불 플로우 (REFUNDED 상태 전이)

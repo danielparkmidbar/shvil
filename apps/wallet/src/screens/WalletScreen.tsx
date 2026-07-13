@@ -1,6 +1,7 @@
 /** 지갑 — 생성/구매 코인 구분 잔액 + 코인별 계보 (지시서 4장). */
 import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Button, FlatList, StyleSheet, Text, View } from 'react-native';
+import { useNavigation, type NavigationProp, type ParamListBase } from '@react-navigation/native';
 import { useWallet } from '../core/walletService';
 import { Card, Muted, Title, colors, fmtShv, provenanceText } from '../ui/common';
 import type { StoredCoin } from '../core/db';
@@ -26,6 +27,8 @@ function CoinRow({ item }: { item: StoredCoin }) {
 
 export function WalletScreen() {
   const w = useWallet();
+  // 더보기 탭 안의 마켓 화면으로 교차 이동 (엔젤 모드 "판매하기" 진입).
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   return (
     <View style={styles.screen}>
       <Card>
@@ -44,7 +47,16 @@ export function WalletScreen() {
             <Muted>보너스</Muted>
           </View>
         </View>
-        <Muted>구매 코인은 걸음 코인으로 둔갑할 수 없습니다 · USDC 0.00 (M3)</Muted>
+        <Muted>구매 코인은 걸음 코인으로 둔갑할 수 없습니다 · 마켓 정산은 USDC로 (온라인 전용)</Muted>
+        {w.mode === 'ANGEL' && (
+          <View style={styles.sellBtn}>
+            <Button
+              title="판매하기 — 코인 마켓 (무정가 리스팅)"
+              color={colors.primary}
+              onPress={() => navigation.navigate('더보기', { screen: '마켓' })}
+            />
+          </View>
+        )}
       </Card>
 
       <FlatList
@@ -64,6 +76,7 @@ const styles = StyleSheet.create({
   balances: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8 },
   balanceCol: { alignItems: 'center', flex: 1 },
   balanceNum: { fontSize: 18, fontWeight: '800' },
+  sellBtn: { marginTop: 8 },
   coinRow: { backgroundColor: colors.card, borderRadius: 10, padding: 12 },
   coinHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   coinAmount: { fontSize: 16, fontWeight: '800' },

@@ -32,6 +32,8 @@ import {
 } from '@shvil/shared';
 import { createDb, kvGet, kvSet } from './db';
 import { haversineKm } from './geo';
+import { MockChainAdapter, type ChainAdapter } from './chain';
+import { registerMarket } from './market';
 
 export const PROMO_KEY_ID = 'promo-angel-2026';
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -42,6 +44,10 @@ export interface AppOptions {
   registrationQuota?: number;
   /** 개발 모드: OTP 코드를 응답에 포함 (실 SMS 발송은 운영 연동 항목). */
   devMode?: boolean;
+  /** 스테이블코인 체인 어댑터 — 체인 확정(결정 대기 1번) 전까지 Mock. */
+  chain?: ChainAdapter;
+  /** 마켓 수수료 (bp). 제안 250 = 2.5% — 결정 대기 5번. */
+  feeBps?: number;
 }
 
 interface MemberRow {
@@ -72,10 +78,13 @@ function rawBodyOf(req: FastifyRequest): string {
   return (req as FastifyRequest & { rawBody?: string }).rawBody ?? '';
 }
 
-export function buildApp(options: AppOptions = {}): FastifyInstance & { db: DatabaseSync } {
+export function buildApp(
+  options: AppOptions = {},
+): FastifyInstance & { db: DatabaseSync; chain: ChainAdapter } {
   const db = createDb(options.dbPath ?? ':memory:');
   const quota = options.registrationQuota ?? 500;
   const devMode = options.devMode ?? true;
+  const chain = options.chain ?? new MockChainAdapter();
 
   // 프로모션 서명 키 — 기간·수량 한정 발급 키. 지갑들은 GET /keys/promo로 신뢰 목록에 넣는다.
   let promoPair: KeyPair;
@@ -89,6 +98,21 @@ export function buildApp(options: AppOptions = {}): FastifyInstance & { db: Data
   const promoSigner = signerFromKeyPair(promoPair);
 
   const app = Fastify({ logger: false });
+
+  // CORS — shvilangel.org / shvilist.org 웹이 공개 API를 소비한다.
+  app.addHook('onRequest', (req, reply, done) => {
+    reply.header('access-control-allow-origin', '*');
+    reply.header(
+      'access-control-allow-headers',
+      `content-type, ${AUTH_HEADER_MEMBER}, ${AUTH_HEADER_TS}, ${AUTH_HEADER_SIG}`,
+    );
+    reply.header('access-control-allow-methods', 'GET, POST, PUT, OPTIONS');
+    if (req.method === 'OPTIONS') {
+      void reply.code(204).send();
+      return;
+    }
+    done();
+  });
 
   // 서명 검증을 위해 수신 원문(raw body)을 보존한다.
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
@@ -378,5 +402,15 @@ export function buildApp(options: AppOptions = {}): FastifyInstance & { db: Data
     registrationQuota: quota,
   }));
 
-  return Object.assign(app, { db });
+  // ── 코인 마켓 + 에스크로 (M3) ─────────────────────────────────
+  registerMarket(app, {
+    db,
+    authenticate,
+    chain,
+    feeBps: options.feeBps ?? 250,
+    devMode,
+    trustedIssuerKeys: { [PROMO_KEY_ID]: promoSigner.publicKeyHex },
+  });
+
+  return Object.assign(app, { db, chain });
 }

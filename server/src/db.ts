@@ -61,6 +61,32 @@ export function createDb(path: string): DatabaseSync {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS listings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      seller_member TEXT NOT NULL,
+      amount_dshv INTEGER NOT NULL,
+      status TEXT NOT NULL, -- OPEN | ESCROW | SETTLED | CANCELLED
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS offers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      listing_id INTEGER NOT NULL REFERENCES listings(id),
+      buyer_member TEXT NOT NULL,
+      total_usdc_micro INTEGER NOT NULL,
+      status TEXT NOT NULL, -- PENDING | APPROVED | REJECTED | SETTLED
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS escrows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      offer_id INTEGER UNIQUE NOT NULL REFERENCES offers(id),
+      status TEXT NOT NULL, -- AWAITING_DEPOSIT | DEPOSITED | COINS_SUBMITTED | COMPLETED | REFUNDED
+      deposit_ref TEXT NOT NULL,
+      coins_json TEXT,
+      fee_usdc_micro INTEGER NOT NULL,
+      payout_address TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
   return db;
 }

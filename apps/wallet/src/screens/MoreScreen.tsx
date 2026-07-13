@@ -14,6 +14,7 @@ const MENU: { screen: keyof MoreStackParamList; icon: string; title: string; des
   { screen: '엔젤 지도', icon: '🗺', title: '엔젤 지도', desc: '주변 엔젤을 거리순으로 — 서비스 아이콘·메시지 보내기' },
   { screen: '메시지', icon: '💬', title: '메시지', desc: '엔젤과 채팅 · 종단간 암호화 · 도착 예정 시각 공유' },
   { screen: '내 포인트', icon: '🏠', title: '내 포인트 (엔젤)', desc: '엔젤 모드 전환 · 위치·서비스 등록 · 등록 보너스' },
+  { screen: '마켓', icon: '🪙', title: '코인 마켓', desc: '무정가 리스팅 · 가격 제시 · 에스크로 USDC 정산 (온라인 전용)' },
   { screen: '가입/설정', icon: '⚙️', title: '가입 / 설정', desc: '정식 회원 번호 발급 (전화+이메일) · 서버 주소' },
 ];
 

@@ -20,6 +20,7 @@ import { AngelMapScreen } from './src/screens/AngelMapScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
+import { MarketScreen } from './src/screens/MarketScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import type { MoreStackParamList } from './src/screens/navTypes';
 
@@ -46,6 +47,7 @@ function MoreStackScreen() {
         options={({ route }) => ({ headerTitle: route.params.peerName })}
       />
       <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
+      <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
       <MoreStack.Screen name="가입/설정" component={OnboardingScreen} />
     </MoreStack.Navigator>
   );
