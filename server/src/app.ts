@@ -19,6 +19,7 @@ import {
   SHVIL_ISRAEL_NORTH_SAMPLE,
   addressFromPublicKey,
   buildGrant,
+  buildMembershipCertificate,
   currentOwnerAddress,
   generateKeyPair,
   sha256Hex,
@@ -27,10 +28,12 @@ import {
   verifyCoin,
   type Coin,
   type KeyPair,
+  type MembershipCertificate,
   type MessageEnvelope,
   type SignedGrant,
 } from '@shvil/shared';
 import { createDb, kvGet, kvSet } from './db';
+import { verifyIntegrityToken } from './integrity';
 import { haversineKm } from './geo';
 import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
@@ -39,7 +42,11 @@ import { officialCourses, registerCommunity } from './community';
 export const PROMO_KEY_ID = 'promo-angel-2026';
 export const CLAIM_KEY_ID = 'community-claim-2026';
 export const REWARD_KEY_ID = 'community-reward-2026';
+/** 회원 증서 발행 루트 키 ID — 지갑이 신뢰 루트로 핀한다 (보안 감사 C-2). */
+export const MEMBERSHIP_ROOT_KEY_ID = 'membership-root-2026';
 const OTP_TTL_MS = 10 * 60 * 1000;
+/** 회원 증서 유효기간 — 만료 전 갱신으로 무결성 재확인 강제 (30일). */
+const MEMBERSHIP_CERT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface AppOptions {
   dbPath?: string;
@@ -109,6 +116,31 @@ export function buildApp(
   const promoSigner = signerFromKeyPair(loadOrCreateKey('promoKey'));
   const claimSigner = signerFromKeyPair(loadOrCreateKey('claimKey'));
   const rewardSigner = signerFromKeyPair(loadOrCreateKey('rewardKey'));
+  // 회원 증서 루트 키 — 회원 번호↔기기 공개키를 결속 서명한다 (보안 감사 C-2).
+  // promo/claim/reward와 동일 패턴. 발급만 온라인, 검증·거래는 오프라인.
+  const membershipRootSigner = signerFromKeyPair(loadOrCreateKey('membershipRootKey'));
+
+  /** 무결성 검증 통과 시 회원 번호↔기기 키를 결속한 증서를 발급한다. */
+  function issueMembershipCertificate(
+    memberId: string,
+    devicePublicKey: string,
+    integrityToken: string | undefined,
+    platform: string | undefined,
+    now: number,
+  ): MembershipCertificate {
+    const integrity = verifyIntegrityToken(platform, integrityToken, devMode);
+    return buildMembershipCertificate(
+      {
+        memberId,
+        devicePublicKey,
+        integrity,
+        issuedAt: now,
+        expiresAt: now + MEMBERSHIP_CERT_TTL_MS,
+        issuerKeyId: MEMBERSHIP_ROOT_KEY_ID,
+      },
+      membershipRootSigner,
+    );
+  }
 
   const app = Fastify({ logger: false });
 
@@ -217,6 +249,8 @@ export function buildApp(
       displayName?: string;
       devicePublicKey?: string;
       messagingPublicKey?: string;
+      integrityToken?: string;
+      platform?: string;
     } | null;
     if (!body?.phone || !body.code || !body.email || !body.devicePublicKey || !body.messagingPublicKey) {
       return reply.code(400).send({ error: 'phone, code, email, devicePublicKey, messagingPublicKey required' });
@@ -244,7 +278,34 @@ export function buildApp(
         device_public_key, messaging_public_key, created_at) VALUES (?, ?, ?, 1, ?, ?, ?, ?)`,
     ).run(memberId, ph, body.email, body.displayName ?? null, body.devicePublicKey, body.messagingPublicKey, Date.now());
     db.prepare('DELETE FROM otp WHERE phone_hash = ?').run(ph);
-    return { memberId };
+
+    // 회원 증서 발급 — 회원 번호↔기기 키 결속 (보안 감사 C-2). 무결성 미제출/미검증
+    // 기기도 UNVERIFIED 증서를 받되, 수신 지갑 정책이 그 수준을 거부·보류한다.
+    const membershipCertificate = issueMembershipCertificate(
+      memberId,
+      body.devicePublicKey,
+      body.integrityToken,
+      body.platform,
+      Date.now(),
+    );
+    return { memberId, membershipCertificate };
+  });
+
+  // ── 회원 증서 갱신 (만료 전 무결성 재확인 — 보안 감사 C-2) ──────
+  // 서명 인증된 회원의 등록 기기 키로 새 증서를 발급한다. 재발급이 항상 가능하므로
+  // 증서는 서버에 저장하지 않는다 — 회원 번호↔기기 키는 members 테이블이 원본이다.
+  app.post('/auth/certificate', async (req, reply) => {
+    const member = authenticate(req);
+    if (!member) return reply.code(401).send({ error: 'unauthorized' });
+    const body = (req.body as { integrityToken?: string; platform?: string } | null) ?? {};
+    const membershipCertificate = issueMembershipCertificate(
+      member.member_id,
+      member.device_public_key,
+      body.integrityToken,
+      body.platform,
+      Date.now(),
+    );
+    return { membershipCertificate };
   });
 
   // ── 코스 데이터 배포 (원본: shvilist.org 코스 등록부 — M4 연동) ──
@@ -417,6 +478,8 @@ export function buildApp(
       { keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex, purpose: 'ANGEL_BONUS' },
       { keyId: CLAIM_KEY_ID, publicKey: claimSigner.publicKeyHex, purpose: 'COMMUNITY_CLAIM' },
       { keyId: REWARD_KEY_ID, publicKey: rewardSigner.publicKeyHex, purpose: 'COMMUNITY_REWARD' },
+      // 회원 증서 신뢰 루트 — 지갑이 핀해 수신 코인의 회원 증서를 검증 (보안 감사 C-2).
+      { keyId: MEMBERSHIP_ROOT_KEY_ID, publicKey: membershipRootSigner.publicKeyHex, purpose: 'MEMBERSHIP_ROOT' },
     ],
   }));
 

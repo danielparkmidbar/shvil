@@ -7,13 +7,22 @@
  * 프로모션 발행 공개키. 사용자 이동 궤적 좌표는 어디에도 저장하지 않는다.
  */
 import type { CourseData } from '@shvil/shared';
-import { DEFAULT_SERVER_URL, DirectoryApi, type AngelDirectoryEntry, type FlaggedMemberEntry } from './api';
+import {
+  DEFAULT_SERVER_URL,
+  DirectoryApi,
+  type AngelDirectoryEntry,
+  type FlaggedMemberEntry,
+  type TrustedKeyInfo,
+} from './api';
 import { kvGet, kvSet } from './db';
 import { FLAGGED_CACHE_KEY, parseFlaggedCache } from './flagged';
+import { getIntegrityToken } from './integrity';
+import { isProvisionalMemberId } from './identity';
+import { isMembershipRenewalDue } from './membershipRenewal';
 import { wallet } from './walletService';
 
 const SERVER_URL_KEY = 'serverUrl.v1';
-const TRUSTED_KEYS_CACHE = 'trustedKeys.v1';
+const KEYS_INFO_CACHE = 'keysInfo.v1';
 const COURSES_CACHE = 'courses.v1';
 const ANGELS_CACHE = 'angels.v1';
 
@@ -30,24 +39,70 @@ export const directoryApi = new DirectoryApi({
   getAuth: () => ({ memberId: wallet.identity.memberId, signer: wallet.identity.signer }),
 });
 
-// ── 신뢰 발행 키 (GRANT 계보 검증용 trustedIssuerKeys) ────────────
+// ── 신뢰 키 (GET /keys) — 발행 키 + 회원 증서 루트 (보안 감사 C-2) ──
 
-/**
- * 신뢰 발행 키 3종 — 프로모(엔젤 보너스)·클레임·격려 (GET /keys).
- * 서버에서 갱신 시도 → 실패하면 캐시 사용. 아무것도 없으면 빈 목록.
- * verifyCoin의 trustedIssuerKeys로 3종 전부가 들어간다.
- */
-export async function getTrustedIssuerKeys(): Promise<Record<string, string>> {
+/** 전체 신뢰 키 목록을 서버에서 갱신 시도 → 실패 시 캐시 → 없으면 빈 목록. */
+async function fetchKeyInfos(): Promise<TrustedKeyInfo[]> {
   try {
     const infos = await directoryApi.getTrustedKeys();
-    const keys: Record<string, string> = {};
-    for (const k of infos) keys[k.keyId] = k.publicKey;
-    await kvSet(TRUSTED_KEYS_CACHE, JSON.stringify(keys));
-    return keys;
+    await kvSet(KEYS_INFO_CACHE, JSON.stringify(infos));
+    return infos;
   } catch {
-    const cached = await kvGet(TRUSTED_KEYS_CACHE);
-    return cached ? (JSON.parse(cached) as Record<string, string>) : {};
+    return loadCachedKeyInfos();
   }
+}
+
+function pickKeys(infos: TrustedKeyInfo[], isRoot: boolean): Record<string, string> {
+  const keys: Record<string, string> = {};
+  for (const k of infos) {
+    if ((k.purpose === 'MEMBERSHIP_ROOT') === isRoot) keys[k.keyId] = k.publicKey;
+  }
+  return keys;
+}
+
+async function loadCachedKeyInfos(): Promise<TrustedKeyInfo[]> {
+  const cached = await kvGet(KEYS_INFO_CACHE);
+  if (!cached) return [];
+  try {
+    return JSON.parse(cached) as TrustedKeyInfo[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 신뢰 발행 키 — 프로모(엔젤 보너스)·클레임·격려. verifyCoin의 trustedIssuerKeys로
+ * 쓰인다. MEMBERSHIP_ROOT는 발행 키가 아니므로 제외한다.
+ */
+export async function getTrustedIssuerKeys(): Promise<Record<string, string>> {
+  return pickKeys(await fetchKeyInfos(), false);
+}
+
+/**
+ * 회원 증서 신뢰 루트 (MEMBERSHIP_ROOT) — verifyCoin의 trustedRootKeys로 쓰인다.
+ * 서버 갱신 시도 후 캐시 폴백. 앱에 핀되는 것과 동등한 신뢰 루트다 (보안 감사 C-2).
+ */
+export async function getTrustedRootKeys(): Promise<Record<string, string>> {
+  return pickKeys(await fetchKeyInfos(), true);
+}
+
+/** 캐시된 회원 증서 루트만 (네트워크 없음) — 오프라인 지불 수령 검증 경로에서 사용. */
+export async function loadCachedTrustedRootKeys(): Promise<Record<string, string>> {
+  return pickKeys(await loadCachedKeyInfos(), true);
+}
+
+// ── 회원 증서 갱신 (온라인 전용·실패 무시 — 거래는 계속 오프라인) ──
+
+/**
+ * 회원 증서가 없거나 만료 임박이면 서버에서 재발급한다. 미가입(임시 번호)이면 skip.
+ * 앱 시작 시 fire-and-forget으로 호출된다 — 실패해도 앱 동작에 영향 없다.
+ */
+export async function renewMembershipIfDue(now: number = Date.now()): Promise<void> {
+  if (isProvisionalMemberId(wallet.identity.memberId)) return;
+  if (!isMembershipRenewalDue(wallet.identity.membership, now)) return;
+  const { platform, token } = await getIntegrityToken();
+  const { membershipCertificate } = await directoryApi.refreshCertificate({ integrityToken: token, platform });
+  await wallet.applyMembership(membershipCertificate, token);
 }
 
 // ── 소명 대기 목록 (지시서 3장 5절 — 수신 지갑의 수령 보류) ───────

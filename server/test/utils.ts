@@ -10,6 +10,7 @@ import {
   mintWalkCoin,
   signerFromKeyPair,
   type Coin,
+  type MembershipCertificate,
   type MessagingKeyPair,
   type Signer,
   type WalkSample,
@@ -21,6 +22,8 @@ export interface TestIdentity {
   memberId: string;
   signer: Signer;
   msg: MessagingKeyPair;
+  /** 가입 응답의 회원 증서 (보안 감사 C-2). 기존 테스트는 무시해도 된다. */
+  cert?: MembershipCertificate;
 }
 
 export async function register(
@@ -28,6 +31,8 @@ export async function register(
   phone: string,
   email: string,
   displayName: string,
+  /** 무결성 모의 토큰 (devMode 한정): 'dev-verified' | 'dev-basic'. 미지정 시 미제출. */
+  integrityToken?: string,
 ): Promise<TestIdentity> {
   const signer = signerFromKeyPair(generateKeyPair());
   const msg = generateMessagingKeyPair();
@@ -43,11 +48,20 @@ export async function register(
       displayName,
       devicePublicKey: signer.publicKeyHex,
       messagingPublicKey: msg.publicKeyHex,
+      ...(integrityToken !== undefined ? { integrityToken, platform: 'android' } : {}),
     },
   });
   expect(regRes.statusCode).toBe(200);
-  const { memberId } = regRes.json() as { memberId: string };
-  return { memberId, signer, msg };
+  const { memberId, membershipCertificate } = regRes.json() as {
+    memberId: string;
+    membershipCertificate?: MembershipCertificate;
+  };
+  return {
+    memberId,
+    signer,
+    msg,
+    ...(membershipCertificate !== undefined ? { cert: membershipCertificate } : {}),
+  };
 }
 
 export async function signedInject(

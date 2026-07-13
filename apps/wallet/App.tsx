@@ -10,7 +10,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { wallet } from './src/core/walletService';
 import { chatService } from './src/core/chatService';
-import { syncCourses, syncFlaggedList } from './src/core/directory';
+import { renewMembershipIfDue, syncCourses, syncFlaggedList } from './src/core/directory';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WalkScreen } from './src/screens/WalkScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
@@ -68,6 +68,8 @@ export default function App() {
         syncCourses().catch(() => {});
         // 소명 대기 목록 배포 수신 (지시서 3장 5절) — 실패 시 기존 캐시 유지.
         syncFlaggedList().catch(() => {});
+        // 회원 증서 갱신 (보안 감사 C-2) — 만료 임박·부재 시 재발급. 온라인 전용·실패 무시.
+        renewMembershipIfDue().catch(() => {});
         chatService.startPolling();
       })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));

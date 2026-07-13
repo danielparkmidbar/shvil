@@ -11,6 +11,7 @@ export * from './rates';
 export * from './walkFilter';
 export * from './ledger';
 export * from './proof';
+export * from './membership';
 export * from './coin';
 export * from './humanLimits';
 export * from './qr';

@@ -47,6 +47,8 @@ export interface WalkSampleVerdict {
 /** 정산 방식 — 사용 또는 본인 선언뿐. 자동 정산은 존재하지 않는다 (지시서 0-6). */
 export type SettlementKind = 'SPEND' | 'MANUAL';
 
+import type { MembershipCertificate } from './membership';
+
 /** 걷기 구간 증명 — 민팅된 코인이 계보로 품는 구조체 (지시서 2.2). */
 export interface WalkSegmentProof {
   v: 1;
@@ -68,8 +70,14 @@ export interface WalkSegmentProof {
   dailyBreakdown: { date: string; amountDshv: number }[];
   /** 센서 요약 해시 (파형 통계 등 파생 지표의 해시 — 좌표 아님). */
   sensorSummaryHash: string;
-  /** 앱 무결성 증명 토큰 (Play Integrity / App Attest). M1에서 실토큰 연동. */
+  /** 앱 무결성 증명 토큰 (Play Integrity / App Attest) — 증서 발급 시 서버에 제출한 원토큰의 해시 등. */
   appIntegrityToken: string | null;
+  /**
+   * 회원 증서 — 회원 번호↔기기 키 결속 + 무결성 담보 (보안 감사 C-2).
+   * 서버 발급. 수신 지갑이 신뢰 루트 키로 검증한다. 하위 호환을 위해 optional이며,
+   * requireIntegrityToken 검증 옵션에서 필수로 승격된다.
+   */
+  membership?: MembershipCertificate | null | undefined;
   /** 기기 키 서명 (signature 필드 제외 정준 직렬화 대상). */
   signature: string;
 }
@@ -152,6 +160,8 @@ export type CoinRejectReason =
   | 'INCOMPLETE_TRANSFER'
   | 'HUMAN_LIMIT_EXCEEDED'
   | 'MISSING_INTEGRITY_TOKEN'
+  | 'BAD_MEMBERSHIP' // 회원 증서 서명·루트·만료 무효 (보안 감사 C-2)
+  | 'MEMBERSHIP_MISMATCH' // 증서의 회원 번호·기기 키가 증명과 불일치
   | 'MALFORMED';
 
 export interface CoinVerdict {

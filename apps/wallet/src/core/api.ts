@@ -16,6 +16,7 @@ import {
   type CourseData,
   type Coin,
   type GeoPoint,
+  type MembershipCertificate,
   type MessageEnvelope,
   type SignedGrant,
   type Signer,
@@ -63,6 +64,16 @@ export interface RegisterArgs {
   displayName: string;
   devicePublicKey: string;
   messagingPublicKey: string;
+  /** 앱 무결성 토큰 (보안 감사 C-2) — 서버가 검증 후 회원 증서를 발급한다. */
+  integrityToken?: string;
+  /** 무결성 API 종류 구분 (예: 'android' | 'ios'). */
+  platform?: string;
+}
+
+/** 증서 발급/갱신 요청 (POST /auth/certificate) — 서명 인증 + 무결성 토큰. */
+export interface CertificateArgs {
+  integrityToken?: string;
+  platform?: string;
 }
 
 export interface PutAngelResult {
@@ -76,11 +87,14 @@ export interface PromoKeyInfo {
   publicKey: string;
 }
 
-/** 신뢰 발행 키 3종 — 프로모(엔젤 보너스)·클레임·격려 (GET /keys). */
+/**
+ * 신뢰 키 (GET /keys) — 발행 키 3종(프로모·클레임·격려)과 회원 증서 루트 키.
+ * MEMBERSHIP_ROOT는 GRANT 발행 키가 아니라 회원 증서 검증용 신뢰 루트다 (보안 감사 C-2).
+ */
 export interface TrustedKeyInfo {
   keyId: string;
   publicKey: string;
-  purpose: 'ANGEL_BONUS' | 'COMMUNITY_CLAIM' | 'COMMUNITY_REWARD' | string;
+  purpose: 'ANGEL_BONUS' | 'COMMUNITY_CLAIM' | 'COMMUNITY_REWARD' | 'MEMBERSHIP_ROOT' | string;
 }
 
 export interface RelayedMessage {
@@ -317,8 +331,16 @@ export class DirectoryApi {
     return this.#request('POST', '/auth/otp', { phone }, false);
   }
 
-  register(args: RegisterArgs): Promise<{ memberId: string }> {
+  register(args: RegisterArgs): Promise<{ memberId: string; membershipCertificate: MembershipCertificate }> {
     return this.#request('POST', '/auth/register', args, false);
+  }
+
+  /**
+   * 회원 증서 발급/갱신 (서명 인증) — 만료 임박 시 재발급. 무결성 토큰을 제출하면
+   * 서버가 검증 후 새 증서를 서명해 돌려준다. 온라인 전용 (실패 시 호출부가 무시).
+   */
+  refreshCertificate(args: CertificateArgs): Promise<{ membershipCertificate: MembershipCertificate }> {
+    return this.#request('POST', '/auth/certificate', args, true);
   }
 
   // ── 코스 데이터 배포 ──

@@ -10,6 +10,7 @@ import { Alert, Button, ScrollView, StyleSheet, Text, TextInput, View } from 're
 import { useWallet, wallet } from '../core/walletService';
 import { directoryApi, getServerUrl, setServerUrl } from '../core/directory';
 import { isProvisionalMemberId } from '../core/identity';
+import { getIntegrityToken } from '../core/integrity';
 import { Card, Muted, Title, colors } from '../ui/common';
 
 type Step = 'phone' | 'code' | 'done';
@@ -53,19 +54,27 @@ export function OnboardingScreen() {
       return;
     }
     setBusy(true);
-    directoryApi
-      .register({
-        phone: phone.trim(),
-        code: code.trim(),
-        email: email.trim(),
-        displayName: displayName.trim() || phone.trim(),
-        devicePublicKey: wallet.identity.signer.publicKeyHex,
-        messagingPublicKey: wallet.identity.messagingKeyPair.publicKeyHex,
-      })
-      .then(async ({ memberId }) => {
-        await wallet.updateMemberId(memberId);
+    // 앱 무결성 토큰 획득 (보안 감사 C-2) — 서버가 검증 후 회원 증서를 발급한다.
+    getIntegrityToken()
+      .then((integrity) =>
+        directoryApi.register({
+          phone: phone.trim(),
+          code: code.trim(),
+          email: email.trim(),
+          displayName: displayName.trim() || phone.trim(),
+          devicePublicKey: wallet.identity.signer.publicKeyHex,
+          messagingPublicKey: wallet.identity.messagingKeyPair.publicKeyHex,
+          integrityToken: integrity.token,
+          platform: integrity.platform,
+        }).then(async ({ memberId, membershipCertificate }) => {
+          await wallet.updateMemberId(memberId);
+          // 서버 발급 회원 증서 저장 — 회원 번호↔기기 키 결속을 이후 민팅에 각인.
+          await wallet.applyMembership(membershipCertificate, integrity.token);
+        }),
+      )
+      .then(() => {
         setStep('done');
-        Alert.alert('가입 완료', `정식 회원 번호 ${memberId}가 발급되었습니다.\n이후 생성되는 모든 코인에 이 번호가 새겨집니다.`);
+        Alert.alert('가입 완료', `정식 회원 번호 ${wallet.identity.memberId}가 발급되었습니다.\n이후 생성되는 모든 코인에 이 번호가 새겨집니다.`);
       })
       .catch((e) => Alert.alert('가입 실패', String(e instanceof Error ? e.message : e)))
       .finally(() => setBusy(false));

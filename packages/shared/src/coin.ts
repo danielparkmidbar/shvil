@@ -8,6 +8,7 @@
  */
 import { addressFromPublicKey, hashObject, signObject, verifyObject, type Signer } from './crypto';
 import { verifyWalkSegmentProof } from './proof';
+import { verifyMembershipCertificate } from './membership';
 import type {
   Coin,
   CoinRejectReason,
@@ -191,8 +192,18 @@ export function splitCoin(coin: Coin, ownerSigner: Signer, amountsDshv: number[]
 export interface VerifyCoinOptions {
   /** 신뢰하는 발행 키 목록 (keyId → publicKeyHex). GRANT 계보 검증용. */
   trustedIssuerKeys?: Record<string, string>;
-  /** 앱 무결성 토큰을 필수로 볼지 (결정 대기 3번 — 권고: 필수). 기본 false(M0). */
+  /**
+   * 회원 증서 신뢰 루트 (keyId → publicKeyHex). 지정되면 WALK 코인의 회원 증서를
+   * 검증한다 (보안 감사 C-2). 앱은 서버 루트 공개키를 여기에 핀한다.
+   */
+  trustedRootKeys?: Record<string, string>;
+  /**
+   * 앱 무결성·회원 증서를 필수로 볼지 (결정 대기 3번 — 2026-07-13 필수화 확정).
+   * true면 WALK 코인은 유효한 회원 증서(integrity=VERIFIED)를 반드시 품어야 한다.
+   */
   requireIntegrityToken?: boolean;
+  /** 증서 만료 판정 기준 시각. 기본 Date.now(). */
+  now?: number;
   /**
    * 마지막 링크의 수령자 서명 부재를 허용 — 수령자가 역스캔 확인 전에
    * 코인을 검증하는 단계(QR 왕복의 중간 상태)에서만 true.
@@ -224,9 +235,7 @@ function verifyProvenance(coin: Coin, options: VerifyCoinOptions, reasons: CoinR
       if (!verifyWalkSegmentProof(p.proof)) reasons.push('BAD_PROOF_SIGNATURE');
       if (coin.amountDshv !== p.proof.amountDshv) reasons.push('AMOUNT_MISMATCH');
       if (coin.memberId !== p.proof.memberId) reasons.push('MEMBER_MISMATCH');
-      if (options.requireIntegrityToken && !p.proof.appIntegrityToken) {
-        reasons.push('MISSING_INTEGRITY_TOKEN');
-      }
+      verifyMembership(p.proof, options, reasons);
       return;
     }
     case 'GRANT': {
@@ -255,6 +264,46 @@ function verifyProvenance(coin: Coin, options: VerifyCoinOptions, reasons: CoinR
       if (!parentVerdict.valid) reasons.push(...parentVerdict.reasons);
       return;
     }
+  }
+}
+
+/**
+ * 회원 증서 검증 (보안 감사 C-2) — 회원 번호↔기기 키 결속 + 무결성 담보.
+ * - requireIntegrityToken: 증서가 필수이며 integrity=VERIFIED여야 한다.
+ * - trustedRootKeys만 주어진 경우: 증서가 있으면 검증하되, 없으면 통과(점진 전환).
+ */
+function verifyMembership(
+  proof: WalkSegmentProof,
+  options: VerifyCoinOptions,
+  reasons: CoinRejectReason[],
+): void {
+  const cert = proof.membership;
+  const required = options.requireIntegrityToken ?? false;
+
+  if (!cert) {
+    if (required) reasons.push('MISSING_INTEGRITY_TOKEN');
+    return;
+  }
+
+  // 증서가 첨부되었으면 신뢰 루트로 검증한다. 루트 미지정 + 비필수면 검사 생략.
+  const roots = options.trustedRootKeys;
+  if (!roots) {
+    if (required) reasons.push('BAD_MEMBERSHIP');
+    return;
+  }
+
+  const verdict = verifyMembershipCertificate(cert, roots, options.now ?? Date.now());
+  if (!verdict.valid) {
+    reasons.push('BAD_MEMBERSHIP');
+    return;
+  }
+  // 결속 검사: 증서가 이 회원 번호·기기 키를 증언해야 한다.
+  if (cert.memberId !== proof.memberId || cert.devicePublicKey !== proof.devicePublicKey) {
+    reasons.push('MEMBERSHIP_MISMATCH');
+    return;
+  }
+  if (required && cert.integrity !== 'VERIFIED') {
+    reasons.push('MISSING_INTEGRITY_TOKEN');
   }
 }
 

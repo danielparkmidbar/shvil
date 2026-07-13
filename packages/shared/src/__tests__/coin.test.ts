@@ -83,15 +83,10 @@ describe('계보 검증 — WalkSegmentProof (지시서 2.2, 2.3)', () => {
     expect(verifyWalkSegmentProof(forgedProof)).toBe(false);
   });
 
-  it('앱 무결성 토큰 필수 모드: 토큰 없는 코인은 거부 (지시서 3장 1항)', () => {
+  it('앱 무결성 필수 모드: 회원 증서 없는 코인은 거부 (지시서 3장 1항, 보안 감사 C-2)', () => {
+    // 증서 상세 검증은 membership.test.ts. 여기서는 verifyCoin 게이팅만 확인.
     const coin = mintCoinFor('m-alice', alice);
     expect(verifyCoin(coin, { requireIntegrityToken: true }).reasons).toContain('MISSING_INTEGRITY_TOKEN');
-
-    const ledger = new PendingWalkLedger({ memberId: 'm-alice' });
-    const end = walkKm(ledger, 5);
-    const draft = ledger.settleOnSpend(end)!;
-    const attested = mintWalkCoin(buildWalkSegmentProof(draft, alice, { appIntegrityToken: 'play-integrity-token' }));
-    expect(verifyCoin(attested, { requireIntegrityToken: true }).valid).toBe(true);
   });
 });
 

@@ -17,6 +17,7 @@ import {
   generateMessagingKeyPair,
   signerFromKeyPair,
   type KeyPair,
+  type MembershipCertificate,
   type MessagingKeyPair,
   type Signer,
 } from '@shvil/shared';
@@ -24,6 +25,9 @@ import {
 const DEVICE_KEY_STORE = 'shvil.deviceKey.v1';
 const MEMBER_ID_STORE = 'shvil.memberId.v1';
 const MSG_KEY_STORE = 'shvil.msgKey.v1';
+/** 회원 증서·무결성 토큰은 민감·기기 결속 데이터 — SecureStore에 보관한다 (db 아님). */
+const MEMBERSHIP_STORE = 'shvil.membership.v1';
+const INTEGRITY_TOKEN_STORE = 'shvil.integrityToken.v1';
 
 export interface Identity {
   memberId: string;
@@ -31,6 +35,13 @@ export interface Identity {
   signer: Signer;
   /** E2E 메신저 X25519 키쌍 — 디렉토리 프로필에 공개키를 등록한다. */
   messagingKeyPair: MessagingKeyPair;
+  /**
+   * 회원 증서 (보안 감사 C-2) — 회원 번호↔기기 키 결속. 온라인 가입 시 서버 발급.
+   * 미가입·오프라인이면 null (증서 없이도 걷기·정산·지불 전 과정 동작 — 점진 전환).
+   */
+  membership: MembershipCertificate | null;
+  /** 마지막 증서 발급 시 서버에 제출한 무결성 토큰 참조 — 민팅 증명에 첨부. */
+  integrityToken: string | null;
 }
 
 /** 미가입(로컬 임시 번호) 여부 — 정식 번호는 서버 가입 시 "SHV-123456" 형식으로 발급. */
@@ -67,11 +78,44 @@ export async function loadOrCreateIdentity(): Promise<Identity> {
     await SecureStore.setItemAsync(MEMBER_ID_STORE, memberId);
   }
 
+  const membership = await loadMembershipCertificate();
+  const integrityToken = await SecureStore.getItemAsync(INTEGRITY_TOKEN_STORE);
+
   const signer = signerFromKeyPair(keyPair);
-  return { memberId, address: addressFromPublicKey(signer.publicKeyHex), signer, messagingKeyPair };
+  return {
+    memberId,
+    address: addressFromPublicKey(signer.publicKeyHex),
+    signer,
+    messagingKeyPair,
+    membership,
+    integrityToken,
+  };
 }
 
 /** 가입 성공 시 서버 발급 회원 번호로 갱신 (SecureStore 영속화). */
 export async function persistMemberId(memberId: string): Promise<void> {
   await SecureStore.setItemAsync(MEMBER_ID_STORE, memberId);
+}
+
+// ── 회원 증서 (보안 감사 C-2) — 민감·기기 결속이라 SecureStore에 보관 ──
+
+/** 서버가 발급한 회원 증서를 저장한다 (가입·갱신 시). */
+export async function saveMembershipCertificate(cert: MembershipCertificate): Promise<void> {
+  await SecureStore.setItemAsync(MEMBERSHIP_STORE, JSON.stringify(cert));
+}
+
+/** 보관 중인 회원 증서를 로드한다 (없거나 손상 시 null). */
+export async function loadMembershipCertificate(): Promise<MembershipCertificate | null> {
+  const json = await SecureStore.getItemAsync(MEMBERSHIP_STORE);
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as MembershipCertificate;
+  } catch {
+    return null;
+  }
+}
+
+/** 증서 발급 시 제출한 무결성 토큰을 저장한다 (민팅 첨부용 참조). */
+export async function saveIntegrityToken(token: string): Promise<void> {
+  await SecureStore.setItemAsync(INTEGRITY_TOKEN_STORE, token);
 }

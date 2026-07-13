@@ -5,17 +5,23 @@
  */
 import { signObject, verifyObject, type Signer } from './crypto';
 import type { SettlementDraft } from './ledger';
+import type { MembershipCertificate } from './membership';
 import type { WalkSegmentProof } from './types';
 
 export interface ProofOptions {
-  /** 앱 무결성 증명 토큰 (Play Integrity / App Attest). M1에서 실토큰 연동. */
+  /** 앱 무결성 증명 토큰 (Play Integrity / App Attest). 증서 발급 시 서버 제출 원토큰 참조. */
   appIntegrityToken?: string | null;
+  /** 회원 증서 — 회원 번호↔기기 키 결속 (보안 감사 C-2). 서버 발급분을 첨부한다. */
+  membership?: MembershipCertificate | null;
 }
 
-/** 서명 대상 페이로드 (signature 필드 제외). */
+/**
+ * 서명 대상 페이로드 (signature 필드 제외). membership은 서명 대상에 포함되어
+ * 증서 바꿔치기를 막는다. 미첨부(undefined)면 정준 직렬화에서 제외되어 하위 호환.
+ */
 function proofPayload(proof: Omit<WalkSegmentProof, 'signature'>): Omit<WalkSegmentProof, 'signature'> {
-  const { v, memberId, devicePublicKey, courseIds, startedAt, settledAt, distanceM, stepCount, amountDshv, settlement, dailyBreakdown, sensorSummaryHash, appIntegrityToken } = proof;
-  return { v, memberId, devicePublicKey, courseIds, startedAt, settledAt, distanceM, stepCount, amountDshv, settlement, dailyBreakdown, sensorSummaryHash, appIntegrityToken };
+  const { v, memberId, devicePublicKey, courseIds, startedAt, settledAt, distanceM, stepCount, amountDshv, settlement, dailyBreakdown, sensorSummaryHash, appIntegrityToken, membership } = proof;
+  return { v, memberId, devicePublicKey, courseIds, startedAt, settledAt, distanceM, stepCount, amountDshv, settlement, dailyBreakdown, sensorSummaryHash, appIntegrityToken, membership };
 }
 
 export function buildWalkSegmentProof(
@@ -37,6 +43,7 @@ export function buildWalkSegmentProof(
     dailyBreakdown: draft.dailyBreakdown,
     sensorSummaryHash: draft.sensorSummaryHash,
     appIntegrityToken: options.appIntegrityToken ?? null,
+    membership: options.membership ?? null,
   };
   return { ...unsigned, signature: signObject(proofPayload(unsigned), deviceSigner) };
 }

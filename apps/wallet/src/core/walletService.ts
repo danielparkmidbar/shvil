@@ -26,6 +26,7 @@ import {
   type ChargeMessage,
   type Coin,
   type ConfirmMessage,
+  type MembershipCertificate,
   type PaymentMessage,
   type PendingSnapshot,
   type SignedGrant,
@@ -35,7 +36,13 @@ import {
 import type { LiveWalkStatus } from '../walk/corridorEngine';
 import { planCoinSelection, type CoinSelectionPlan } from './coinSelection';
 import { FLAGGED_CACHE_KEY, findFlaggedProducer, parseFlaggedCache } from './flagged';
-import { loadOrCreateIdentity, persistMemberId, type Identity } from './identity';
+import {
+  loadOrCreateIdentity,
+  persistMemberId,
+  saveIntegrityToken,
+  saveMembershipCertificate,
+  type Identity,
+} from './identity';
 import {
   isKnownCoinId,
   kvGet,
@@ -56,6 +63,13 @@ export type WalletMode = 'LIST' | 'ANGEL';
 
 const MODE_KEY = 'walletMode.v1';
 const SALES_KEY = 'market.sales.v1';
+/**
+ * 회원 증서 필수화 게이트 (보안 감사 C-2). 기본 false — 점진 전환:
+ * 기존 사용자가 아직 증서 없는 코인을 보유하므로, 지금은 증서가 있으면 검증만 하고
+ * 필수로 요구하지 않는다. 파일럿 전환 시 이 kv를 'true'로 켜면 증서 없는(또는
+ * integrity≠VERIFIED) WALK 코인 수령이 거부된다 (결정 대기 3번 — 필수화 확정).
+ */
+const REQUIRE_INTEGRITY_KEY = 'requireIntegrity';
 
 /** 내 마켓 판매 기록 (로컬 kv) — 리스팅 → 승인 → 에스크로 → 완료 추적용. */
 export interface SaleRecord {
@@ -192,6 +206,25 @@ class WalletService {
   }
 
   /**
+   * 서버 발급 회원 증서를 반영한다 (보안 감사 C-2) — 가입·갱신 시. 증서·무결성
+   * 토큰은 SecureStore(기기 결속)에 저장하고, 이후 민팅 증명에 첨부된다.
+   */
+  async applyMembership(cert: MembershipCertificate, integrityToken?: string): Promise<void> {
+    await saveMembershipCertificate(cert);
+    if (integrityToken !== undefined) await saveIntegrityToken(integrityToken);
+    this.#identity = {
+      ...this.identity,
+      membership: cert,
+      integrityToken: integrityToken ?? this.identity.integrityToken,
+    };
+  }
+
+  /** 증서 필수화 여부 (kv 게이트, 기본 false — 점진 전환). */
+  async #requireIntegrity(): Promise<boolean> {
+    return (await kvGet(REQUIRE_INTEGRITY_KEY)) === 'true';
+  }
+
+  /**
    * 발행 승인서(SignedGrant)로 코인 민팅 — 엔젤 보너스(등록 20 / 첫 접대 30 SHV,
    * 지시서 2.4)와 클레임 구제·격려 코인(지시서 2.5·2.6)이 같은 경로를 쓴다.
    * 신뢰 발행 키 대조 포함 로컬 검증 후 지갑에 저장한다 (origin: BONUS).
@@ -257,8 +290,13 @@ class WalletService {
       this.#set({ pending: this.#ledger!.getPending() });
       return null;
     }
-    // TODO(M2/보안): Play Integrity / App Attest 실토큰을 여기서 첨부한다 (결정 대기 3번).
-    const proof = buildWalkSegmentProof(draft, this.identity.signer);
+    // 회원 증서·무결성 토큰 첨부 (보안 감사 C-2) — 회원 번호↔기기 키 결속을
+    // 계보에 각인한다. 증서는 서명 대상에 포함되어 바꿔치기 불가. 미가입·오프라인
+    // 가입이면 null이며, 증서 없이도 민팅은 그대로 동작한다 (점진 전환).
+    const proof = buildWalkSegmentProof(draft, this.identity.signer, {
+      membership: this.identity.membership,
+      appIntegrityToken: this.identity.integrityToken,
+    });
     const coin = mintWalkCoin(proof);
     await saveCoin(coin, 'WALK_SELF', now);
     await this.#reloadCoins();
@@ -361,7 +399,18 @@ class WalletService {
       }
     }
 
-    const result = acceptPayment(this.#incomingCharge, msg, this.identity.signer);
+    // 회원 증서 검증 (보안 감사 C-2): 캐시된 신뢰 루트로 WALK 코인의 증서를 검증한다.
+    // 오프라인 지불 수령 경로이므로 네트워크 없이 캐시만 읽는다. requireIntegrity 게이트가
+    // 켜지면 증서 없는(또는 integrity≠VERIFIED) 코인 수령을 거부한다 (기본 off — 점진 전환).
+    const { loadCachedTrustedRootKeys } = await import('./directory');
+    const trustedRootKeys = await loadCachedTrustedRootKeys();
+    const requireIntegrityToken = await this.#requireIntegrity();
+
+    const result = acceptPayment(this.#incomingCharge, msg, this.identity.signer, {
+      trustedRootKeys,
+      requireIntegrityToken,
+      now,
+    });
     for (const coin of result.coins) {
       await saveCoin(coin, rootOriginOf(coin, this.identity.memberId), now);
     }
@@ -518,20 +567,24 @@ class WalletService {
     escrowId: number,
     now: number,
   ): Promise<{ coins: Coin[]; amountDshv: number; releasedUsdcMicro: number; feeUsdcMicro: number }> {
-    const { directoryApi, getTrustedIssuerKeys } = await this.#directory();
+    const { directoryApi, getTrustedIssuerKeys, getTrustedRootKeys } = await this.#directory();
     const escrow = await directoryApi.getEscrow(escrowId);
     if (escrow.status !== 'COINS_SUBMITTED' || !escrow.coins || escrow.coins.length === 0) {
       throw new Error(`판매자의 코인 제출을 기다리는 중입니다 (현재 상태: ${escrow.status})`);
     }
 
+    // 마켓은 온라인 경로 — 신뢰 발행 키·회원 증서 루트를 함께 갱신해 검증한다 (C-2).
     const trustedIssuerKeys = await getTrustedIssuerKeys();
+    const trustedRootKeys = await getTrustedRootKeys();
+    const requireIntegrityToken = await this.#requireIntegrity();
+    const verifyOpts = { trustedIssuerKeys, trustedRootKeys, requireIntegrityToken, now };
     const knownCoins = this.getState().coins.map((c) => c.coin);
     const acked: Coin[] = [];
     for (const coin of escrow.coins) {
       // 이중 수령 로컬 차단 — 이미 아는 코인 ID는 거부.
       if (await isKnownCoinId(coin.id)) throw new Error('이미 수령한 코인입니다 (이중 수령 차단)');
       // 위조 검사: 미완결 마지막 링크(나에게 오는 지불 서명)를 허용한 계보 검증.
-      const pending = verifyCoin(coin, { allowPendingLastLink: true, trustedIssuerKeys });
+      const pending = verifyCoin(coin, { ...verifyOpts, allowPendingLastLink: true });
       if (!pending.valid) throw new Error(`코인 검증 실패: ${pending.reasons.join(', ')}`);
       // 인간 한계 프로파일 검증 (지시서 3장) — 수신 시 로컬 대조.
       const limits = checkHumanLimits(coin, knownCoins);
@@ -541,7 +594,7 @@ class WalletService {
       }
       // 확인 서명으로 완결 → 완결 상태 재검증.
       const done = acknowledgeTransfer(coin, this.identity.signer);
-      const final = verifyCoin(done, { trustedIssuerKeys });
+      const final = verifyCoin(done, verifyOpts);
       if (!final.valid || currentOwnerAddress(done) !== this.identity.address) {
         throw new Error(`완결 검증 실패: ${final.reasons.join(', ')}`);
       }
