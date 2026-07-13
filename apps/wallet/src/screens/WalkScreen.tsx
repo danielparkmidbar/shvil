@@ -1,8 +1,13 @@
 /** 걷기 상세 — 코스 위/밖/우회 상태 표시 + "여기서 정산" (지시서 4장). */
 import React from 'react';
-import { Alert, Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Button, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useWallet, wallet } from '../core/walletService';
 import { Card, Muted, Title, colors, fmtKm, fmtShv } from '../ui/common';
+import type { MoreStackParamList } from './navTypes';
+
+/** 탭 → 더보기 스택 중첩 내비게이션 (커뮤니티 클레임 진입점 — 지시서 6장 5절). */
+type RootTabNav = NavigationProp<{ 더보기: { screen: keyof MoreStackParamList } }>;
 
 const TIER_LABEL: Record<string, { text: string; color: string }> = {
   ON_COURSE: { text: '코스 위 — 인정 중 (기준 요율)', color: colors.onCourse },
@@ -14,6 +19,7 @@ const TIER_LABEL: Record<string, { text: string; color: string }> = {
 
 export function WalkScreen() {
   const w = useWallet();
+  const navigation = useNavigation<RootTabNav>();
   const tier = w.liveStatus?.tier ?? 'IDLE';
   const label = TIER_LABEL[tier] ?? TIER_LABEL.IDLE!;
 
@@ -75,6 +81,14 @@ export function WalkScreen() {
         정산은 사용(지불) 또는 이 버튼으로만 이루어집니다. 자동 정산은 없습니다.
         정산되지 않은 잠정 누적은 폰 분실 시 복구가 보장되지 않습니다.
       </Muted>
+
+      <Pressable
+        style={styles.claimLink}
+        onPress={() => navigation.navigate('더보기', { screen: '커뮤니티' })}
+      >
+        <Text style={styles.claimLinkText}>어제 걸음이 기록되지 않았나요? → 클레임</Text>
+        <Muted>커뮤니티 인정 투표로 누락 걸음을 구제받을 수 있습니다 (24시간 이내 · 온라인 필요).</Muted>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -86,4 +100,6 @@ const styles = StyleSheet.create({
   badge: { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 8 },
   badgeText: { color: 'white', fontWeight: '700' },
   warn: { color: colors.danger, fontWeight: '700', marginTop: 6 },
+  claimLink: { backgroundColor: colors.card, borderRadius: 12, padding: 14, marginTop: 12, gap: 4 },
+  claimLinkText: { fontWeight: '700', color: colors.detour },
 });

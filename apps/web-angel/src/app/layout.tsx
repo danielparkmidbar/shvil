@@ -1,40 +1,29 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import './globals.css';
-import { activeDir, activeLocale, t } from '@/i18n';
+import { en, LocaleProvider, LOCALE_BOOT_SCRIPT } from '@/i18n';
+import SiteFooter from '@/components/SiteFooter';
+import SiteHeader from '@/components/SiteHeader';
 
+/** 메타데이터는 기본 로케일(en) 고정 — 화면 문자열은 LocaleProvider가 관리. */
 export const metadata: Metadata = {
-  title: `${t.common.siteName} — shvilangel.org`,
-  description: t.common.tagline,
+  title: `${en.common.siteName} — shvilangel.org`,
+  description: en.common.tagline,
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang={activeLocale} dir={activeDir}>
+    // 부트 스크립트가 hydration 전에 lang/dir을 저장값으로 바꾸므로 경고를 억제한다.
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <body>
-        <header className="site-header">
-          <nav className="site-nav">
-            <Link href="/" className="brand">
-              {t.common.siteName}
-            </Link>
-            <div className="nav-links">
-              <Link href="/map">{t.common.nav.map}</Link>
-              <Link href="/market">{t.common.nav.market}</Link>
-              <Link href="/transparency">{t.common.nav.transparency}</Link>
-            </div>
-          </nav>
-        </header>
-        <main className="site-main">{children}</main>
-        <footer className="site-footer">
-          <p>
-            <a href={t.common.footer.shvilistUrl} rel="noopener">
-              {t.common.footer.shvilistLink}
-            </a>
-          </p>
-          <p className="footer-free">{t.common.footer.faceToFaceFree}</p>
-        </footer>
+        {/* 히브리어 사용자에게 LTR 화면이 번쩍이지 않게 — 가장 먼저 실행 */}
+        <script dangerouslySetInnerHTML={{ __html: LOCALE_BOOT_SCRIPT }} />
+        <LocaleProvider>
+          <SiteHeader />
+          <main className="site-main">{children}</main>
+          <SiteFooter />
+        </LocaleProvider>
       </body>
     </html>
   );

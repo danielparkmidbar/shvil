@@ -34,6 +34,7 @@ import {
 } from '@shvil/shared';
 import type { LiveWalkStatus } from '../walk/corridorEngine';
 import { planCoinSelection, type CoinSelectionPlan } from './coinSelection';
+import { FLAGGED_CACHE_KEY, findFlaggedProducer, parseFlaggedCache } from './flagged';
 import { loadOrCreateIdentity, persistMemberId, type Identity } from './identity';
 import {
   isKnownCoinId,
@@ -191,8 +192,9 @@ class WalletService {
   }
 
   /**
-   * 발행 승인서(SignedGrant)로 보너스 코인 민팅 — 엔젤 등록 20 / 첫 접대 30 SHV
-   * (지시서 2.4). 신뢰 발행 키 대조 포함 로컬 검증 후 지갑에 저장한다.
+   * 발행 승인서(SignedGrant)로 코인 민팅 — 엔젤 보너스(등록 20 / 첫 접대 30 SHV,
+   * 지시서 2.4)와 클레임 구제·격려 코인(지시서 2.5·2.6)이 같은 경로를 쓴다.
+   * 신뢰 발행 키 대조 포함 로컬 검증 후 지갑에 저장한다 (origin: BONUS).
    */
   async mintFromGrant(grant: SignedGrant, trustedIssuerKeys: Record<string, string>, now: number): Promise<Coin> {
     if (grant.recipientPublicKey !== this.identity.signer.publicKeyHex) {
@@ -204,7 +206,7 @@ class WalletService {
       throw new Error(`승인서 검증 실패: ${verdict.reasons.join(', ')}`);
     }
     if (await isKnownCoinId(coin.id)) {
-      throw new Error('이미 발행된 보너스입니다');
+      throw new Error('이미 이 승인서로 발행된 코인입니다');
     }
     await saveCoin(coin, 'BONUS', now);
     await this.#reloadCoins();
@@ -338,6 +340,16 @@ class WalletService {
     // 이중지불 로컬 차단: 이미 아는 코인 ID는 거부
     for (const coin of msg.coins) {
       if (await isKnownCoinId(coin.id)) throw new Error('이미 수령한 코인입니다 (이중 사용 의심)');
+    }
+    // 소명 대기 목록 대조 (지시서 3장 5절): 소명 대기 중인 회원이 "생성한" 코인은
+    // 수령 보류. 이미 보유한 코인·타인의 거래는 영향받지 않는다 — 새 수령만 막는다.
+    const flagged = parseFlaggedCache(await kvGet(FLAGGED_CACHE_KEY));
+    const flaggedProducer = findFlaggedProducer(
+      msg.coins,
+      flagged.map((f) => f.memberId),
+    );
+    if (flaggedProducer) {
+      throw new Error(`생성 회원 ${flaggedProducer}는 소명 대기 중입니다 — 소명 통과 후 수령할 수 있습니다`);
     }
     // 인간 한계 프로파일 검증 (지시서 3장): 같은 생성자의 기존 보유 코인과 합산 대조
     const knownCoins = this.getState().coins.map((c) => c.coin);

@@ -13,7 +13,13 @@
 | 코스 데이터 배포 | `GET /courses` |
 | 프로모션 발행 (등록 20 + 첫 접대 30 SHV, 수량 한정 서명 키) | `PUT /angels/me` 응답 · `POST /angels/first-hosting` · `GET /keys/promo` |
 | 코인 마켓 (M3): 무정가 리스팅 → 가격 제시 → 승인 → 에스크로 | `POST/GET /market/listings` · `POST /market/listings/:id/offers` · `POST /market/offers/:id/approve` · `/market/escrows/:id` (coins/ack) |
-| 투명성 공시 | `GET /transparency/promo` · `GET /transparency/market` |
+| 코스 등록부 (M4): 제안 → 100명 완주 → 공식 승격 | `POST/GET /courses/proposals` · `POST /courses/:id/completions` |
+| 클레임 게시판 (M4): 24h 접수·월 2회·5표 승인·자동 산정 발행 | `POST/GET /claims` · `POST /claims/:id/vote` |
+| 완주 인증 (M4): 격려 코인 완주 10/구간 3 SHV, 1인 1코스 1회 | `POST/GET /certificates` |
+| 탑 100 리더보드 (M4, 본인 동의·위치 없음) + 기준선 배포 | `POST /leaderboard/enroll` · `GET /leaderboard` · `GET /limits/baseline` |
+| 소명 대기 목록 배포 (지갑 수령 보류용) | `GET /limits/flagged` |
+| 신뢰 발행 키 목록 (프로모·클레임·격려) | `GET /keys` |
+| 투명성 공시 | `GET /transparency/promo` · `/market` · `/community` |
 
 - 인증: 세션·비밀번호 없음. 가입 시 등록한 기기 키로 요청을 서명
   (`buildAuthHeaders`, 경로는 쿼리스트링 제외).

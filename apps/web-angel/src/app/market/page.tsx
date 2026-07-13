@@ -9,10 +9,10 @@
  */
 import { useEffect, useState } from 'react';
 import { fetchListings, fmtShv, type MarketListing } from '@/lib/api';
-import { t } from '@/i18n';
+import { useI18n } from '@/i18n';
 
-function fmtDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('ko-KR', {
+function fmtDate(ts: number, locale: string): string {
+  return new Date(ts).toLocaleDateString(locale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -20,6 +20,7 @@ function fmtDate(ts: number): string {
 }
 
 export default function MarketPage() {
+  const { t, locale } = useI18n();
   const [listings, setListings] = useState<MarketListing[] | null>(null);
   const [serverDown, setServerDown] = useState(false);
 
@@ -76,7 +77,7 @@ export default function MarketPage() {
               <tr key={l.listingId}>
                 <td>{l.sellerName ?? l.sellerMemberId}</td>
                 <td>{fmtShv(l.amountDshv)}</td>
-                <td>{fmtDate(l.createdAt)}</td>
+                <td>{fmtDate(l.createdAt, locale)}</td>
                 <td className="price-absent">{s.priceCell}</td>
               </tr>
             ))}

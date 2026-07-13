@@ -29,8 +29,8 @@ body {
   background: var(--cream);
   color: var(--ink);
   font-family:
-    'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Segoe UI',
-    system-ui, -apple-system, sans-serif;
+    'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Noto Sans Hebrew',
+    'Segoe UI', system-ui, -apple-system, sans-serif;
   line-height: 1.65;
   display: flex;
   flex-direction: column;
@@ -80,6 +80,16 @@ a {
 
 .nav-links a:hover {
   text-decoration: underline;
+}
+
+.lang-select {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
 .site-main {

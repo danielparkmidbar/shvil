@@ -22,7 +22,7 @@ import {
   type AngelServices,
   type CourseData,
 } from '@/lib/api';
-import { t } from '@/i18n';
+import { useI18n, type Strings } from '@/i18n';
 
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
@@ -46,10 +46,12 @@ const SERVICE_ICONS: Record<FilterKey, string> = {
   meal: '🍲',
 };
 
-function serviceTags(services: AngelServices | null): { key: FilterKey; label: string }[] {
+function serviceTags(
+  services: AngelServices | null,
+  f: Strings['map']['filters'],
+): { key: FilterKey; label: string }[] {
   if (!services) return [];
   const tags: { key: FilterKey; label: string }[] = [];
-  const f = t.map.filters;
   if (services.bed === 'ROOM') tags.push({ key: 'bedRoom', label: f.bedRoom });
   if (services.bed === 'SOFA') tags.push({ key: 'bedSofa', label: f.bedSofa });
   if (services.bed === 'TENT') tags.push({ key: 'bedTent', label: f.bedTent });
@@ -74,6 +76,7 @@ function passesFilters(angel: AngelEntry, filters: Record<FilterKey, boolean>): 
 }
 
 export default function AngelMap() {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<MapLibreMarker[]>([]);
@@ -260,7 +263,7 @@ export default function AngelMap() {
             <div className="card angel-card">
               <h3>{selected.name}</h3>
               <div className="service-tags">
-                {serviceTags(selected.services).map(({ key, label }) => (
+                {serviceTags(selected.services, s.filters).map(({ key, label }) => (
                   <span key={key} className="service-tag">
                     {SERVICE_ICONS[key]} {label}
                   </span>

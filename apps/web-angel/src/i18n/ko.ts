@@ -1,6 +1,6 @@
 import type { Strings } from './types';
 
-/** 한국어 사전 — 초기 릴리스 언어. en/he(RTL)/es는 M4에서 추가. */
+/** 한국어 사전. */
 export const ko: Strings = {
   common: {
     siteName: '쉬빌 엔젤',
@@ -14,6 +14,7 @@ export const ko: Strings = {
     serverUnreachable:
       '디렉토리 서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.',
     loading: '불러오는 중…',
+    langLabel: '언어',
   },
 
   landing: {

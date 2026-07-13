@@ -34,8 +34,11 @@ import { createDb, kvGet, kvSet } from './db';
 import { haversineKm } from './geo';
 import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
+import { officialCourses, registerCommunity } from './community';
 
 export const PROMO_KEY_ID = 'promo-angel-2026';
+export const CLAIM_KEY_ID = 'community-claim-2026';
+export const REWARD_KEY_ID = 'community-reward-2026';
 const OTP_TTL_MS = 10 * 60 * 1000;
 
 export interface AppOptions {
@@ -48,6 +51,12 @@ export interface AppOptions {
   chain?: ChainAdapter;
   /** 마켓 수수료 (bp). 제안 250 = 2.5% — 결정 대기 5번. */
   feeBps?: number;
+  /** 코스 공식 승격 기준 완주 인원 (지시서: 100명). */
+  promotionThreshold?: number;
+  /** 클레임 인정 투표 기준 인원 (제안 5명 — 결정 대기 8번). */
+  claimVoteThreshold?: number;
+  /** 1인당 클레임 월 한도 (제안 2회 — 결정 대기 8번). */
+  claimMonthlyLimit?: number;
 }
 
 interface MemberRow {
@@ -83,19 +92,23 @@ export function buildApp(
 ): FastifyInstance & { db: DatabaseSync; chain: ChainAdapter } {
   const db = createDb(options.dbPath ?? ':memory:');
   const quota = options.registrationQuota ?? 500;
-  const devMode = options.devMode ?? true;
+  // 보안 감사 C-1: 기본 false. dev 전용 라우트(devCode 반환·dev-deposit·소명 수동
+  // 등재)는 devMode에서만 등록된다. 운영은 환경변수로 명시하지 않는 한 꺼진다.
+  const devMode = options.devMode ?? false;
   const chain = options.chain ?? new MockChainAdapter();
 
-  // 프로모션 서명 키 — 기간·수량 한정 발급 키. 지갑들은 GET /keys/promo로 신뢰 목록에 넣는다.
-  let promoPair: KeyPair;
-  const savedKey = kvGet(db, 'promoKey');
-  if (savedKey) {
-    promoPair = JSON.parse(savedKey) as KeyPair;
-  } else {
-    promoPair = generateKeyPair();
-    kvSet(db, 'promoKey', JSON.stringify(promoPair));
+  // 발행 서명 키들 — 프로모션(엔젤 보너스)·클레임·격려 코인. 전부 기간·수량/규칙
+  // 한정 발급 키이며, 지갑들은 GET /keys로 신뢰 목록에 넣는다. 발행 현황은 공시된다.
+  function loadOrCreateKey(kvKey: string): KeyPair {
+    const saved = kvGet(db, kvKey);
+    if (saved) return JSON.parse(saved) as KeyPair;
+    const pair = generateKeyPair();
+    kvSet(db, kvKey, JSON.stringify(pair));
+    return pair;
   }
-  const promoSigner = signerFromKeyPair(promoPair);
+  const promoSigner = signerFromKeyPair(loadOrCreateKey('promoKey'));
+  const claimSigner = signerFromKeyPair(loadOrCreateKey('claimKey'));
+  const rewardSigner = signerFromKeyPair(loadOrCreateKey('rewardKey'));
 
   const app = Fastify({ logger: false });
 
@@ -236,7 +249,10 @@ export function buildApp(
 
   // ── 코스 데이터 배포 (원본: shvilist.org 코스 등록부 — M4 연동) ──
 
-  app.get('/courses', async () => ({ courses: [SHVIL_ISRAEL_NORTH_SAMPLE] }));
+  app.get('/courses', async () => ({
+    // 기본 코스 + 코스 등록부에서 공식 승격된 코스 (지시서 6장 3절).
+    courses: [SHVIL_ISRAEL_NORTH_SAMPLE, ...officialCourses(db)],
+  }));
 
   // ── 엔젤 디렉토리 ──────────────────────────────────────────────
 
@@ -395,12 +411,27 @@ export function buildApp(
 
   app.get('/keys/promo', async () => ({ keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex }));
 
+  /** 신뢰 발행 키 전체 목록 — 지갑이 캐시해 GRANT 계보 검증에 사용. */
+  app.get('/keys', async () => ({
+    keys: [
+      { keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex, purpose: 'ANGEL_BONUS' },
+      { keyId: CLAIM_KEY_ID, publicKey: claimSigner.publicKeyHex, purpose: 'COMMUNITY_CLAIM' },
+      { keyId: REWARD_KEY_ID, publicKey: rewardSigner.publicKeyHex, purpose: 'COMMUNITY_REWARD' },
+    ],
+  }));
+
   /** 투명성 페이지 데이터 — 프로모션 발행 현황 공시 (지시서 2.4, 5장). */
   app.get('/transparency/promo', async () => ({
     registrationIssued: grantCount('REGISTRATION'),
     firstHostingIssued: grantCount('FIRST_HOSTING'),
     registrationQuota: quota,
   }));
+
+  const trustedIssuerKeys = {
+    [PROMO_KEY_ID]: promoSigner.publicKeyHex,
+    [CLAIM_KEY_ID]: claimSigner.publicKeyHex,
+    [REWARD_KEY_ID]: rewardSigner.publicKeyHex,
+  };
 
   // ── 코인 마켓 + 에스크로 (M3) ─────────────────────────────────
   registerMarket(app, {
@@ -409,7 +440,22 @@ export function buildApp(
     chain,
     feeBps: options.feeBps ?? 250,
     devMode,
-    trustedIssuerKeys: { [PROMO_KEY_ID]: promoSigner.publicKeyHex },
+    trustedIssuerKeys,
+  });
+
+  // ── 커뮤니티: 코스 등록부·클레임·격려 코인·탑 100·소명 목록 (M4) ──
+  registerCommunity(app, {
+    db,
+    authenticate,
+    claimSigner,
+    claimKeyId: CLAIM_KEY_ID,
+    rewardSigner,
+    rewardKeyId: REWARD_KEY_ID,
+    promotionThreshold: options.promotionThreshold ?? 100,
+    claimVoteThreshold: options.claimVoteThreshold ?? 5,
+    claimMonthlyLimit: options.claimMonthlyLimit ?? 2,
+    claimWindowMs: 24 * 60 * 60 * 1000,
+    devMode,
   });
 
   return Object.assign(app, { db, chain });

@@ -10,7 +10,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { wallet } from './src/core/walletService';
 import { chatService } from './src/core/chatService';
-import { syncCourses } from './src/core/directory';
+import { syncCourses, syncFlaggedList } from './src/core/directory';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WalkScreen } from './src/screens/WalkScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
@@ -21,6 +21,7 @@ import { MessagesScreen } from './src/screens/MessagesScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
+import { CommunityScreen } from './src/screens/CommunityScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import type { MoreStackParamList } from './src/screens/navTypes';
 
@@ -48,6 +49,7 @@ function MoreStackScreen() {
       />
       <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
       <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
+      <MoreStack.Screen name="커뮤니티" component={CommunityScreen} options={{ headerTitle: '커뮤니티' }} />
       <MoreStack.Screen name="가입/설정" component={OnboardingScreen} />
     </MoreStack.Navigator>
   );
@@ -64,6 +66,8 @@ export default function App() {
         setReady(true);
         // 서버 연동은 편의 기능 — 실패해도 앱 동작에 영향 없음 (오프라인 우선).
         syncCourses().catch(() => {});
+        // 소명 대기 목록 배포 수신 (지시서 3장 5절) — 실패 시 기존 캐시 유지.
+        syncFlaggedList().catch(() => {});
         chatService.startPolling();
       })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));

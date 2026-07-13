@@ -1,12 +1,10 @@
-import type { Metadata } from 'next';
-import { t } from '@/i18n';
+'use client';
+
+import { useI18n } from '@/i18n';
 import AngelMap from './AngelMap';
 
-export const metadata: Metadata = {
-  title: `${t.map.title} — ${t.common.siteName}`,
-};
-
 export default function MapPage() {
+  const { t } = useI18n();
   return (
     <>
       <h1>{t.map.title}</h1>

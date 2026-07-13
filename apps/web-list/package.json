@@ -1,9 +1,22 @@
 {
   "name": "@shvil/web-list",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
-  "description": "shvilist.org (Next.js) — M4에서 본격 구현. 코스 등록부, 클레임 게시판, 완주 인증(격려 코인), 탑 100 리더보드.",
+  "scripts": {
+    "dev": "next dev --webpack -p 3001",
+    "build": "next build --webpack",
+    "start": "next start -p 3001",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
-    "@shvil/shared": "*"
+    "next": "16.2.10",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
   }
 }

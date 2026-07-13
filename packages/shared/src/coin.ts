@@ -41,9 +41,23 @@ export function buildGrant(
   return { ...unsigned, signature: signObject(unsigned, issuerSigner) };
 }
 
+/**
+ * 승인서 종류별 발행액 상한 (dSHV) — 수신 클라이언트의 방어선 (보안 감사 H-2).
+ * 발행 키가 유출되어도 이 상한을 넘는 grant는 수신 지갑이 거부한다.
+ * 값은 확정 파라미터 기준: 엔젤 등록 20 + 첫 접대 30 = 최대 300, 클레임·격려는
+ * 1일 상한 40 SHV(=400 dSHV) 이내.
+ */
+export const GRANT_MAX_DSHV: Record<SignedGrant['kind'], number> = {
+  ANGEL_BONUS: 300,
+  COMMUNITY_CLAIM: 400,
+  COMMUNITY_REWARD: 100,
+};
+
 export function verifyGrant(grant: SignedGrant): boolean {
   if (grant.v !== 1) return false;
   if (!Number.isInteger(grant.amountDshv) || grant.amountDshv <= 0) return false;
+  // kind별 상한 초과 → 거부 (발행 키 유출 시 무제한 위조 차단).
+  if (grant.amountDshv > GRANT_MAX_DSHV[grant.kind]) return false;
   const { signature, ...unsigned } = grant;
   return verifyObject(unsigned, signature, grant.issuerPublicKey);
 }

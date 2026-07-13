@@ -30,7 +30,7 @@ import {
 import { buildApp } from '../src/app';
 
 const T0 = Date.parse('2026-07-10T06:00:00Z');
-const app = buildApp({ dbPath: ':memory:', registrationQuota: 500 });
+const app = buildApp({ dbPath: ':memory:', registrationQuota: 500, devMode: true });
 
 interface TestIdentity {
   memberId: string;

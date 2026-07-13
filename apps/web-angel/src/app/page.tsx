@@ -1,12 +1,15 @@
-import Link from 'next/link';
-import { t } from '@/i18n';
+'use client';
 
 /**
  * 랜딩 (지시서 5장 1절): 비전 한 문단 + 엔젤 지도 링크 + 지갑 다운로드 +
  * "지갑을 받으면 지도에 엔젤로 등록된다" 흐름 설명.
- * 정적 서버 컴포넌트 — 데이터 fetch 없음 (빌드가 서버 가동에 의존하지 않는다).
+ * 데이터 fetch 없음 (빌드가 서버 가동에 의존하지 않는다). 문자열은 useI18n으로.
  */
+import Link from 'next/link';
+import { useI18n } from '@/i18n';
+
 export default function LandingPage() {
+  const { t } = useI18n();
   const s = t.landing;
   return (
     <>

@@ -76,9 +76,76 @@ export interface PromoKeyInfo {
   publicKey: string;
 }
 
+/** 신뢰 발행 키 3종 — 프로모(엔젤 보너스)·클레임·격려 (GET /keys). */
+export interface TrustedKeyInfo {
+  keyId: string;
+  publicKey: string;
+  purpose: 'ANGEL_BONUS' | 'COMMUNITY_CLAIM' | 'COMMUNITY_REWARD' | string;
+}
+
 export interface RelayedMessage {
   id: number;
   envelope: MessageEnvelope;
+}
+
+// ── 커뮤니티 계약 타입 (M4 — server/src/community.ts와 계약을 공유한다) ──
+// 클레임·격려의 발행은 전부 "승인서(SignedGrant)"다 — 코인이 되는 것은
+// 이 지갑의 민팅(mintFromGrant)에서다. 여기에도 거래 승인 API는 없다.
+
+/** 후보 코스 제안 — 100명 완주 기록이 쌓이면 공식 승격 (지시서 6장 3절). */
+export interface CourseProposal {
+  courseId: string;
+  name: string;
+  status: 'CANDIDATE' | 'OFFICIAL' | string;
+  completions: number;
+  promotionThreshold: number;
+  createdAt: number;
+}
+
+export interface CourseProposalInput {
+  courseId: string;
+  name: string;
+  polyline: GeoPoint[];
+  segments?: unknown[];
+}
+
+/** 클레임 게시물 (누락 걸음 구제 — 지시서 2.5). 좌표 없음 — 코스 ID·거리·시각뿐. */
+export interface ClaimEntry {
+  claimId: number;
+  memberId: string;
+  courseId: string;
+  walkedAt: number;
+  distanceM: number;
+  photos: string[];
+  status: 'OPEN' | 'APPROVED' | string;
+  votes: number;
+  voteThreshold: number;
+  createdAt: number;
+}
+
+/** 클레임 상세 — 승인되면 grant(발행 승인서)가 붙는다. */
+export interface ClaimDetail {
+  claimId: number;
+  memberId: string;
+  courseId: string;
+  distanceM: number;
+  status: string;
+  votes: number;
+  grant: SignedGrant | null;
+}
+
+export interface ClaimVoteResult {
+  votes: number;
+  status: 'OPEN' | 'APPROVED' | string;
+  voteThreshold?: number;
+  amountDshv?: number;
+}
+
+/** 소명 대기 회원 (지시서 3장 5절) — 이 회원이 생성한 코인은 수령 보류. */
+export interface FlaggedMemberEntry {
+  memberId: string;
+  reason: string;
+  flaggedAt: number;
 }
 
 // ── 마켓 계약 타입 (M3 — server/src/market.ts와 계약을 공유한다) ────
@@ -282,6 +349,86 @@ export class DirectoryApi {
   /** 신뢰 발행 키 — 캐시해 verifyCoin의 trustedIssuerKeys로 사용. */
   getPromoKey(): Promise<PromoKeyInfo> {
     return this.#request('GET', '/keys/promo', null, false);
+  }
+
+  /** 신뢰 발행 키 3종 전체(프로모·클레임·격려) — /keys/promo를 대체한다. */
+  async getTrustedKeys(): Promise<TrustedKeyInfo[]> {
+    const res = await this.#request<{ keys: TrustedKeyInfo[] }>('GET', '/keys', null, false);
+    return res.keys;
+  }
+
+  // ── 커뮤니티: 코스 등록부 (지시서 6장 3절 — 온라인 전용 서버 기능) ──
+
+  /** 승격 현황 공개 — 후보 코스별 완주 기록 수 (비서명). */
+  async getCourseProposals(): Promise<CourseProposal[]> {
+    const res = await this.#request<{ proposals: CourseProposal[] }>('GET', '/courses/proposals', null, false);
+    return res.proposals;
+  }
+
+  /** 사용자 코스 제안 — 후보 상태로 게시된다. */
+  proposeCourse(input: CourseProposalInput): Promise<{ courseId: string; status: string }> {
+    return this.#request('POST', '/courses/proposals', input, true);
+  }
+
+  /** 완주 기록 제출 — 후보 코스 지지. 기준 인원(100명) 도달 시 공식 승격. */
+  submitCompletion(
+    courseId: string,
+    distanceM: number,
+    days: number,
+  ): Promise<{ courseId: string; completions: number; promoted: boolean }> {
+    return this.#request('POST', `/courses/${encodeURIComponent(courseId)}/completions`, { distanceM, days }, true);
+  }
+
+  // ── 커뮤니티: 클레임 게시판 (누락 걸음 구제 — 지시서 2.5) ──
+
+  /**
+   * 클레임 접수 — 걷기 발생 후 24시간 이내·월 2회 한도 (서버가 검증).
+   * 좌표 없음: 코스 ID·거리·시각·사진 참조뿐 (위치 비저장 원칙).
+   */
+  submitClaim(input: {
+    courseId: string;
+    walkedAt: number;
+    distanceM: number;
+    photos: string[];
+  }): Promise<{ claimId: number; status: string }> {
+    return this.#request('POST', '/claims', input, true);
+  }
+
+  /** 클레임 목록 (비서명 공개) — status 필터 가능 (예: 'OPEN'). */
+  async getClaims(status?: string): Promise<ClaimEntry[]> {
+    const q = status ? `/claims?status=${encodeURIComponent(status)}` : '/claims';
+    const res = await this.#request<{ claims: ClaimEntry[] }>('GET', q, null, false);
+    return res.claims;
+  }
+
+  /** 클레임 상세 — APPROVED면 grant가 붙는다 (본인 지갑에서 민팅). */
+  getClaim(claimId: number): Promise<ClaimDetail> {
+    return this.#request('GET', `/claims/${claimId}`, null, false);
+  }
+
+  /** 인정 투표 — 본인 클레임 불가·1인 1표. 기준 인원 도달 시 서버가 승인서 발행. */
+  voteClaim(claimId: number): Promise<ClaimVoteResult> {
+    return this.#request('POST', `/claims/${claimId}/vote`, {}, true);
+  }
+
+  // ── 커뮤니티: 완주 인증 게시판 (격려 코인 — 지시서 2.6) ──
+
+  /** 완주 인증 제출 — 요건(사진+데이터) 충족 시 즉시 격려 승인서 (완주 10 / 구간 3 SHV). */
+  submitCertificate(input: {
+    courseId: string;
+    kind: 'FULL' | 'SECTION';
+    photos: string[];
+    data: Record<string, unknown>;
+  }): Promise<{ certificateId: number; grant: SignedGrant }> {
+    return this.#request('POST', '/certificates', input, true);
+  }
+
+  // ── 커뮤니티: 소명 대기 목록 (지시서 3장 5절) ──
+
+  /** 소명 대기 회원 번호 목록 (비서명) — 수신 지갑들이 캐시해 수령 보류에 사용. */
+  async getFlaggedMembers(): Promise<FlaggedMemberEntry[]> {
+    const res = await this.#request<{ members: FlaggedMemberEntry[] }>('GET', '/limits/flagged', null, false);
+    return res.members;
   }
 
   // ── 메신저 릴레이 (서버는 암호문 봉투만 중계) ──

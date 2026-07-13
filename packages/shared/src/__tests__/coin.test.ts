@@ -11,6 +11,7 @@ import {
   mintWalkCoin,
   splitCoin,
   verifyCoin,
+  verifyGrant,
 } from '../coin';
 import type { Coin } from '../types';
 import { T0, walkKm } from './helpers';
@@ -216,6 +217,26 @@ describe('발행 승인서(GRANT) 계보 — 엔젤 보너스·클레임·격려
       provenance: { kind: 'GRANT', grant: { ...coin.provenance.grant, amountDshv: 9_999 } },
     };
     const verdict = verifyCoin(forged, { trustedIssuerKeys: trusted });
+    expect(verdict.valid).toBe(false);
+    expect(verdict.reasons).toContain('BAD_GRANT_SIGNATURE');
+  });
+
+  it('발행 키 유출 방어: kind별 상한 초과 grant는 서명이 유효해도 거부 (보안 감사 H-2)', () => {
+    // 유출된 발행 키로 정당하게 서명했지만 상한(엔젤 보너스 300)을 넘긴 grant
+    const grant = buildGrant(
+      {
+        kind: 'ANGEL_BONUS',
+        memberId: 'm-angel',
+        amountDshv: 100_000,
+        reference: 'leaked',
+        recipientPublicKey: bob.publicKeyHex,
+        issuerKeyId: 'promo-2026-q3',
+        issuedAt: T0,
+      },
+      promoKey,
+    );
+    expect(verifyGrant(grant)).toBe(false);
+    const verdict = verifyCoin(mintGrantCoin(grant), { trustedIssuerKeys: trusted });
     expect(verdict.valid).toBe(false);
     expect(verdict.reasons).toContain('BAD_GRANT_SIGNATURE');
   });

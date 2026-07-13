@@ -1,0 +1,410 @@
+/* shvilist.org — 걷는 사람의 기록·인증 공간. web-angel과 같은 초록 톤 계열.
+   RTL 대비: 물리 속성(left/right) 대신 논리 속성(inline-start/end)을 쓴다. */
+
+:root {
+  --green-900: #1d3b25;
+  --green-700: #2e6b3f;
+  --green-600: #3a7d4c;
+  --green-100: #e4f0e6;
+  --green-50: #f3f8f3;
+  --cream: #fdfbf6;
+  --ink: #26302a;
+  --ink-soft: #5b6a60;
+  --line: #dce5dd;
+  --warn-bg: #fdf3e4;
+  --warn-ink: #7a5a1e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family:
+    'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Noto Sans Hebrew',
+    'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.65;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--green-700);
+}
+
+/* ── 공통 레이아웃 ─────────────────────────────────────────── */
+
+.site-header {
+  background: var(--green-700);
+  color: #fff;
+}
+
+.site-nav {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0.7rem 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  color: #eaf5ec;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.nav-links a:hover {
+  text-decoration: underline;
+}
+
+.lang-select {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.site-main {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.6rem 1.2rem 3rem;
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: var(--green-50);
+  padding: 1.2rem;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.site-footer p {
+  margin: 0.25rem 0;
+}
+
+.footer-free {
+  color: var(--green-700);
+  font-weight: 600;
+}
+
+h1 {
+  color: var(--green-900);
+  font-size: 1.7rem;
+  margin: 0.5rem 0 1rem;
+}
+
+h2 {
+  color: var(--green-900);
+  font-size: 1.2rem;
+  margin: 1.8rem 0 0.6rem;
+}
+
+.muted {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin: 0.8rem 0;
+}
+
+.notice {
+  background: var(--green-100);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.8rem 1.1rem;
+  margin: 0.8rem 0;
+}
+
+.notice-warn {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border: 1px solid #f0dfc0;
+  border-radius: 10px;
+  padding: 0.8rem 1.1rem;
+  margin: 0.8rem 0;
+}
+
+.btn {
+  display: inline-block;
+  background: var(--green-700);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.3rem;
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--green-600);
+}
+
+.btn-secondary {
+  background: #fff;
+  color: var(--green-700);
+  border: 1.5px solid var(--green-700);
+}
+
+.btn-secondary:hover {
+  background: var(--green-50);
+}
+
+.btn[aria-disabled='true'] {
+  background: #a8bfae;
+  cursor: default;
+}
+
+.placeholder {
+  color: var(--ink-soft);
+  background: var(--green-50);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 0.8rem 1.1rem;
+}
+
+/* ── 홈 ────────────────────────────────────────────────────── */
+
+.hero {
+  background: linear-gradient(160deg, var(--green-50), var(--green-100));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 2.2rem 1.8rem;
+  margin-bottom: 1.6rem;
+}
+
+.hero h1 {
+  margin-top: 0;
+}
+
+.hero-vision {
+  max-width: 44rem;
+  font-size: 1.02rem;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-top: 1.4rem;
+  align-items: center;
+}
+
+.section-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.8rem;
+  margin: 0.6rem 0;
+}
+
+.section-card {
+  display: block;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.section-card:hover {
+  border-color: var(--green-600);
+}
+
+.section-card h3 {
+  margin: 0 0 0.3rem;
+  color: var(--green-900);
+  font-size: 1.02rem;
+}
+
+.section-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+/* ── 표 (코스·클레임·리더보드 공용) ─────────────────────────── */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.data-table th,
+.data-table td {
+  text-align: start;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+
+.data-table th {
+  background: var(--green-50);
+  color: var(--green-900);
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── 배지·진행 바 ──────────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  background: var(--green-100);
+  color: var(--green-900);
+  border-radius: 999px;
+  padding: 0.1rem 0.65rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.badge-strong {
+  background: var(--green-700);
+  color: #fff;
+}
+
+.badge-warn {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+.progress {
+  background: var(--green-50);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  height: 0.85rem;
+  overflow: hidden;
+  min-width: 8rem;
+}
+
+.progress-fill {
+  background: var(--green-600);
+  height: 100%;
+  border-radius: 999px;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* ── 갤러리 카드 ───────────────────────────────────────────── */
+
+.cert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.8rem;
+  margin: 0.8rem 0;
+}
+
+.cert-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+}
+
+.cert-card h3 {
+  margin: 0 0 0.35rem;
+  color: var(--green-900);
+  font-size: 1rem;
+}
+
+.cert-meta {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin: 0.15rem 0;
+}
+
+/* ── 필터 줄 ───────────────────────────────────────────────── */
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0.6rem 0 0.9rem;
+}
+
+.filter-row select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.92rem;
+  background: #fff;
+}
+
+.filter-chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.25rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.filter-chip[aria-pressed='true'] {
+  background: var(--green-700);
+  border-color: var(--green-700);
+  color: #fff;
+}
+
+/* ── 통계 리스트 (공시) ────────────────────────────────────── */
+
+.stat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.4rem 0;
+}
+
+.stat-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.stat-list li:last-child {
+  border-bottom: none;
+}

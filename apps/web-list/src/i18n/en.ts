@@ -1,0 +1,161 @@
+import type { Strings } from './types';
+
+/** English dictionary — default locale. */
+export const en: Strings = {
+  common: {
+    siteName: 'Shvil List',
+    tagline: 'You record it yourself, you attest it yourself — the walker’s record and proof space',
+    nav: {
+      courses: 'Course Registry',
+      claims: 'Claims Board',
+      certificates: 'Completion Gallery',
+      leaderboard: 'Top 100',
+    },
+    footer: {
+      angelLink: 'Shvil Angel — angel map & coin market (shvilangel.org)',
+      angelUrl: 'https://shvilangel.org',
+      motto: 'You record it yourself, you attest it yourself.',
+    },
+    serverUnreachable:
+      'Cannot reach the directory server. Please try again in a moment.',
+    loading: 'Loading…',
+    langLabel: 'Language',
+  },
+
+  home: {
+    heroTitle: 'You record it yourself, you attest it yourself',
+    vision:
+      'Shvil Coin is a currency born from footsteps on pilgrimage trails. No server issues it — ' +
+      'while you walk a registered course, it forms inside your own phone. Shvil List is the ' +
+      'record and proof space of those footsteps: register courses, certify completions, and let ' +
+      'the community redeem steps that went unrecorded. There is no server watching — what ' +
+      'watches is always the community.',
+    downloadCta: 'Download the wallet',
+    downloadNote: 'App release in preparation — opening soon.',
+    proofTitle: 'Journey proofs — attestation without location',
+    proofBody:
+      'Walk-proof summaries that you set to public in the app are published here. Only distance, ' +
+      'step count, and date are shown — location and route are never recorded, neither on the ' +
+      'phone nor on the server, so they cannot be shown.',
+    proofComingSoon: 'Public browsing of journey proofs is in preparation — it opens in a coming update.',
+    sectionsTitle: 'What you can do here',
+    sections: {
+      courses: {
+        title: 'Course Registry',
+        desc: 'Official and candidate courses, with promotion progress toward 100 completions.',
+      },
+      claims: {
+        title: 'Claims Board',
+        desc: 'The community procedure for redeeming steps the app failed to record.',
+      },
+      certificates: {
+        title: 'Completion Gallery',
+        desc: 'Completion and section certificates, with encouragement-coin issuance figures.',
+      },
+      leaderboard: {
+        title: 'Top 100 Leaderboard',
+        desc: 'The hall of fame of verified trekkers — the system’s living baseline.',
+      },
+    },
+  },
+
+  courses: {
+    title: 'Course Registry',
+    intro:
+      'Only steps on courses registered as pilgrimage trails become coins at the base rate ' +
+      '(1 km = 1 SHV). This is the official registry of those courses.',
+    officialTitle: 'Official courses',
+    officialEmpty: 'No official courses are registered yet.',
+    colName: 'Course name',
+    colSegments: 'Segments',
+    colDifficulty: 'Difficulty factor',
+    segmentsValue: (n) => `${n} segment${n === 1 ? '' : 's'}`,
+    difficultyValue: (v) => `×${v}`,
+    candidateTitle: 'Candidate courses (awaiting promotion)',
+    candidateEmpty: 'No candidate courses have been proposed yet.',
+    progressLabel: (n, threshold) => `currently ${n} of ${threshold} walkers`,
+    candidateNoMint:
+      'Candidate courses do not generate coins. Generation begins only after 100 or more completion records promote the course to official status.',
+    submitInApp: 'Proposing a new course and submitting completion records happens in the wallet app.',
+    statusOfficial: 'Official',
+    statusCandidate: 'Candidate',
+  },
+
+  claims: {
+    title: 'Claims Board',
+    intro:
+      'The redemption procedure for steps that were truly walked but produced no coins — the app ' +
+      'was left off, or an error occurred. When the community reviews and recognizes a claim, the ' +
+      'site’s claim issuing key signs a grant for the corresponding SHV.',
+    readOnlyNote:
+      'This page is read-only. Submitting claims and casting recognition votes happen in the wallet app, and only identity-verified users may take part.',
+    filterAll: 'All',
+    filterOpen: 'Under review',
+    filterApproved: 'Approved',
+    colCourse: 'Course',
+    colDistance: 'Distance',
+    colDate: 'Walked on',
+    colPhotos: 'Photos',
+    colVotes: 'Recognition votes',
+    colStatus: 'Status',
+    photosValue: (n) => `${n}`,
+    votesValue: (n, threshold) => `${n} / ${threshold}`,
+    statusLabel: (status) =>
+      status === 'OPEN' ? 'Under review' : status === 'APPROVED' ? 'Approved' : status,
+    empty: 'No claims to show.',
+    rulesTitle: 'Claim rules',
+    rule24h: 'Only claims filed within 24 hours of the walk are valid.',
+    ruleMonthly: 'Claims are limited to 2 per person per month.',
+    ruleVoters: 'Recognition votes are open to identity-verified users only, one vote per person.',
+    issuanceTitle: 'Claim issuance disclosure',
+    issuanceApproved: (n, shv) => `Approved claims: ${n} (total issued ${shv})`,
+    issuanceOpen: (n) => `Claims under review: ${n}`,
+  },
+
+  certificates: {
+    title: 'Completion Gallery',
+    intro:
+      'People who share information build the community. Post completion photos and trekking data, ' +
+      'and the site issues encouragement coins. These records also inform candidate-course promotion ' +
+      'reviews and claim recognition votes.',
+    rewardNote:
+      'Encouragement coins: course completion 10 SHV · section completion 3 SHV. No duplicate reward for the same course (one per person per course). A promotion limited in period and total volume.',
+    filterLabel: 'Course',
+    filterAll: 'All courses',
+    kindFull: 'Completion (10 SHV)',
+    kindSection: 'Section (3 SHV)',
+    photosValue: (n) => `${n} photo${n === 1 ? '' : 's'}`,
+    empty: 'No certificates have been posted yet.',
+    submitInApp: 'Submitting completion certificates happens in the wallet app.',
+    issuanceTitle: 'Encouragement coin issuance disclosure',
+    issuanceStats: (n, shv) => `Encouragement coins issued: ${n} (total ${shv})`,
+  },
+
+  leaderboard: {
+    title: 'Verified Trekkers — Top 100',
+    intro:
+      'The regional hall of fame of trekkers who hold a verification badge. With their explicit consent, only cumulative distance and total minted coins are published.',
+    noLocationNote:
+      'There is no location data — only distance and totals are public, and routes are never recorded anywhere.',
+    regionLabel: 'Region',
+    regionAll: 'All regions',
+    colRank: 'Rank',
+    colName: 'Name',
+    colRegion: 'Region',
+    colDistance: 'Distance',
+    colMinted: 'Total minted',
+    verifiedBadge: 'Verified',
+    distanceValue: (km) => `${km} km`,
+    empty: 'No trekkers are enrolled yet.',
+    baselineTitle: 'Human-limit baseline',
+    baselineDaily: (shv) => `Daily minting cap: ${shv}`,
+    baselineWeekly: (shv) => `Weekly plausibility ceiling: ${shv}`,
+    baselineRegionRow: (region, shv, members) =>
+      `${region} — ${members} verified trekker${members === 1 ? '' : 's'}, top total minted ${shv}`,
+    baselineCatch: 'Any minter who overtakes this baseline is caught automatically.',
+    flaggedTitle: 'Pending explanations',
+    flaggedCount: (n) => `Awaiting explanation: ${n}`,
+    flaggedNote:
+      'Anonymous tally. Cleared once the explanation is accepted; genuine coins already in circulation and other people’s trades are unaffected.',
+  },
+};

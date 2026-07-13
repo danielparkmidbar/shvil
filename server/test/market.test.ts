@@ -19,7 +19,7 @@ import {
 import { buildApp } from '../src/app';
 import { mintWalkCoinFor, register, signedInject, type TestIdentity } from './utils';
 
-const app = buildApp({ dbPath: ':memory:', feeBps: 250 });
+const app = buildApp({ dbPath: ':memory:', feeBps: 250, devMode: true });
 
 let aviva: TestIdentity; // 판매자 (엔젤)
 let noa: TestIdentity; // 구매자

@@ -192,4 +192,48 @@ describe('DirectoryApi', () => {
     expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 당사자 전용 — 서명 인증
     expect(escrow.status).toBe('COINS_SUBMITTED');
   });
+
+  // ── 커뮤니티 (M4) — 신뢰 키·소명 목록은 공개 조회, 클레임 접수는 서명 제출 ──
+
+  it('GET /keys·/limits/flagged는 비서명 공개, POST /claims는 서명 제출 — 응답 언랩', async () => {
+    let seenHeaders: Record<string, string> = {};
+    const publicApi = makeApi(
+      fakeFetch({
+        headers: (h) => (seenHeaders = h),
+        responseBody: { keys: [{ keyId: 'claim-2026', publicKey: 'aa', purpose: 'COMMUNITY_CLAIM' }] },
+      }),
+    );
+    const keys = await publicApi.getTrustedKeys();
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBeUndefined(); // 공개 — 지갑들이 캐시한다
+    expect(keys[0]!.purpose).toBe('COMMUNITY_CLAIM');
+
+    const flaggedApi = makeApi(
+      fakeFetch({
+        headers: (h) => (seenHeaders = h),
+        responseBody: { members: [{ memberId: 'SHV-000009', reason: 'baseline', flaggedAt: 1 }] },
+      }),
+    );
+    const flagged = await flaggedApi.getFlaggedMembers();
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBeUndefined(); // 공개 배포 — 수령 보류용
+    expect(flagged[0]!.memberId).toBe('SHV-000009');
+
+    let claimUrl = '';
+    const signedApi = makeApi(
+      fakeFetch({
+        url: (u) => (claimUrl = u),
+        headers: (h) => (seenHeaders = h),
+        responseBody: { claimId: 11, status: 'OPEN' },
+      }),
+    );
+    const res = await signedApi.submitClaim({
+      courseId: 'shvil-israel-north',
+      walkedAt: NOW - 3_600_000,
+      distanceM: 12_500, // 좌표 없음 — 코스 ID·거리·시각뿐 (위치 비저장 원칙)
+      photos: ['sha256:abc'],
+    });
+    expect(claimUrl).toBe('http://localhost:8787/claims');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 서명 인증
+    expect(seenHeaders[AUTH_HEADER_SIG]).toBeTruthy();
+    expect(res.claimId).toBe(11);
+  });
 });

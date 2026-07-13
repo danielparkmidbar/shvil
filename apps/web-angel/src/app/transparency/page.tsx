@@ -19,9 +19,10 @@ import {
   type MarketTransparency,
   type PromoTransparency,
 } from '@/lib/api';
-import { t } from '@/i18n';
+import { useI18n } from '@/i18n';
 
 export default function TransparencyPage() {
+  const { t } = useI18n();
   const [promo, setPromo] = useState<PromoTransparency | null>(null);
   const [market, setMarket] = useState<MarketTransparency | null>(null);
   const [serverDown, setServerDown] = useState(false);
