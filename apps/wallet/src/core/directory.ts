@@ -6,7 +6,7 @@
  * 캐시 대상은 공개 데이터뿐이다 — 코스 폴리라인, 엔젤 포인트(본인 자발 공개),
  * 프로모션 발행 공개키. 사용자 이동 궤적 좌표는 어디에도 저장하지 않는다.
  */
-import type { CourseData, Signed } from '@shvil/shared';
+import { coinFingerprint, type CourseData, type Signed } from '@shvil/shared';
 import {
   DEFAULT_SERVER_URL,
   DirectoryApi,
@@ -15,7 +15,7 @@ import {
   type TrustedKeyInfo,
 } from './api';
 import { DIST_PIN_KEY, guardDistribution } from './distributionGuard';
-import { kvGet, kvSet } from './db';
+import { kvGet, kvSet, loadCoinsForSync } from './db';
 import { FLAGGED_CACHE_KEY, parseFlaggedCache } from './flagged';
 import { getIntegrityToken } from './integrity';
 import { isProvisionalMemberId } from './identity';
@@ -121,6 +121,22 @@ export async function renewMembershipIfDue(now: number = Date.now()): Promise<vo
   const { platform, token } = await getIntegrityToken();
   const { membershipCertificate } = await directoryApi.refreshCertificate({ integrityToken: token, platform });
   await wallet.applyMembership(membershipCertificate, token);
+}
+
+// ── 기회적 동기화 (보안 감사 H-1, 지시서 2.3·3장 4절) ────────────
+
+/**
+ * 보유·사용 완료 코인의 지문을 서버에 제출한다 — 사후 이중 사용·초과 생성 대조.
+ * 온라인일 때만 성공하며(기회적), 실패는 무해하다(다음 기회에 재제출).
+ * 미가입(임시 번호)이면 skip — 제출은 서명 인증이 필요하다.
+ * 좌표는 지문에 없다. 코인에 이미 새겨져 유통되는 공개 정보뿐이다.
+ */
+export async function syncCoinFingerprints(): Promise<number> {
+  if (isProvisionalMemberId(wallet.identity.memberId)) return 0;
+  const coins = await loadCoinsForSync();
+  if (coins.length === 0) return 0;
+  const { accepted } = await directoryApi.syncCoinFingerprints(coins.map(coinFingerprint));
+  return accepted;
 }
 
 // ── 소명 대기 목록 (지시서 3장 5절 — 수신 지갑의 수령 보류) ───────

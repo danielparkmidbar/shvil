@@ -154,6 +154,30 @@ export function createDb(path: string): DatabaseSync {
       status TEXT NOT NULL, -- PENDING | CLEARED
       flagged_at INTEGER NOT NULL
     );
+    -- 기회적 동기화 지문 (보안 감사 H-1, 지시서 2.3·3장 4절) — 사후 이상 탐지 통계.
+    -- 좌표·경로 없음: 코인 ID·계보 요약·주소뿐 (코인에 이미 새겨진 공개 정보).
+    CREATE TABLE IF NOT EXISTS coin_sightings (
+      coin_id TEXT NOT NULL,
+      chain_len INTEGER NOT NULL,
+      owner_address TEXT NOT NULL,
+      last_from_address TEXT,
+      producer_member TEXT NOT NULL,
+      amount_dshv INTEGER NOT NULL,
+      root_kind TEXT NOT NULL,
+      reporter_member TEXT NOT NULL,
+      reported_at INTEGER NOT NULL,
+      PRIMARY KEY (coin_id, chain_len, owner_address)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sightings_coin ON coin_sightings(coin_id, chain_len);
+    -- 걷기 증명 통계 — 회원별 일자 합산으로 초과 생성 포착 (proofHash당 1회 dedup)
+    CREATE TABLE IF NOT EXISTS walk_proof_stats (
+      proof_hash TEXT PRIMARY KEY,
+      producer_member TEXT NOT NULL,
+      breakdown_json TEXT NOT NULL,
+      total_dshv INTEGER NOT NULL,
+      first_seen INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_proof_stats_member ON walk_proof_stats(producer_member);
   `);
   return db;
 }

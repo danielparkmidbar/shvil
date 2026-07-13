@@ -13,6 +13,7 @@
  */
 import {
   buildAuthHeaders,
+  type CoinFingerprint,
   type CourseData,
   type Coin,
   type GeoPoint,
@@ -460,6 +461,16 @@ export class DirectoryApi {
    */
   getFlaggedMembers(): Promise<Signed<{ members: FlaggedMemberEntry[] }>> {
     return this.#request('GET', '/limits/flagged', null, false);
+  }
+
+  // ── 기회적 동기화 (보안 감사 H-1) — 사후 이중 사용·초과 생성 대조 ──
+
+  /**
+   * 코인 지문 일괄 제출 (서명 인증). 좌표 없음 — 코인에 이미 새겨진 공개 정보뿐.
+   * 응답은 수리 개수뿐 — 대조 결과로 타인을 정찰할 수 없다.
+   */
+  syncCoinFingerprints(fingerprints: CoinFingerprint[]): Promise<{ accepted: number }> {
+    return this.#request('POST', '/sync/coins', { fingerprints }, true);
   }
 
   // ── 메신저 릴레이 (서버는 암호문 봉투만 중계) ──

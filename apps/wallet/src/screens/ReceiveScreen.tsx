@@ -9,6 +9,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { encodeQr, RECOMMENDED_PRICES_DSHV, type ChargeMessage, type ConfirmMessage } from '@shvil/shared';
 import { wallet } from '../core/walletService';
 import { maybeClaimFirstHosting } from '../core/angelService';
+import { syncCoinFingerprints } from '../core/directory';
 import { QrScanner } from '../ui/QrScanner';
 import { Card, Muted, Title, colors, fmtShv } from '../ui/common';
 
@@ -48,6 +49,9 @@ export function ReceiveScreen() {
       .acceptIncomingPayment(data, Date.now())
       .then((confirm) => {
         setStep({ name: 'showConfirm', confirm, amountDshv: charge.amountDshv });
+        // 기회적 동기화(H-1): 수령 직후 온라인이면 지문 즉시 제출 — 이중 사용
+        // 사후 포착의 지연을 줄인다. 오프라인(광야)이면 다음 기회에.
+        syncCoinFingerprints().catch(() => {});
         // 첫 접대 보너스(30 SHV, 지시서 2.4): 엔젤 모드이고 미수령이면 방금 받은
         // 수령 코인을 증빙으로 자동 청구. 오프라인 실패는 조용히 넘어간다 —
         // 내 포인트 화면의 수동 재시도 버튼으로 나중에 청구할 수 있다.

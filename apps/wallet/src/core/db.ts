@@ -88,6 +88,18 @@ export async function loadOwnedCoins(): Promise<StoredCoin[]> {
   }));
 }
 
+/**
+ * 기회적 동기화 대상 코인 (보안 감사 H-1) — 보유·사용 완료 코인의 지문을 서버에
+ * 제출해 사후 이중 사용·초과 생성 대조에 기여한다. 최근 것부터 최대 500개.
+ */
+export async function loadCoinsForSync(): Promise<Coin[]> {
+  const d = await openDb();
+  const rows = await d.getAllAsync<{ json: string }>(
+    "SELECT json FROM coins WHERE status IN ('OWNED', 'SPENT') ORDER BY created_at DESC LIMIT 500",
+  );
+  return rows.map((r) => JSON.parse(r.json) as Coin);
+}
+
 export async function saveReceipt(confirm: ConfirmMessage, amountDshv: number, now: number): Promise<void> {
   const d = await openDb();
   await d.runAsync(

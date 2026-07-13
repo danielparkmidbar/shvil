@@ -21,3 +21,4 @@ export * from './messaging';
 export * from './apiAuth';
 export * from './sealing';
 export * from './distribution';
+export * from './fingerprint';

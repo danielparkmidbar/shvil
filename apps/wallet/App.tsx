@@ -10,7 +10,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { wallet } from './src/core/walletService';
 import { chatService } from './src/core/chatService';
-import { renewMembershipIfDue, syncCourses, syncFlaggedList } from './src/core/directory';
+import { renewMembershipIfDue, syncCoinFingerprints, syncCourses, syncFlaggedList } from './src/core/directory';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WalkScreen } from './src/screens/WalkScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
@@ -70,6 +70,9 @@ export default function App() {
         syncFlaggedList().catch(() => {});
         // 회원 증서 갱신 (보안 감사 C-2) — 만료 임박·부재 시 재발급. 온라인 전용·실패 무시.
         renewMembershipIfDue().catch(() => {});
+        // 기회적 동기화 (보안 감사 H-1) — 코인 지문 제출로 사후 이중 사용·초과 생성
+        // 대조에 기여. 승인 아님·실패 무해 (다음 온라인 기회에 재제출).
+        syncCoinFingerprints().catch(() => {});
         chatService.startPolling();
       })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
