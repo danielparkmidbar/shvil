@@ -37,6 +37,10 @@ export function createDb(path: string): DatabaseSync {
       visible INTEGER NOT NULL DEFAULT 1,
       -- 소속 트레일 지역 (150개국 확장). 현재 LIVE는 이스라엘 하나 — 기본값.
       region_id TEXT NOT NULL DEFAULT 'israel-national',
+      -- M6 예약 (R-3): 엔젤이 자발 공개하는 "지금 손님을 받을 수 있는가" 수준만.
+      -- 구체 날짜·캘린더는 서버에 없다 — 그것은 E2E 메시지로만 오간다.
+      available INTEGER NOT NULL DEFAULT 1,
+      availability_updated_at INTEGER,
       registered_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS promo_grants (
@@ -194,7 +198,21 @@ export function createDb(path: string): DatabaseSync {
     );
   `);
   migrateFlaggedMembers(db);
+  migrateAngelsAvailability(db);
   return db;
+}
+
+/**
+ * 구 스키마 이행 (M6): angels에 가능 여부 컬럼 추가.
+ * 기존 엔젤은 available=1(가능)로 시작 — 갱신 시각은 본인이 처음 설정할 때 채워진다.
+ */
+function migrateAngelsAvailability(db: DatabaseSync): void {
+  const cols = db.prepare('PRAGMA table_info(angels)').all() as unknown as { name: string }[];
+  if (cols.length === 0 || cols.some((c) => c.name === 'available')) return;
+  db.exec(`
+    ALTER TABLE angels ADD COLUMN available INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE angels ADD COLUMN availability_updated_at INTEGER;
+  `);
 }
 
 /**

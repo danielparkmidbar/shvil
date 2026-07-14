@@ -7,6 +7,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { chatService, useChat } from '../core/chatService';
+import { chatPreviewText } from '../core/bookingFormat';
 import { isProvisionalMemberId } from '../core/identity';
 import { useWallet } from '../core/walletService';
 import { Card, Muted, Title, colors } from '../ui/common';
@@ -52,7 +53,11 @@ export function MessagesScreen() {
               <Text style={styles.time}>{new Date(item.sentAt).toLocaleString()}</Text>
             </View>
             <Muted>
-              {(item.direction === 'OUT' ? '나: ' : '') + (item.text.length > 60 ? `${item.text.slice(0, 60)}…` : item.text)}
+              {(() => {
+                // M6: 구조화 예약 메시지는 원문 JSON 대신 한 줄 요약으로.
+                const preview = chatPreviewText(item.text);
+                return (item.direction === 'OUT' ? '나: ' : '') + (preview.length > 60 ? `${preview.slice(0, 60)}…` : preview);
+              })()}
             </Muted>
           </Pressable>
         )}

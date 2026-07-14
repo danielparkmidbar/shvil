@@ -79,6 +79,8 @@ export const ko: Strings = {
     angelCount: (n) => `엔젤 ${n}곳`,
     capacity: (n) => `수용 인원 ${n}명`,
     conditionsLabel: '수용 조건',
+    availableBadge: '지금 손님 받는 중',
+    unavailableBadge: '지금은 어려움',
     approxLocation:
       '대략적 위치입니다 — 정확한 위치는 엔젤이 신청을 승인한 뒤 지갑 메시지로 전달됩니다.',
     requestCta: '지갑 앱에서 투숙 신청',

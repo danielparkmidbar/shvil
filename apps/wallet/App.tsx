@@ -1,6 +1,7 @@
 /**
  * 쉬빌 지갑 — 하나의 앱, 두 모드 (M2: 엔젤 모드 + 메신저 + 디렉토리 연동).
  * 탭: 홈 · 걷기 · 지갑 · 거래(지불/수령) · 더보기(엔젤 지도·메시지·내 포인트·가입/설정).
+ * M6: 엔젤 모드에서는 "손님" 탭(투숙 신청 수신함)이 추가된다 (재조정 §2-3).
  */
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -8,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { wallet } from './src/core/walletService';
+import { useWallet, wallet } from './src/core/walletService';
 import { chatService } from './src/core/chatService';
 import { renewMembershipIfDue, syncCoinFingerprints, syncCourses, syncFlaggedList } from './src/core/directory';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -19,6 +20,8 @@ import { MoreScreen } from './src/screens/MoreScreen';
 import { AngelMapScreen } from './src/screens/AngelMapScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { BookingRequestScreen } from './src/screens/BookingRequestScreen';
+import { GuestsScreen } from './src/screens/GuestsScreen';
 import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
 import { CommunityScreen } from './src/screens/CommunityScreen';
@@ -31,6 +34,7 @@ const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 
 const TAB_ICON: Record<string, string> = {
   홈: '🏠',
+  손님: '🛎',
   걷기: '🚶',
   지갑: '👛',
   거래: '🔄',
@@ -47,6 +51,11 @@ function MoreStackScreen() {
         name="채팅"
         component={ChatScreen}
         options={({ route }) => ({ headerTitle: route.params.peerName })}
+      />
+      <MoreStack.Screen
+        name="투숙 신청"
+        component={BookingRequestScreen}
+        options={({ route }) => ({ headerTitle: `투숙 신청 — ${route.params.peerName}` })}
       />
       <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
       <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
@@ -103,19 +112,31 @@ export default function App() {
   return (
     <NavigationContainer>
       <StatusBar style="auto" />
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerTitle: `쉬빌 — ${route.name}`,
-          tabBarIcon: () => <Text>{TAB_ICON[route.name] ?? '·'}</Text>,
-        })}
-      >
-        <Tab.Screen name="홈" component={HomeScreen} />
-        <Tab.Screen name="걷기" component={WalkScreen} />
-        <Tab.Screen name="지갑" component={WalletScreen} />
-        <Tab.Screen name="거래" component={TransactScreen} />
-        <Tab.Screen name="더보기" component={MoreStackScreen} options={{ headerShown: false }} />
-      </Tab.Navigator>
+      <RootTabs />
     </NavigationContainer>
+  );
+}
+
+/**
+ * 탭 구성 — 모드에 따라 달라진다 (재조정 §2-3/§2-4).
+ * 엔젤 모드: 손님(투숙 신청 수신함) 탭이 홈 다음에 추가된다. 리스트 모드는 기존 그대로.
+ */
+function RootTabs() {
+  const w = useWallet();
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerTitle: `쉬빌 — ${route.name}`,
+        tabBarIcon: () => <Text>{TAB_ICON[route.name] ?? '·'}</Text>,
+      })}
+    >
+      <Tab.Screen name="홈" component={HomeScreen} />
+      {w.mode === 'ANGEL' && <Tab.Screen name="손님" component={GuestsScreen} />}
+      <Tab.Screen name="걷기" component={WalkScreen} />
+      <Tab.Screen name="지갑" component={WalletScreen} />
+      <Tab.Screen name="거래" component={TransactScreen} />
+      <Tab.Screen name="더보기" component={MoreStackScreen} options={{ headerShown: false }} />
+    </Tab.Navigator>
   );
 }
 

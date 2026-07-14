@@ -82,6 +82,8 @@ export const es: Strings = {
     angelCount: (n) => `${n} ángel${n === 1 ? '' : 'es'}`,
     capacity: (n) => `Capacidad: ${n} huésped${n === 1 ? '' : 'es'}`,
     conditionsLabel: 'Condiciones de acogida',
+    availableBadge: 'Recibe huéspedes ahora',
+    unavailableBadge: 'No recibe huéspedes por ahora',
     approxLocation:
       'Esta es una ubicación aproximada — la ubicación exacta se comparte por mensaje de la billetera después de que el ángel apruebe la solicitud.',
     requestCta: 'Solicitar alojamiento desde la aplicación de billetera',

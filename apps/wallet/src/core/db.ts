@@ -203,6 +203,28 @@ export async function loadChatMessages(peerMemberId: string): Promise<ChatMessag
   }));
 }
 
+/**
+ * 전체 대화 메시지 (M6 예약 — 손님 수신함용). 메시지함에서 BOOKING_REQUEST/REPLY를
+ * 추려내는 스캔에 쓴다. 평문은 이 기기 안에만 있다 (서버는 암호문만 중계).
+ */
+export async function loadAllChatMessages(): Promise<ChatMessageRow[]> {
+  const d = await openDb();
+  const rows = await d.getAllAsync<{
+    id: number;
+    peer_member_id: string;
+    direction: string;
+    text: string;
+    sent_at: number;
+  }>('SELECT * FROM chat_messages ORDER BY sent_at ASC, id ASC');
+  return rows.map((r) => ({
+    id: r.id,
+    peerMemberId: r.peer_member_id,
+    direction: r.direction as ChatDirection,
+    text: r.text,
+    sentAt: r.sent_at,
+  }));
+}
+
 /** 대화 상대별 마지막 메시지 (대화 목록 화면용). */
 export async function loadChatSummaries(): Promise<ChatMessageRow[]> {
   const d = await openDb();

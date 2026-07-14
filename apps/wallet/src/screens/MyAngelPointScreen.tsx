@@ -33,6 +33,8 @@ export function MyAngelPointScreen() {
   const [name, setName] = useState('');
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [visible, setVisible] = useState(true);
+  /** M6 (R-3): "지금 손님 받기 가능" — 가능 여부 수준만 자발 공개. */
+  const [available, setAvailable] = useState(true);
   const [bed, setBed] = useState<BedService>('ROOM');
   const [internet, setInternet] = useState(false);
   const [shower, setShower] = useState(false);
@@ -48,6 +50,7 @@ export function MyAngelPointScreen() {
       setName(p.name);
       setLocation(p.location);
       setVisible(p.visible);
+      setAvailable(p.available !== false);
       setBed(p.services.bed);
       setInternet(p.services.internet);
       setShower(p.services.shower);
@@ -90,6 +93,7 @@ export function MyAngelPointScreen() {
       capacity,
       conditions: conditions.trim(),
       visible,
+      available,
     };
     setBusy(true);
     void saveAngelProfile(profile)
@@ -106,6 +110,34 @@ export function MyAngelPointScreen() {
         }
       })
       .catch((e) => Alert.alert('저장 실패', String(e instanceof Error ? e.message : e)))
+      .finally(() => setBusy(false));
+  };
+
+  /**
+   * M6 (R-3): 가능 여부 토글 — 프로필이 갖춰져 있으면 즉시 서버에 반영한다.
+   * 서버에 가는 것은 "지금 손님을 받을 수 있는가" + 갱신 시각뿐 — 날짜·캘린더 없음.
+   */
+  const toggleAvailable = (on: boolean) => {
+    setAvailable(on);
+    if (!name.trim() || !location) return; // 아직 미등록 — "저장" 때 함께 반영된다.
+    const capacity = Math.max(1, parseInt(capacityText, 10) || 1);
+    const profile: AngelProfileInput = {
+      name: name.trim(),
+      location,
+      services: { bed, internet, shower, meal },
+      capacity,
+      conditions: conditions.trim(),
+      visible,
+      available: on,
+    };
+    setBusy(true);
+    void saveAngelProfile(profile)
+      .then((result) => {
+        if (!result.synced) {
+          Alert.alert('로컬 저장됨', `서버 반영에 실패했습니다.\n${result.syncError ?? ''}\n온라인이 되면 "저장"을 다시 누르세요.`);
+        }
+      })
+      .catch((e) => Alert.alert('반영 실패', String(e instanceof Error ? e.message : e)))
       .finally(() => setBusy(false));
   };
 
@@ -169,6 +201,16 @@ export function MyAngelPointScreen() {
           <Switch value={visible} onValueChange={setVisible} />
         </View>
         <Muted>공개 여부는 언제든 바꿀 수 있습니다 — 엔젤의 자율입니다.</Muted>
+
+        <View style={styles.row}>
+          <Text>지금 손님 받기 가능</Text>
+          <Switch value={available} onValueChange={toggleAvailable} disabled={busy} />
+        </View>
+        <Muted>
+          걷는 사람들의 지도에 "지금 손님 받는 중 / 지금은 어려움"으로 표시됩니다. 공개되는
+          것은 이 가능 여부와 갱신 시각뿐 — 구체 날짜는 신청·회신 메시지로만 오갑니다.
+          꺼도 신청은 받을 수 있으며, 수락 여부는 언제나 엔젤의 결정입니다.
+        </Muted>
       </Card>
 
       <Card>

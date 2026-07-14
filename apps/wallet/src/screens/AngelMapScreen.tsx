@@ -31,6 +31,8 @@ interface AngelListItem {
   conditions: string;
   capacity: number | null;
   messagingPublicKey: string | null;
+  /** M6 (R-3): 엔젤이 자발 공개한 "지금 손님 받기 가능" 여부. null = 미상(캐시·샘플). */
+  available: boolean | null;
   sample: boolean;
 }
 
@@ -91,6 +93,7 @@ export function AngelMapScreen() {
             conditions: a.conditions,
             capacity: a.capacity,
             messagingPublicKey: a.messagingPublicKey,
+            available: a.available ?? null,
             sample: false,
           }));
       } else {
@@ -103,6 +106,7 @@ export function AngelMapScreen() {
           conditions: '',
           capacity: null,
           messagingPublicKey: null,
+          available: null,
           sample: true,
         }));
       }
@@ -131,6 +135,24 @@ export function AngelMapScreen() {
     })();
   };
 
+  /** M6: 투숙 신청 폼으로 (R-7: 신청은 지갑에서만). available=false여도 신청은 가능 — 강제 아님. */
+  const openBooking = (item: AngelListItem) => {
+    void (async () => {
+      if (item.messagingPublicKey) {
+        await chatService.registerPeer({
+          memberId: item.memberId,
+          name: item.name,
+          messagingPublicKey: item.messagingPublicKey,
+        });
+      }
+      navigation.navigate('투숙 신청', {
+        peerMemberId: item.memberId,
+        peerName: item.name,
+        ...(item.available !== null ? { available: item.available } : {}),
+      });
+    })();
+  };
+
   return (
     <View style={styles.screen}>
       <Card>
@@ -156,16 +178,31 @@ export function AngelMapScreen() {
                 {item.distanceKm !== null ? `${item.distanceKm.toFixed(1)} km` : '거리 미상'}
               </Text>
             </View>
+            {item.available !== null && (
+              <Text style={item.available ? styles.availOn : styles.availOff}>
+                {item.available ? '🟢 지금 손님 받는 중' : '⏸ 지금은 어려움'}
+              </Text>
+            )}
             {item.services && <Text style={styles.icons}>{serviceIcons(item.services)}</Text>}
             {item.capacity !== null && <Muted>수용 {item.capacity}명{item.conditions ? ` · ${item.conditions}` : ''}</Muted>}
             {item.sample && <Muted>샘플 데이터 — 메시지는 실제 등록 엔젤에게만 보낼 수 있습니다</Muted>}
-            <View style={styles.msgBtn}>
-              <Button
-                title="메시지 보내기"
-                color={colors.primary}
-                onPress={() => openChat(item)}
-                disabled={item.sample && !item.messagingPublicKey}
-              />
+            <View style={styles.btnRow}>
+              <View style={styles.btnCol}>
+                <Button
+                  title={item.available === false ? '투숙 신청 (지금은 어려움)' : '투숙 신청'}
+                  color={item.available === false ? colors.muted : colors.primary}
+                  onPress={() => openBooking(item)}
+                  disabled={item.sample && !item.messagingPublicKey}
+                />
+              </View>
+              <View style={styles.btnCol}>
+                <Button
+                  title="메시지"
+                  color={colors.detour}
+                  onPress={() => openChat(item)}
+                  disabled={item.sample && !item.messagingPublicKey}
+                />
+              </View>
             </View>
           </View>
         )}
@@ -182,5 +219,8 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '700' },
   dist: { fontSize: 14, fontWeight: '700', color: colors.primary },
   icons: { fontSize: 18, marginBottom: 4 },
-  msgBtn: { marginTop: 8 },
+  availOn: { fontSize: 13, fontWeight: '700', color: colors.primary, marginBottom: 2 },
+  availOff: { fontSize: 13, fontWeight: '700', color: colors.warn, marginBottom: 2 },
+  btnRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  btnCol: { flex: 1 },
 });

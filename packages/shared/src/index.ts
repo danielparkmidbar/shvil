@@ -18,6 +18,7 @@ export * from './qr';
 export * from './encoding';
 export * from './courses';
 export * from './messaging';
+export * from './booking';
 export * from './apiAuth';
 export * from './sealing';
 export * from './distribution';

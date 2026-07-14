@@ -51,6 +51,11 @@ export interface AngelProfileInput {
   capacity: number;
   conditions: string;
   visible: boolean;
+  /**
+   * M6 예약 (R-3): "지금 손님 받기 가능" 자발 공개 — 가능 여부 수준만.
+   * 구체 날짜·캘린더는 서버로 가지 않는다 (E2E 메시지로만). 미지정 시 서버가 기존 값 유지.
+   */
+  available?: boolean;
 }
 
 /** 디렉토리의 엔젤 항목 (GET /angels). */
@@ -59,6 +64,8 @@ export interface AngelDirectoryEntry extends AngelProfileInput {
   messagingPublicKey: string;
   devicePublicKey: string;
   distanceKm?: number;
+  /** 가능 여부 갱신 시각 (R-3) — 엔젤이 아직 설정한 적 없으면 null. */
+  availabilityUpdatedAt?: number | null;
 }
 
 export interface RegisterArgs {

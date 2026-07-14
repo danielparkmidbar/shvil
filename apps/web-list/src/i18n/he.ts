@@ -79,6 +79,8 @@ export const he: Strings = {
     angelCount: (n) => (n === 1 ? 'מלאך אחד' : `${n} מלאכים`),
     capacity: (n) => (n === 1 ? 'קיבולת: אורח אחד' : `קיבולת: ${n} אורחים`),
     conditionsLabel: 'תנאי האירוח',
+    availableBadge: 'מקבלים אורחים עכשיו',
+    unavailableBadge: 'לא מארחים כרגע',
     approxLocation:
       'זהו מיקום משוער — המיקום המדויק נמסר בהודעת ארנק לאחר שהמלאך מאשר את הבקשה.',
     requestCta: 'בקשת לינה מאפליקציית הארנק',

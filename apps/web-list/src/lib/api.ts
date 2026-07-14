@@ -56,6 +56,12 @@ export interface AngelEntry {
   capacity: number;
   conditions: string | null;
   visible: boolean;
+  /**
+   * M6 예약 (R-3): 엔젤이 자발 공개한 "지금 손님 받기 가능" 여부 + 갱신 시각.
+   * 서버가 아는 것은 이 수준뿐 — 구체 날짜·캘린더는 승인된 두 사람의 E2E 메시지로만.
+   */
+  available?: boolean;
+  availabilityUpdatedAt?: number | null;
   regionId?: string;
   distanceKm?: number;
 }

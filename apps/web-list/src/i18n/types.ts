@@ -76,6 +76,9 @@ export interface Strings {
     angelCount: (n: number) => string;
     capacity: (n: number) => string;
     conditionsLabel: string;
+    /** M6 (R-3): 가능 여부 배지 — 서버 공개는 이 수준뿐 (구체 날짜는 E2E로만). */
+    availableBadge: string;
+    unavailableBadge: string;
     /** R-4: "대략적 위치입니다 — 정확한 위치는 승인 후 지갑 메시지로" 안내. */
     approxLocation: string;
     /** 딥링크 버튼 — "지갑 앱에서 투숙 신청" (웹 신청 불허, R-7). */

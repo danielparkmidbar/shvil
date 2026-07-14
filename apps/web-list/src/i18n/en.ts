@@ -80,6 +80,8 @@ export const en: Strings = {
     angelCount: (n) => `${n} angel${n === 1 ? '' : 's'}`,
     capacity: (n) => `Capacity: ${n} guest${n === 1 ? '' : 's'}`,
     conditionsLabel: 'Hosting conditions',
+    availableBadge: 'Open to guests now',
+    unavailableBadge: 'Not hosting right now',
     approxLocation:
       'This is an approximate location — the exact location is shared by wallet message after the angel approves your request.',
     requestCta: 'Request a stay in the wallet app',

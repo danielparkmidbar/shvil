@@ -4,7 +4,8 @@
  *
  * 실행: 서버 기동 후 `npx tsx scripts/e2e-sim.ts`
  * 다루는 것: 걷기 민팅 · 가입/회원증서 · 배포 서명 검증(TOFU) · QR 왕복 지불(로컬
- * 서명) · 첫 접대 보너스 · 마켓 에스크로 · 이중지불 사후 탐지 · 니모닉 백업/복구.
+ * 서명) · 첫 접대 보너스 · 마켓 에스크로 · 이중지불 사후 탐지 · 니모닉 백업/복구 ·
+ * 예약 왕복(M6 — E2E 신청→승인→정확 위치 전달, 서버는 암호문만).
  */
 import {
   PendingWalkLedger,
@@ -23,13 +24,23 @@ import {
   generateMnemonic,
   mintGrantCoin,
   mintWalkCoin,
+  newBookingRequestId,
+  openMessage,
+  parseBookingPayload,
+  sealMessage,
+  serializeBookingPayload,
   signerFromKeyPair,
+  snapToPrivacyGrid,
   stableStringify,
   verifyCoin,
   verifyDistribution,
   verifyMembershipCertificate,
+  type BookingReplyPayload,
+  type BookingRequestPayload,
   type Coin,
   type MembershipCertificate,
+  type MessageEnvelope,
+  type MessagingKeyPair,
   type Signer,
   type WalkSample,
   type WalletBackup,
@@ -61,6 +72,8 @@ async function api(method: string, path: string, body?: unknown, headers: Record
 interface Wallet {
   memberId: string;
   signer: Signer;
+  /** E2E 메신저 키쌍 — 예약 왕복(M6)에서 봉인·개봉에 쓴다. */
+  msg: MessagingKeyPair;
   mnemonic: string;
   backupKeyHex: string;
   cert: MembershipCertificate;
@@ -92,6 +105,7 @@ async function joinWallet(phone: string, email: string, name: string): Promise<W
   return {
     memberId: reg.json.memberId,
     signer,
+    msg,
     mnemonic,
     backupKeyHex: derived.backupKeyHex,
     cert: reg.json.membershipCertificate as MembershipCertificate,
@@ -229,8 +243,111 @@ async function main() {
   const restored = decryptBackup(down.json.blob, recovered.backupKeyHex);
   check('니모닉으로 확정 코인 복구 (17.3 SHV)', restored.coins.length === 1 && restored.coins[0]!.id === liorCoin.id);
 
-  // 10) 거래 승인 엔드포인트 부재 (헌법 제9조)
-  console.log('\n[10] 무승인 시스템 확인 (헌법 제9조)');
+  // 10) 예약 왕복 (M6) — E2E 신청 → 승인 → 정확 위치 전달. 서버는 암호문만 중계한다.
+  console.log('\n[10] 예약 왕복 — 신청→승인→정확 위치 E2E 전달 (M6)');
+  const AVIVA_PROFILE = {
+    name: '아비바의 집',
+    location: { lat: 33.229, lon: 35.655 },
+    services: { bed: 'ROOM', internet: true, shower: true, meal: true },
+    capacity: 3,
+    visible: true,
+  };
+  // R-3: 가능 여부 자발 공개 — 서버가 아는 것은 이 수준뿐.
+  await signedApi(aviva, 'PUT', '/angels/me', { ...AVIVA_PROFILE, available: false });
+  const dirOff = await api('GET', '/angels');
+  const angelOff = (dirOff.json.angels as { memberId: string; available: boolean; availabilityUpdatedAt: number | null }[]).find(
+    (a) => a.memberId === aviva.memberId,
+  );
+  check('가능 여부(지금은 어려움)가 갱신 시각과 함께 공개된다 (R-3)', angelOff?.available === false && typeof angelOff?.availabilityUpdatedAt === 'number');
+  await signedApi(aviva, 'PUT', '/angels/me', { ...AVIVA_PROFILE, available: true });
+  const dirOn = await api('GET', '/angels');
+  const angelOn = (dirOn.json.angels as { memberId: string; available: boolean; location: { lat: number; lon: number }; messagingPublicKey: string }[]).find(
+    (a) => a.memberId === aviva.memberId,
+  )!;
+  check('가능으로 되돌리기가 반영된다 (엔젤의 자율)', angelOn.available === true);
+
+  // 신청 (리오르 → 아비바): 디렉토리에서 얻은 메시징 공개키로 E2E 봉인.
+  const bookingRequest: BookingRequestPayload = {
+    kind: 'BOOKING_REQUEST',
+    requestId: newBookingRequestId(),
+    dates: { fromDate: '2026-07-20', toDate: '2026-07-21' },
+    partySize: 2,
+    note: '북쪽에서 이틀째 걷고 있습니다',
+    profile: { displayName: '리오르', memberSince: '2026-05', journeyLine: '쉬빌 북부 구간 걷는 중' },
+  };
+  const reqEnvelope = sealMessage({
+    plaintext: serializeBookingPayload(bookingRequest),
+    fromMemberId: lior.memberId,
+    toMemberId: aviva.memberId,
+    senderMsgKeyPair: lior.msg,
+    recipientMsgPublicKey: angelOn.messagingPublicKey,
+    deviceSigner: lior.signer,
+    now: Date.now(),
+  });
+  check('신청 봉투(서버가 보는 전부)에 평문·프로필이 없다', !JSON.stringify(reqEnvelope).includes('BOOKING_REQUEST') && !JSON.stringify(reqEnvelope).includes('리오르'));
+  await signedApi(lior, 'POST', '/messages', { envelope: reqEnvelope });
+
+  // 엔젤 수신함: 복호화 → 구조화 메시지 판별 (파싱 실패면 일반 텍스트 폴백).
+  const avivaInbox = await signedApi(aviva, 'GET', '/messages?sinceId=0');
+  const reqEnv = (avivaInbox.json.messages as { envelope: MessageEnvelope }[])
+    .map((m) => m.envelope)
+    .filter((e) => e.fromMemberId === lior.memberId)
+    .pop()!;
+  const openedReq = openMessage(reqEnv, aviva.msg);
+  const parsedReq = parseBookingPayload(openedReq.plaintext);
+  check(
+    '엔젤 지갑이 신청을 복호화·파싱한다 (날짜·인원·첨부 프로필)',
+    openedReq.signatureValid &&
+      parsedReq?.kind === 'BOOKING_REQUEST' &&
+      parsedReq.partySize === 2 &&
+      parsedReq.profile.displayName === '리오르',
+  );
+
+  // 승인 회신 — 정확한 위치(서버는 모르는 좌표)·주소를 첨부해 이 손님에게만 (R-4).
+  const PRECISE = { lat: 33.22947, lon: 35.65513 };
+  const bookingReply: BookingReplyPayload = {
+    kind: 'BOOKING_REPLY',
+    requestId: bookingRequest.requestId,
+    decision: 'APPROVED',
+    note: '기다릴게요',
+    preciseLocation: PRECISE,
+    addressText: '마을 어귀 파란 대문 집',
+    contact: '+972-50-000-0000',
+  };
+  const repEnvelope = sealMessage({
+    plaintext: serializeBookingPayload(bookingReply),
+    fromMemberId: aviva.memberId,
+    toMemberId: lior.memberId,
+    senderMsgKeyPair: aviva.msg,
+    recipientMsgPublicKey: reqEnv.senderMsgPublicKey, // 신청 봉투에서 얻은 상대 키
+    deviceSigner: aviva.signer,
+    now: Date.now(),
+  });
+  check('승인 봉투에도 정확 위치·주소가 드러나지 않는다', !JSON.stringify(repEnvelope).includes('33.22947') && !JSON.stringify(repEnvelope).includes('파란 대문'));
+  await signedApi(aviva, 'POST', '/messages', { envelope: repEnvelope });
+
+  const liorInbox = await signedApi(lior, 'GET', '/messages?sinceId=0');
+  const repEnv = (liorInbox.json.messages as { envelope: MessageEnvelope }[])
+    .map((m) => m.envelope)
+    .filter((e) => e.fromMemberId === aviva.memberId)
+    .pop()!;
+  const parsedRep = parseBookingPayload(openMessage(repEnv, lior.msg).plaintext);
+  check(
+    '신청자가 승인과 정확한 위치·주소를 받았다 (승인된 두 사람 사이에만)',
+    parsedRep?.kind === 'BOOKING_REPLY' &&
+      parsedRep.decision === 'APPROVED' &&
+      parsedRep.preciseLocation?.lat === PRECISE.lat &&
+      parsedRep.addressText === '마을 어귀 파란 대문 집',
+  );
+  // R-4 재확인: 디렉토리가 공개하는 좌표는 눈금화된 대략 위치 — 정확 위치와 다르다.
+  const snapped = snapToPrivacyGrid(AVIVA_PROFILE.location.lat, AVIVA_PROFILE.location.lon);
+  check(
+    '서버 디렉토리 좌표는 ~1km 눈금 — 정확한 집 위치를 서버는 모른다 (R-4)',
+    angelOn.location.lat === snapped.lat && angelOn.location.lon === snapped.lon && angelOn.location.lat !== PRECISE.lat,
+  );
+
+  // 11) 거래 승인 엔드포인트 부재 (헌법 제9조)
+  console.log('\n[11] 무승인 시스템 확인 (헌법 제9조)');
   const approveTx = await api('POST', '/approve', {});
   const payments = await api('POST', '/payments', {});
   check('거래 승인/지불 엔드포인트가 존재하지 않는다', approveTx.status === 404 && payments.status === 404);

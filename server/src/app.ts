@@ -91,6 +91,9 @@ interface AngelRow {
   capacity: number;
   conditions: string | null;
   visible: number;
+  /** M6 예약 (R-3): 자발 공개 "지금 손님 받기 가능" 여부 + 갱신 시각. */
+  available: number;
+  availability_updated_at: number | null;
 }
 
 function phoneHash(phone: string): string {
@@ -374,6 +377,9 @@ export function buildApp(
           capacity: r.capacity,
           conditions: r.conditions,
           visible: true,
+          // R-3: 서버가 공개하는 것은 가능 여부 + 갱신 시각뿐 — 날짜·캘린더 없음.
+          available: r.available === 1,
+          availabilityUpdatedAt: r.availability_updated_at,
           regionId: r.region_id,
           messagingPublicKey: r.messaging_public_key,
           devicePublicKey: r.device_public_key,
@@ -396,6 +402,8 @@ export function buildApp(
       capacity?: number;
       conditions?: string;
       visible?: boolean;
+      /** M6 예약 (R-3): "지금 손님 받기 가능" 자발 공개 — 선택. 미지정 시 기존 값 유지. */
+      available?: boolean;
       /** 소속 트레일 지역 (150개국 확장). 미지정 시 이스라엘(현재 유일 LIVE). */
       regionId?: string;
     } | null;
@@ -413,12 +421,19 @@ export function buildApp(
     // 방어적으로 다시 ~1km 눈금(0.01°)으로 반올림한다 (이중 방어).
     const snapped = snapToPrivacyGrid(body.location.lat, body.location.lon);
 
-    const isNew =
-      db.prepare('SELECT 1 FROM angels WHERE member_id = ?').get(member.member_id) === undefined;
+    const prev = db
+      .prepare('SELECT available, availability_updated_at FROM angels WHERE member_id = ?')
+      .get(member.member_id) as { available: number; availability_updated_at: number | null } | undefined;
+    const isNew = prev === undefined;
+    // R-3: available 필드가 명시된 경우에만 갱신 시각을 새로 찍는다 (자발 공개 갱신).
+    const available = body.available === undefined ? (prev?.available ?? 1) : body.available ? 1 : 0;
+    const availabilityUpdatedAt =
+      body.available === undefined ? (prev?.availability_updated_at ?? null) : Date.now();
     db.prepare(
       `INSERT OR REPLACE INTO angels
-        (member_id, name, lat, lon, services_json, capacity, conditions, visible, region_id, registered_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT registered_at FROM angels WHERE member_id = ?), ?))`,
+        (member_id, name, lat, lon, services_json, capacity, conditions, visible, region_id,
+         available, availability_updated_at, registered_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT registered_at FROM angels WHERE member_id = ?), ?))`,
     ).run(
       member.member_id,
       body.name,
@@ -429,6 +444,8 @@ export function buildApp(
       body.conditions ?? null,
       body.visible === false ? 0 : 1,
       regionId,
+      available,
+      availabilityUpdatedAt,
       member.member_id,
       Date.now(),
     );

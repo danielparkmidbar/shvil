@@ -307,6 +307,14 @@ export default function AngelFinder() {
             <div className="card angel-card">
               {/* name = 엔젤이 공개를 선택한 닉네임 (실명 아님 — 최소 공개 원칙) */}
               <h3>{selected.name}</h3>
+              {/* M6 (R-3): 가능 여부 배지 — 서버 공개는 이 수준뿐. 구체 날짜는 지갑 E2E로만 */}
+              {selected.available !== undefined && (
+                <p>
+                  <span className={selected.available ? 'badge badge-strong' : 'badge badge-warn'}>
+                    {selected.available ? s.availableBadge : s.unavailableBadge}
+                  </span>
+                </p>
+              )}
               <div className="service-tags">
                 {serviceTags(selected.services, s.filters).map(({ key, label }) => (
                   <span key={key} className="service-tag">

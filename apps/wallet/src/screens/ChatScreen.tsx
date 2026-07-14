@@ -18,6 +18,8 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { chatService, useChat } from '../core/chatService';
 import { buildEtaMessage, SENDER_UNVERIFIED_PREFIX } from '../core/chatFormat';
+import { parseChatBooking } from '../core/bookingFormat';
+import { BookingReplyCard, BookingRequestCard } from '../ui/BookingCards';
 import { Muted, colors } from '../ui/common';
 import type { MoreStackParamList } from './navTypes';
 
@@ -64,12 +66,29 @@ export function ChatScreen({ route }: Props) {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const unverified = item.direction === 'IN' && item.text.startsWith(SENDER_UNVERIFIED_PREFIX);
+          // M6: 구조화 예약 메시지는 카드로 (신청/승인/거부 구분 — APPROVED 카드에는
+          // 전달받은 정확 위치·주소가 보인다). 파싱 실패 시 일반 텍스트 (하위 호환).
+          const booking = parseChatBooking(item.text);
           return (
-            <View style={[styles.bubble, item.direction === 'OUT' ? styles.out : styles.in]}>
+            <View
+              style={[
+                styles.bubble,
+                item.direction === 'OUT' ? styles.out : styles.in,
+                booking !== null && styles.bookingBubble,
+              ]}
+            >
               {unverified && <Text style={styles.unverified}>발신자 확인 불가</Text>}
-              <Text style={item.direction === 'OUT' ? styles.outText : styles.inText}>
-                {unverified ? item.text.slice(SENDER_UNVERIFIED_PREFIX.length) : item.text}
-              </Text>
+              {booking !== null ? (
+                booking.kind === 'BOOKING_REQUEST' ? (
+                  <BookingRequestCard payload={booking} />
+                ) : (
+                  <BookingReplyCard payload={booking} />
+                )
+              ) : (
+                <Text style={item.direction === 'OUT' ? styles.outText : styles.inText}>
+                  {unverified ? item.text.slice(SENDER_UNVERIFIED_PREFIX.length) : item.text}
+                </Text>
+              )}
               <Text style={styles.time}>{new Date(item.sentAt).toLocaleTimeString()}</Text>
             </View>
           );
@@ -108,6 +127,8 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: '80%', borderRadius: 12, padding: 10 },
   out: { alignSelf: 'flex-end', backgroundColor: colors.primary },
   in: { alignSelf: 'flex-start', backgroundColor: colors.card },
+  /** 예약 카드는 방향과 무관하게 밝은 바탕 — 카드 내용(색 텍스트)이 읽히도록. */
+  bookingBubble: { backgroundColor: colors.card, maxWidth: '92%', borderWidth: 1, borderColor: '#DCE4DC' },
   outText: { color: 'white', fontSize: 15 },
   inText: { color: '#1A1F1A', fontSize: 15 },
   unverified: { color: colors.danger, fontSize: 11, fontWeight: '700', marginBottom: 2 },
