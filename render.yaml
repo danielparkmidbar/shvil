@@ -1,0 +1,20 @@
+# Render Blueprint — 쉬빌 디렉토리 서버 (무료 티어).
+# Render 대시보드에서 이 저장소를 연결하면 자동 인식된다.
+#
+# 무료 티어 주의:
+#  - 15분 유휴 시 슬립 → 첫 요청이 ~30초 지연(콜드 스타트).
+#  - 디스크가 ephemeral — 재시작·재배포 시 SQLite가 초기화된다(무료엔 영구 디스크 없음).
+#    닫힌 시험용으로는 충분. 지속 데이터가 필요하면 유료 디스크 또는 외부 DB로.
+services:
+  - type: web
+    name: shvil-directory
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      # 발행 개인키 봉인 키 — Render가 안전한 랜덤 값을 생성해 주입 (보안 감사 H-2).
+      - key: SHVIL_KEK
+        generateValue: true
+      # 닫힌 시험용 dev 라우트(OTP 코드 노출 등) — 공개 운영 시 '0'으로 (C-1).
+      - key: SHVIL_DEV_MODE
+        value: "1"
