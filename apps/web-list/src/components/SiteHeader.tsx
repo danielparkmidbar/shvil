@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useI18n } from '@/i18n';
 import LocaleSwitcher from './LocaleSwitcher';
+import RegionSelector from './RegionSelector';
 
 /** 공통 네비 (지시서 6장): 코스 · 클레임 · 갤러리 · 리더보드 + 언어 스위처. */
 export default function SiteHeader() {
@@ -19,7 +20,10 @@ export default function SiteHeader() {
           <Link href="/certificates">{t.common.nav.certificates}</Link>
           <Link href="/leaderboard">{t.common.nav.leaderboard}</Link>
         </div>
-        <LocaleSwitcher />
+        <div className="header-controls">
+          <RegionSelector />
+          <LocaleSwitcher />
+        </div>
       </nav>
     </header>
   );

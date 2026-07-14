@@ -17,6 +17,7 @@ import {
   type CourseProposal,
 } from '@/lib/api';
 import { useI18n } from '@/i18n';
+import CurrentRegionBanner from '@/components/CurrentRegionBanner';
 
 export default function CoursesPage() {
   const { t } = useI18n();
@@ -59,6 +60,7 @@ export default function CoursesPage() {
       <h1>{s.title}</h1>
       <p className="muted">{s.intro}</p>
 
+      <CurrentRegionBanner />
       <div className="notice">{s.submitInApp}</div>
       {serverDown && <div className="notice-warn">{t.common.serverUnreachable}</div>}
 

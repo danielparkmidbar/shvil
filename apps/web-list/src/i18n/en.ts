@@ -3,8 +3,9 @@ import type { Strings } from './types';
 /** English dictionary — default locale. */
 export const en: Strings = {
   common: {
-    siteName: 'Shvil List',
-    tagline: 'You record it yourself, you attest it yourself — the walker’s record and proof space',
+    siteName: 'Shvilist',
+    tagline:
+      'The home of the shvilists — walkers who mint coins as they journey. You record it yourself, you attest it yourself.',
     nav: {
       courses: 'Course Registry',
       claims: 'Claims Board',
@@ -26,10 +27,10 @@ export const en: Strings = {
     heroTitle: 'You record it yourself, you attest it yourself',
     vision:
       'Shvil Coin is a currency born from footsteps on pilgrimage trails. No server issues it — ' +
-      'while you walk a registered course, it forms inside your own phone. Shvil List is the ' +
-      'record and proof space of those footsteps: register courses, certify completions, and let ' +
+      'while you walk a registered course, it forms inside your own phone. Shvilist is the home of ' +
+      'those walkers who create coins as they journey: register courses, certify completions, and let ' +
       'the community redeem steps that went unrecorded. There is no server watching — what ' +
-      'watches is always the community.',
+      'watches is always the community. (Detailed trail guides are a separate service, Shvil List.)',
     downloadCta: 'Download the wallet',
     downloadNote: 'App release in preparation — opening soon.',
     proofTitle: 'Journey proofs — attestation without location',
@@ -157,5 +158,29 @@ export const en: Strings = {
     flaggedCount: (n) => `Awaiting explanation: ${n}`,
     flaggedNote:
       'Anonymous tally. Cleared once the explanation is accepted; genuine coins already in circulation and other people’s trades are unaffected.',
+  },
+
+  region: {
+    label: 'Region',
+    selectAria: 'Select trail region',
+    current: (name) => `Current region: ${name}`,
+    liveBadge: 'Live',
+    comingSoonBadge: 'Coming soon',
+    comingSoonNotice: (name) => `${name} opens soon — the trail is on the way.`,
+    expandVision: (count) =>
+      `We begin on the Israel National Trail. From there we expand to trails across ${count} countries.`,
+    expandTitle: 'Trails opening next',
+    expandIntro: 'Regions preparing to open for minting and angel hosting:',
+    countries: {
+      IL: 'Israel',
+      ES: 'Spain',
+      PE: 'Peru',
+      NP: 'Nepal',
+      CL: 'Chile',
+      FR: 'France',
+      NZ: 'New Zealand',
+      US: 'United States',
+      TZ: 'Tanzania',
+    },
   },
 };

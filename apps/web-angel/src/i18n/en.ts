@@ -7,7 +7,7 @@ export const en: Strings = {
     tagline: 'Angel homes — the map of those who welcome pilgrims',
     nav: { map: 'Angel Map', market: 'Coin Market', transparency: 'Transparency' },
     footer: {
-      shvilistLink: 'Shvil List — journey records & course registry (shvilist.org)',
+      shvilistLink: 'Shvilist — the home of the walkers who mint coins (shvilist.org)',
       shvilistUrl: 'https://shvilist.org',
       faceToFaceFree: 'Face-to-face payments inside the ecosystem are free, forever.',
     },
@@ -108,5 +108,29 @@ export const en: Strings = {
     reserveTitle: 'Reserve disclosure',
     reservePlaceholder:
       'In preparation — the reserve’s operating principles and status will be disclosed here.',
+  },
+
+  region: {
+    label: 'Region',
+    selectAria: 'Select trail region',
+    current: (name) => `Current region: ${name}`,
+    liveBadge: 'Live',
+    comingSoonBadge: 'Coming soon',
+    comingSoonNotice: (name) => `${name} opens soon — the trail is on the way.`,
+    expandVision: (count) =>
+      `We begin on the Israel National Trail. From there we expand to trails across ${count} countries.`,
+    expandTitle: 'Trails opening next',
+    expandIntro: 'Regions preparing to open for minting and angel hosting:',
+    countries: {
+      IL: 'Israel',
+      ES: 'Spain',
+      PE: 'Peru',
+      NP: 'Nepal',
+      CL: 'Chile',
+      FR: 'France',
+      NZ: 'New Zealand',
+      US: 'United States',
+      TZ: 'Tanzania',
+    },
   },
 };

@@ -3,8 +3,9 @@ import type { Strings } from './types';
 /** Diccionario en español. */
 export const es: Strings = {
   common: {
-    siteName: 'Shvil List',
-    tagline: 'Tú lo registras, tú lo acreditas — el espacio de registro y prueba del caminante',
+    siteName: 'Shvilist',
+    tagline:
+      'El hogar de los shvilists — caminantes que acuñan monedas mientras viajan. Tú lo registras, tú lo acreditas.',
     nav: {
       courses: 'Registro de rutas',
       claims: 'Tablón de reclamos',
@@ -27,9 +28,10 @@ export const es: Strings = {
     vision:
       'La moneda Shvil nace de los pasos sobre las rutas de peregrinación. Ningún servidor la ' +
       'emite: mientras caminas una ruta registrada, se forma dentro de tu propio teléfono. ' +
-      'Shvil List es el espacio de registro y prueba de esos pasos: se inscriben rutas, se ' +
-      'certifican finalizaciones y la comunidad recupera juntos los pasos que quedaron sin ' +
-      'registrar. No hay un servidor que vigile — quien vela es siempre la comunidad.',
+      'Shvilist es el hogar de esos caminantes que crean monedas mientras viajan: se inscriben ' +
+      'rutas, se certifican finalizaciones y la comunidad recupera juntos los pasos que quedaron sin ' +
+      'registrar. No hay un servidor que vigile — quien vela es siempre la comunidad. ' +
+      '(Las guías detalladas de rutas son un servicio aparte, Shvil List.)',
     downloadCta: 'Descargar la billetera',
     downloadNote: 'Aplicación en preparación — se abre pronto.',
     proofTitle: 'Pruebas de travesía — acreditación sin ubicación',
@@ -157,5 +159,29 @@ export const es: Strings = {
     flaggedCount: (n) => `A la espera de explicación: ${n}`,
     flaggedNote:
       'Recuento anónimo. Se levanta al aceptarse la explicación; las monedas legítimas ya en circulación y las transacciones de otras personas no se ven afectadas.',
+  },
+
+  region: {
+    label: 'Región',
+    selectAria: 'Seleccionar región de la ruta',
+    current: (name) => `Región actual: ${name}`,
+    liveBadge: 'Activa',
+    comingSoonBadge: 'Próximamente',
+    comingSoonNotice: (name) => `${name} — se abre pronto.`,
+    expandVision: (count) =>
+      `Empezamos por el Sendero Nacional de Israel. Desde allí nos expandimos a rutas en ${count} países.`,
+    expandTitle: 'Rutas que se abren próximamente',
+    expandIntro: 'Regiones que se preparan para abrir a la acuñación y la acogida de ángeles:',
+    countries: {
+      IL: 'Israel',
+      ES: 'España',
+      PE: 'Perú',
+      NP: 'Nepal',
+      CL: 'Chile',
+      FR: 'Francia',
+      NZ: 'Nueva Zelanda',
+      US: 'Estados Unidos',
+      TZ: 'Tanzania',
+    },
   },
 };

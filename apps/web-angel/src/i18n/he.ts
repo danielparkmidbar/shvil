@@ -7,7 +7,7 @@ export const he: Strings = {
     tagline: 'בית של מלאך — מפת המארחים של עולי הרגל',
     nav: { map: 'מפת המלאכים', market: 'שוק המטבעות', transparency: 'שקיפות' },
     footer: {
-      shvilistLink: 'שביל ליסט — יומן המסע ומרשם המסלולים (shvilist.org)',
+      shvilistLink: 'שביליסט — הבית של ההולכים (shvilist.org)',
       shvilistUrl: 'https://shvilist.org',
       faceToFaceFree: 'תשלום פנים אל פנים בתוך המערכת חינם — לתמיד.',
     },
@@ -107,5 +107,29 @@ export const he: Strings = {
     reserveTitle: 'דיווח על הרזרבה',
     reservePlaceholder:
       'בהכנה — עקרונות ניהול הרזרבה ומצבה יפורסמו כאן.',
+  },
+
+  region: {
+    label: 'אזור',
+    selectAria: 'בחירת אזור מסלול',
+    current: (name) => `אזור נוכחי: ${name}`,
+    liveBadge: 'פעיל',
+    comingSoonBadge: 'בקרוב',
+    comingSoonNotice: (name) => `${name} — נפתח בקרוב.`,
+    expandVision: (count) =>
+      `אנחנו מתחילים בשביל ישראל. משם נתרחב למסלולים ב-${count} מדינות.`,
+    expandTitle: 'מסלולים שנפתחים בקרוב',
+    expandIntro: 'אזורים שנערכים להיפתח ליצירת מטבעות ולאירוח מלאכים:',
+    countries: {
+      IL: 'ישראל',
+      ES: 'ספרד',
+      PE: 'פרו',
+      NP: 'נפאל',
+      CL: 'צ׳ילה',
+      FR: 'צרפת',
+      NZ: 'ניו זילנד',
+      US: 'ארצות הברית',
+      TZ: 'טנזניה',
+    },
   },
 };

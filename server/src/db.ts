@@ -35,6 +35,8 @@ export function createDb(path: string): DatabaseSync {
       capacity INTEGER NOT NULL DEFAULT 1,
       conditions TEXT,
       visible INTEGER NOT NULL DEFAULT 1,
+      -- 소속 트레일 지역 (150개국 확장). 현재 LIVE는 이스라엘 하나 — 기본값.
+      region_id TEXT NOT NULL DEFAULT 'israel-national',
       registered_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS promo_grants (

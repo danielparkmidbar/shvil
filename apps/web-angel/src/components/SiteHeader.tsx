@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useI18n } from '@/i18n';
 import LocaleSwitcher from './LocaleSwitcher';
+import RegionSelector from './RegionSelector';
 
 /** 공통 네비 (지시서 5장): 지도 · 마켓 · 투명성 + 언어 스위처. */
 export default function SiteHeader() {
@@ -18,7 +19,10 @@ export default function SiteHeader() {
           <Link href="/market">{t.common.nav.market}</Link>
           <Link href="/transparency">{t.common.nav.transparency}</Link>
         </div>
-        <LocaleSwitcher />
+        <div className="header-controls">
+          <RegionSelector />
+          <LocaleSwitcher />
+        </div>
       </nav>
     </header>
   );

@@ -408,3 +408,170 @@ h2 {
 .stat-list li:last-child {
   border-bottom: none;
 }
+
+/* ── 지역(트레일) 선택기 ───────────────────────────────────── */
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.region-select {
+  position: relative;
+}
+
+.region-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  max-width: 15rem;
+}
+
+.region-select-btn .region-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.region-caret {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.region-panel {
+  position: absolute;
+  inset-block-start: calc(100% + 0.35rem);
+  inset-inline-end: 0;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(29, 59, 37, 0.14);
+  padding: 0.3rem;
+  min-width: 17rem;
+  max-width: 22rem;
+}
+
+.region-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.region-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.9rem;
+  text-align: start;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.region-option:hover {
+  background: var(--green-50);
+}
+
+.region-option.is-selected {
+  background: var(--green-100);
+  font-weight: 600;
+}
+
+.region-option.is-soon {
+  cursor: default;
+  color: var(--ink-soft);
+}
+
+.region-option-name {
+  flex: 1;
+}
+
+.region-option-country {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.region-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.region-badge-live {
+  background: var(--green-700);
+  color: #fff;
+}
+
+.region-badge-soon {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+.region-notice {
+  margin: 0.3rem 0.2rem 0.1rem;
+  padding-block-start: 0.35rem;
+  border-block-start: 1px solid var(--line);
+  color: var(--warn-ink);
+  font-size: 0.85rem;
+}
+
+/* 현재 지역 배너 (코스·리더보드 상단) */
+.region-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--green-50);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--green-900);
+  margin: 0.2rem 0 0.9rem;
+}
+
+/* 확장 예정 트레일 목록 */
+.expand-trails {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.5rem;
+}
+
+.expand-trail {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.92rem;
+}
+
+.expand-trail-name {
+  font-weight: 600;
+}
+
+.expand-trail .region-badge {
+  margin-inline-start: auto;
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useI18n } from '@/i18n';
+import CurrentRegionBanner from '@/components/CurrentRegionBanner';
 import AngelMap from './AngelMap';
 
 export default function MapPage() {
@@ -9,6 +10,7 @@ export default function MapPage() {
     <>
       <h1>{t.map.title}</h1>
       <p className="muted">{t.map.intro}</p>
+      <CurrentRegionBanner />
       <AngelMap />
     </>
   );

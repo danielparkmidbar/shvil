@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { en, LocaleProvider, LOCALE_BOOT_SCRIPT } from '@/i18n';
+import { RegionProvider } from '@/region/RegionProvider';
 import SiteFooter from '@/components/SiteFooter';
 import SiteHeader from '@/components/SiteHeader';
 
@@ -20,9 +21,11 @@ export default function RootLayout({
         {/* 히브리어 사용자에게 LTR 화면이 번쩍이지 않게 — 가장 먼저 실행 */}
         <script dangerouslySetInnerHTML={{ __html: LOCALE_BOOT_SCRIPT }} />
         <LocaleProvider>
-          <SiteHeader />
-          <main className="site-main">{children}</main>
-          <SiteFooter />
+          <RegionProvider>
+            <SiteHeader />
+            <main className="site-main">{children}</main>
+            <SiteFooter />
+          </RegionProvider>
         </LocaleProvider>
       </body>
     </html>

@@ -97,4 +97,28 @@ export interface Strings {
     reserveTitle: string;
     reservePlaceholder: string;
   };
+
+  /** 지역(트레일) 선택기 + 세계 확장 비전 (packages/shared WORLD_TRAILS). */
+  region: {
+    /** 선택기 라벨/섹션 제목. */
+    label: string;
+    /** 드롭다운 버튼 aria-label. */
+    selectAria: string;
+    /** "현재 지역: {트레일명}". */
+    current: (name: string) => string;
+    /** LIVE 배지. */
+    liveBadge: string;
+    /** COMING_SOON 배지 ("준비 중"). */
+    comingSoonBadge: string;
+    /** COMING_SOON 지역 선택 시 안내 ("곧 열립니다"). */
+    comingSoonNotice: (name: string) => string;
+    /** "이스라엘에서 먼저 시작 · {n}개국으로 확장" 비전 문구. */
+    expandVision: (count: number) => string;
+    /** 확장 예정 트레일 섹션 제목. */
+    expandTitle: string;
+    /** 확장 예정 트레일 목록 도입 문구. */
+    expandIntro: string;
+    /** ISO 국가 코드 → 로케일별 국가명 (없으면 코드 표기로 폴백). */
+    countries: Record<string, string>;
+  };
 }

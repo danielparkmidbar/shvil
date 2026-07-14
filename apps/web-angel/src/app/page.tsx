@@ -7,6 +7,7 @@
  */
 import Link from 'next/link';
 import { useI18n } from '@/i18n';
+import ExpansionTrails from '@/components/ExpansionTrails';
 
 export default function LandingPage() {
   const { t } = useI18n();
@@ -41,6 +42,8 @@ export default function LandingPage() {
       <section>
         <div className="notice">{s.faceToFaceFree}</div>
       </section>
+
+      <ExpansionTrails />
     </>
   );
 }

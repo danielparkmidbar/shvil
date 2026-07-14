@@ -17,8 +17,11 @@ import {
   AUTH_HEADER_SIG,
   AUTH_HEADER_TS,
   SHVIL_ISRAEL_NORTH_SAMPLE,
+  TARGET_COUNTRY_COUNT,
+  WORLD_TRAILS,
   addressFromPublicKey,
   buildGrant,
+  liveRegions,
   buildMembershipCertificate,
   currentOwnerAddress,
   sha256Hex,
@@ -321,16 +324,36 @@ export function buildApp(
     ),
   );
 
+  /**
+   * 세계 트레일 지역 카탈로그 (다니엘 쌤 방향 — 150개국 확장).
+   * 이스라엘 국립 트레일이 먼저 런칭(LIVE), 세계 대표 트레일은 확장 예정.
+   * 배포 서명 부착 (H-3). 지갑·웹이 지역 선택 메뉴에 쓴다.
+   */
+  app.get('/regions', async () =>
+    signDistribution(
+      { regions: WORLD_TRAILS, targetCountryCount: TARGET_COUNTRY_COUNT },
+      distSigner,
+      DISTRIBUTION_KEY_ID,
+      Date.now(),
+    ),
+  );
+
   // ── 엔젤 디렉토리 ──────────────────────────────────────────────
 
   app.get('/angels', async (req) => {
-    const q = req.query as { lat?: string; lon?: string; radiusKm?: string };
-    const rows = db
-      .prepare(
-        `SELECT a.*, m.messaging_public_key, m.device_public_key FROM angels a
-         JOIN members m ON m.member_id = a.member_id WHERE a.visible = 1`,
-      )
-      .all() as unknown as (AngelRow & { messaging_public_key: string; device_public_key: string })[];
+    const q = req.query as { lat?: string; lon?: string; radiusKm?: string; region?: string };
+    // 지역(트레일) 필터 — 150개국 확장. 미지정 시 전체.
+    const rows = (
+      q.region
+        ? db.prepare(
+            `SELECT a.*, m.messaging_public_key, m.device_public_key FROM angels a
+             JOIN members m ON m.member_id = a.member_id WHERE a.visible = 1 AND a.region_id = ?`,
+          ).all(q.region)
+        : db.prepare(
+            `SELECT a.*, m.messaging_public_key, m.device_public_key FROM angels a
+             JOIN members m ON m.member_id = a.member_id WHERE a.visible = 1`,
+          ).all()
+    ) as unknown as (AngelRow & { messaging_public_key: string; device_public_key: string; region_id: string })[];
 
     const origin =
       q.lat !== undefined && q.lon !== undefined
@@ -350,6 +373,7 @@ export function buildApp(
           capacity: r.capacity,
           conditions: r.conditions,
           visible: true,
+          regionId: r.region_id,
           messagingPublicKey: r.messaging_public_key,
           devicePublicKey: r.device_public_key,
           ...(distanceKm !== null ? { distanceKm: Math.round(distanceKm * 10) / 10 } : {}),
@@ -371,17 +395,24 @@ export function buildApp(
       capacity?: number;
       conditions?: string;
       visible?: boolean;
+      /** 소속 트레일 지역 (150개국 확장). 미지정 시 이스라엘(현재 유일 LIVE). */
+      regionId?: string;
     } | null;
     if (!body?.name || typeof body.location?.lat !== 'number' || typeof body.location?.lon !== 'number') {
       return reply.code(400).send({ error: 'name and location required' });
+    }
+    // LIVE 지역만 엔젤 등록 허용 — 아직 안 열린 트레일엔 등록 불가.
+    const regionId = body.regionId ?? 'israel-national';
+    if (!liveRegions().some((r) => r.regionId === regionId)) {
+      return reply.code(400).send({ error: `region '${regionId}' is not open yet` });
     }
 
     const isNew =
       db.prepare('SELECT 1 FROM angels WHERE member_id = ?').get(member.member_id) === undefined;
     db.prepare(
       `INSERT OR REPLACE INTO angels
-        (member_id, name, lat, lon, services_json, capacity, conditions, visible, registered_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT registered_at FROM angels WHERE member_id = ?), ?))`,
+        (member_id, name, lat, lon, services_json, capacity, conditions, visible, region_id, registered_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT registered_at FROM angels WHERE member_id = ?), ?))`,
     ).run(
       member.member_id,
       body.name,
@@ -391,6 +422,7 @@ export function buildApp(
       body.capacity ?? 1,
       body.conditions ?? null,
       body.visible === false ? 0 : 1,
+      regionId,
       member.member_id,
       Date.now(),
     );

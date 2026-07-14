@@ -10,6 +10,7 @@
  */
 import Link from 'next/link';
 import { useI18n } from '@/i18n';
+import ExpansionTrails from '@/components/ExpansionTrails';
 
 const SECTION_LINKS = [
   { key: 'courses', href: '/courses' },
@@ -52,6 +53,8 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <ExpansionTrails />
     </>
   );
 }

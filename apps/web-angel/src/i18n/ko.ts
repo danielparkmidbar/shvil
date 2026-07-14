@@ -7,7 +7,7 @@ export const ko: Strings = {
     tagline: '엔젤의 집 — 순례자를 맞이하는 지도',
     nav: { map: '엔젤 지도', market: '코인 마켓', transparency: '투명성' },
     footer: {
-      shvilistLink: '쉬빌 리스트 — 여정 기록·코스 등록부 (shvilist.org)',
+      shvilistLink: '쉬빌리스트 — 걷는 사람들의 집 (shvilist.org)',
       shvilistUrl: 'https://shvilist.org',
       faceToFaceFree: '생태계 내부 대면 지불은 영구 무료입니다.',
     },
@@ -108,5 +108,29 @@ export const ko: Strings = {
     reserveTitle: '리저브 공시',
     reservePlaceholder:
       '준비 중 — 리저브 운용 원칙과 현황은 리저브 기획 보고서(docs/쉬빌_리저브_기획보고서.md)를 기준으로 이곳에 공시됩니다.',
+  },
+
+  region: {
+    label: '지역',
+    selectAria: '트레일 지역 선택',
+    current: (name) => `현재 지역: ${name}`,
+    liveBadge: '운영 중',
+    comingSoonBadge: '준비 중',
+    comingSoonNotice: (name) => `${name} — 곧 열립니다.`,
+    expandVision: (count) =>
+      `이스라엘 국립 트레일에서 먼저 시작합니다. ${count}개국의 트레일로 확장해 나갑니다.`,
+    expandTitle: '곧 열릴 트레일',
+    expandIntro: '코인 생성과 엔젤 활동을 위해 열릴 준비 중인 지역들:',
+    countries: {
+      IL: '이스라엘',
+      ES: '스페인',
+      PE: '페루',
+      NP: '네팔',
+      CL: '칠레',
+      FR: '프랑스',
+      NZ: '뉴질랜드',
+      US: '미국',
+      TZ: '탄자니아',
+    },
   },
 };

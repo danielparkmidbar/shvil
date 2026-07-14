@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   // 서버 URL은 빌드 시 NEXT_PUBLIC_DIRECTORY_URL로 인라인된다.
   output: 'export',
   images: { unoptimized: true },
+  // @shvil/shared는 raw TypeScript를 노출하는 워크스페이스 패키지 —
+  // 지역 카탈로그(regions.ts)를 웹에서 import하므로 컴파일 대상으로 명시한다.
+  transpilePackages: ['@shvil/shared'],
   // 모노레포 루트를 명시 — 상위 폴더의 무관한 lockfile을 루트로 오인하지 않게.
   outputFileTracingRoot: path.join(__dirname, '..', '..'),
 };

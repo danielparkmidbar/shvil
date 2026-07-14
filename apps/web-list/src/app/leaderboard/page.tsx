@@ -22,6 +22,7 @@ import {
   type LeaderboardEntry,
 } from '@/lib/api';
 import { useI18n } from '@/i18n';
+import CurrentRegionBanner from '@/components/CurrentRegionBanner';
 
 export default function LeaderboardPage() {
   const { t } = useI18n();
@@ -90,6 +91,7 @@ export default function LeaderboardPage() {
     <>
       <h1>{s.title}</h1>
       <p className="muted">{s.intro}</p>
+      <CurrentRegionBanner />
       <div className="notice">{s.noLocationNote}</div>
       {serverDown && <div className="notice-warn">{t.common.serverUnreachable}</div>}
 

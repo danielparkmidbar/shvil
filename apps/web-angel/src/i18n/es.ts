@@ -7,7 +7,7 @@ export const es: Strings = {
     tagline: 'Hogares de ángeles — el mapa de quienes acogen a los peregrinos',
     nav: { map: 'Mapa de ángeles', market: 'Mercado de monedas', transparency: 'Transparencia' },
     footer: {
-      shvilistLink: 'Shvil List — registros de travesía y registro de rutas (shvilist.org)',
+      shvilistLink: 'Shvilist — el hogar de los caminantes (shvilist.org)',
       shvilistUrl: 'https://shvilist.org',
       faceToFaceFree: 'Los pagos cara a cara dentro del ecosistema son gratuitos, para siempre.',
     },
@@ -109,5 +109,29 @@ export const es: Strings = {
     reserveTitle: 'Divulgación de la reserva',
     reservePlaceholder:
       'En preparación — los principios de gestión de la reserva y su estado se publicarán aquí.',
+  },
+
+  region: {
+    label: 'Región',
+    selectAria: 'Seleccionar región de la ruta',
+    current: (name) => `Región actual: ${name}`,
+    liveBadge: 'Activa',
+    comingSoonBadge: 'Próximamente',
+    comingSoonNotice: (name) => `${name} — se abre pronto.`,
+    expandVision: (count) =>
+      `Empezamos por el Sendero Nacional de Israel. Desde allí nos expandimos a rutas en ${count} países.`,
+    expandTitle: 'Rutas que se abren próximamente',
+    expandIntro: 'Regiones que se preparan para abrir a la acuñación y la acogida de ángeles:',
+    countries: {
+      IL: 'Israel',
+      ES: 'España',
+      PE: 'Perú',
+      NP: 'Nepal',
+      CL: 'Chile',
+      FR: 'Francia',
+      NZ: 'Nueva Zelanda',
+      US: 'Estados Unidos',
+      TZ: 'Tanzania',
+    },
   },
 };

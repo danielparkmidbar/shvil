@@ -44,7 +44,9 @@ describe('종단간 암호화 메신저 (지시서 0-4 — 서버는 중계만)'
 
   it('암호문 변조는 복호화 실패로 드러난다 (AEAD)', () => {
     const env = aliceToBob('변조 감지 테스트');
-    const tampered = { ...env, ciphertextHex: env.ciphertextHex.slice(0, -2) + '00' };
+    // 첫 hex 문자를 확실히 다른 값으로 뒤집는다 (끝자리가 우연히 같아 무변조되는 flaky 방지).
+    const first = env.ciphertextHex[0] === '0' ? '1' : '0';
+    const tampered = { ...env, ciphertextHex: first + env.ciphertextHex.slice(1) };
     expect(() => openMessage(tampered, bobMsg)).toThrow();
   });
 
