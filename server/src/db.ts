@@ -178,6 +178,15 @@ export function createDb(path: string): DatabaseSync {
       first_seen INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_proof_stats_member ON walk_proof_stats(producer_member);
+    -- 암호화 지갑 백업 (지시서 2.3, 보안 감사 L-2) — 서버는 blob을 보관만, 내용 못 봄.
+    -- 기기 주소당 최신 1개. 니모닉 파생 키로만 복호화 가능 (종단간). 복구는 회원
+    -- 번호 없이 기기 키 소유 증명만으로 자기 백업을 조회한다.
+    CREATE TABLE IF NOT EXISTS wallet_backups (
+      device_address TEXT PRIMARY KEY,
+      blob TEXT NOT NULL,
+      digest TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
   return db;
 }

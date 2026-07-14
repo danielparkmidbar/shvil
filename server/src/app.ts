@@ -38,6 +38,7 @@ import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
 import { officialCourses, registerCommunity } from './community';
 import { registerSync } from './sync';
+import { registerBackup } from './backup';
 
 export const PROMO_KEY_ID = 'promo-angel-2026';
 export const CLAIM_KEY_ID = 'community-claim-2026';
@@ -545,6 +546,9 @@ export function buildApp(
     dailyMaxDshv: 400, // 확정 파라미터: 일 40 SHV
     weeklyMaxDshv: 3000, // 확정: 주 300 SHV
   });
+
+  // ── 암호화 지갑 백업 — 니모닉 복구 지원 (보안 감사 L-2, 지시서 2.3) ──
+  registerBackup(app, { db, authenticate, maxSkewMs: 10 * 60 * 1000 });
 
   return Object.assign(app, { db, chain });
 }
