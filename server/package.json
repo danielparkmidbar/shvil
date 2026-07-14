@@ -8,7 +8,8 @@
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e:sim": "tsx scripts/e2e-sim.ts"
   },
   "dependencies": {
     "@shvil/shared": "*",
