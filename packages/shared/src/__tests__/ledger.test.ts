@@ -123,10 +123,12 @@ describe('일일 상한 40 SHV (확정 파라미터)', () => {
 });
 
 describe('3단계 요율 통합 (원장 경유)', () => {
-  it('코스 이탈 걸음은 감액 요율(1/10)로 누적된다', () => {
+  it('코스 이탈 걸음은 일상과 동일 미세 요율(1/1,000)로 누적된다 (T-1 확정)', () => {
     const ledger = newLedger();
-    const end = walkKm(ledger, 10, { tier: 'OFF_COURSE' });
-    expect(ledger.settleManual(end)!.amountDshv).toBe(10); // 10km → 1 SHV
+    let end = T0;
+    // 10일 × 10km 이탈 걸음 = 100km → 0.1 SHV (일상 걸음과 같은 결과)
+    for (let day = 0; day < 10; day++) end = walkKm(ledger, 10, { tier: 'OFF_COURSE' }, T0 + day * DAY_MS);
+    expect(ledger.settleManual(end)!.amountDshv).toBe(1);
   });
 
   it('일상 걸음은 미세 요율(1/1,000)로만 누적된다', () => {
@@ -172,9 +174,10 @@ describe('엔젤 우회 (잠정 → 사용 시 확정)', () => {
     expect(ledger.settleOnSpend(end, 'angel-77')!.amountDshv).toBe(50); // 8km 중 5km만
   });
 
-  it('목적지 엔젤 없는 우회 샘플은 코스 이탈 요율로 강등된다', () => {
+  it('목적지 엔젤 없는 우회 샘플은 코스 이탈 요율(=일상 1/1,000)로 강등된다', () => {
     const ledger = newLedger();
     const end = walkKm(ledger, 10, { tier: 'ANGEL_DETOUR', courseId: undefined });
-    expect(ledger.settleManual(end)!.amountDshv).toBe(10);
+    // 10km × 1/1,000 = 0.01 SHV → 0.1 SHV 단위 내림 = 0 → 정산 대상 없음 (T-1: 이탈 = 일상)
+    expect(ledger.settleManual(end)).toBeNull();
   });
 });

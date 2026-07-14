@@ -13,8 +13,11 @@ describe('3단계 생성 요율 (지시서 2.2)', () => {
     expect(floorMicroToDshv(metersToMicroDshv(20_000, 'ON_COURSE'))).toBe(200); // 하루 성실한 걸음 ≈ 20 SHV
   });
 
-  it('코스 이탈: 감액 요율 1/10 (제안 기본값)', () => {
-    expect(floorMicroToDshv(metersToMicroDshv(10_000, 'OFF_COURSE'))).toBe(10); // 10km → 1 SHV
+  it('코스 이탈: 일상과 동일 1/1,000 (T-1 확정 — 트레일 위/밖의 단순한 2단계)', () => {
+    expect(floorMicroToDshv(metersToMicroDshv(10_000, 'OFF_COURSE'))).toBe(0); // 10km → 0.01 SHV → 내림 0
+    expect(floorMicroToDshv(metersToMicroDshv(100_000, 'OFF_COURSE'))).toBe(1); // 100km 누적 → 0.1 SHV
+    // 이탈과 일상은 같은 요율이다.
+    expect(metersToMicroDshv(50_000, 'OFF_COURSE')).toBe(metersToMicroDshv(50_000, 'DAILY_LIFE'));
   });
 
   it('일상 걸음: 미세 요율 1/1,000 (제안 기본값)', () => {

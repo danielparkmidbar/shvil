@@ -26,9 +26,13 @@ export const MICRO_PER_METER_BASE = 10_000;
 export interface EconomicParams {
   /** 1인 1일 발행 상한 (dSHV). 확정: 40 SHV = 400 dSHV. */
   dailyCapDshv: number;
-  /** 코스 이탈 감액 분모 (기준 요율의 1/N). 결정 대기 — 제안 10. */
+  /**
+   * 코스 이탈 감액 분모 (기준 요율의 1/N).
+   * 확정 (2026-07-15 다니엘 쌤, T-1): 설정된 트레일을 벗어나면 일상과 동일 —
+   * dailyLifeDivisor와 같은 1,000. "트레일 위 = 정상, 벗어남 = 조금"의 단순한 2단계.
+   */
   offCourseDivisor: number;
-  /** 일상 걸음 미세 요율 분모. 결정 대기 — 1,000 또는 10,000. */
+  /** 일상 걸음 미세 요율 분모. 확정: 1,000. */
   dailyLifeDivisor: number;
   /** 난이도 계수 상한 (×10 정수: 40 = ×4.0). 결정 대기 — 제안 ×4.0. */
   difficultyMaxTenths: number;
@@ -38,7 +42,7 @@ export interface EconomicParams {
 
 export const DEFAULT_ECONOMIC_PARAMS: EconomicParams = {
   dailyCapDshv: 400,
-  offCourseDivisor: 10,
+  offCourseDivisor: 1_000, // T-1 확정: 이탈 = 일상과 동일 요율
   dailyLifeDivisor: 1_000,
   difficultyMaxTenths: 40,
   angelDetourMaxMeters: 5_000,

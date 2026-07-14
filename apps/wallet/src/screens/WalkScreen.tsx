@@ -11,7 +11,7 @@ type RootTabNav = NavigationProp<{ 더보기: { screen: keyof MoreStackParamList
 
 const TIER_LABEL: Record<string, { text: string; color: string }> = {
   ON_COURSE: { text: '코스 위 — 인정 중 (기준 요율)', color: colors.onCourse },
-  OFF_COURSE: { text: '코스 밖 — 감액 중 (1/10 요율)', color: colors.offCourse },
+  OFF_COURSE: { text: '코스 밖 — 미세 생성 (일상과 동일)', color: colors.offCourse },
   ANGEL_DETOUR: { text: '엔젤 우회 — 잠정 (사용 시 확정)', color: colors.detour },
   DAILY_LIFE: { text: '일상 걸음 — 미세 요율', color: colors.daily },
   IDLE: { text: '대기 중', color: colors.daily },
