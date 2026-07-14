@@ -149,10 +149,13 @@ export function createDb(path: string): DatabaseSync {
       verified INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
     );
-    -- 소명 대기 목록 (지시서 3장 5절) — 지갑들이 내려받아 수령 보류
+    -- 소명 대기 목록 (지시서 3장 5절) — 지갑들이 내려받아 수령 보류.
+    -- 사유는 자연어가 아니라 코드 + 파라미터다 (@shvil/shared FlagReason):
+    -- 서버는 화면 문구를 만들지 않는다. 문장은 각 클라이언트가 자기 사전에서 조립한다.
     CREATE TABLE IF NOT EXISTS flagged_members (
       member_id TEXT PRIMARY KEY,
-      reason TEXT NOT NULL,
+      reason_code TEXT NOT NULL, -- DOUBLE_SPEND_SUSPECT | OVERPRODUCTION_DAILY | OVERPRODUCTION_WEEKLY | MANUAL
+      params_json TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL, -- PENDING | CLEARED
       flagged_at INTEGER NOT NULL
     );
@@ -190,7 +193,28 @@ export function createDb(path: string): DatabaseSync {
       updated_at INTEGER NOT NULL
     );
   `);
+  migrateFlaggedMembers(db);
   return db;
+}
+
+/**
+ * 구 스키마 이행: flagged_members.reason(자연어) → reason_code + params_json.
+ * 파일럿 전 개발 단계이므로 구 테이블은 폐기 후 재생성한다 (소명 대기 등재는
+ * 동기화 지문이 다시 쌓이면 자동 재포착된다 — 보존 가치가 없는 파생 데이터).
+ */
+function migrateFlaggedMembers(db: DatabaseSync): void {
+  const cols = db.prepare('PRAGMA table_info(flagged_members)').all() as unknown as { name: string }[];
+  if (cols.length === 0 || cols.some((c) => c.name === 'reason_code')) return;
+  db.exec(`
+    DROP TABLE flagged_members;
+    CREATE TABLE flagged_members (
+      member_id TEXT PRIMARY KEY,
+      reason_code TEXT NOT NULL,
+      params_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL,
+      flagged_at INTEGER NOT NULL
+    );
+  `);
 }
 
 export function kvGet(db: DatabaseSync, key: string): string | null {

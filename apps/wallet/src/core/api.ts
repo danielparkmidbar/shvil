@@ -17,6 +17,7 @@ import {
   type CoinFingerprint,
   type CourseData,
   type Coin,
+  type FlaggedMemberEntry,
   type GeoPoint,
   type MembershipCertificate,
   type MessageEnvelope,
@@ -158,12 +159,12 @@ export interface ClaimVoteResult {
   amountDshv?: number;
 }
 
-/** 소명 대기 회원 (지시서 3장 5절) — 이 회원이 생성한 코인은 수령 보류. */
-export interface FlaggedMemberEntry {
-  memberId: string;
-  reason: string;
-  flaggedAt: number;
-}
+/**
+ * 소명 대기 회원 (지시서 3장 5절) — 이 회원이 생성한 코인은 수령 보류.
+ * 사유는 서버가 만든 문장이 아니라 코드 + 파라미터다 (@shvil/shared FlagReason).
+ * 화면 문구는 지갑이 조립한다 (screens/flagReasonText.ts).
+ */
+export type { FlaggedMemberEntry };
 
 // ── 마켓 계약 타입 (M3 — server/src/market.ts와 계약을 공유한다) ────
 // 서버의 역할은 에스크로 상태 관리뿐이다. SHV 이전 자체는 판매자의 지불

@@ -274,13 +274,34 @@ describe('탑 100 리더보드 + 기준선 + 소명 목록 (지시서 3장, 6장
   });
 
   it('소명 대기 목록: 등재 → 지갑 배포 → 소명 통과 시 해제', async () => {
-    await app.inject({ method: 'POST', url: '/limits/flagged', payload: { memberId: 'SHV-999999', reason: '기준선 추월' } });
-    let res = (await app.inject({ method: 'GET', url: '/limits/flagged' })).json() as { members: { memberId: string }[] };
-    expect(res.members.some((m) => m.memberId === 'SHV-999999')).toBe(true);
+    await app.inject({
+      method: 'POST',
+      url: '/limits/flagged',
+      payload: { memberId: 'SHV-999999', reasonCode: 'MANUAL' },
+    });
+    let res = (await app.inject({ method: 'GET', url: '/limits/flagged' })).json() as {
+      members: { memberId: string; reasonCode: string; params: Record<string, unknown> }[];
+    };
+    const entry = res.members.find((m) => m.memberId === 'SHV-999999');
+    expect(entry).toBeDefined();
+    // 사유는 코드 + 파라미터다 — 서버는 화면 문장을 만들지 않는다 (다국어는 클라이언트 책임).
+    expect(entry!.reasonCode).toBe('MANUAL');
+    expect(entry!.params).toEqual({});
 
     await app.inject({ method: 'POST', url: '/limits/flagged/SHV-999999/clear' });
-    res = (await app.inject({ method: 'GET', url: '/limits/flagged' })).json() as { members: { memberId: string }[] };
+    res = (await app.inject({ method: 'GET', url: '/limits/flagged' })).json() as {
+      members: { memberId: string; reasonCode: string; params: Record<string, unknown> }[];
+    };
     expect(res.members.some((m) => m.memberId === 'SHV-999999')).toBe(false);
+  });
+
+  it('알 수 없는 사유 코드는 거부된다 (자연어 사유 유입 차단)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/limits/flagged',
+      payload: { memberId: 'SHV-999998', reasonCode: '기준선 추월' },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });
 

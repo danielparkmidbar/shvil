@@ -99,6 +99,8 @@ export const en: Strings = {
     marketOpen: (n) => `Open listings: ${n}`,
     marketSettled: (n, shv) => `Settled listings: ${n} (total ${shv})`,
     marketFees: (usdc, pct) => `Accumulated fees: ${usdc} (${pct} at settlement)`,
+    marketNote:
+      'Face-to-face payments inside the ecosystem are free, forever — the fee applies only to market settlements.',
     mintStatsTitle: 'Walked coins vs. purchased coins',
     mintStatsPlaceholder:
       'In preparation — coins minted by walking and coins bought on the market are permanently distinguished by lineage, and the figures will be disclosed here as sync data accumulates.',

@@ -32,7 +32,15 @@ describe('parseFlaggedCache', () => {
     expect(parseFlaggedCache(null)).toEqual([]);
     expect(parseFlaggedCache('not-json{')).toEqual([]);
     expect(parseFlaggedCache('{"members":[]}')).toEqual([]); // 배열이 아니면 무시
-    const list = [{ memberId: 'SHV-000009', reason: 'baseline-exceeded', flaggedAt: 1 }];
+    // 사유는 서버가 만든 문장이 아니라 코드 + 파라미터다 (다국어는 클라이언트 책임).
+    const list = [
+      {
+        memberId: 'SHV-000009',
+        reasonCode: 'OVERPRODUCTION_DAILY',
+        params: { date: '2026-07-14', totalDshv: 500, limitDshv: 400 },
+        flaggedAt: 1,
+      },
+    ];
     expect(parseFlaggedCache(JSON.stringify(list))).toEqual(list);
   });
 });

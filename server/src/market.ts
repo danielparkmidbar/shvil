@@ -372,13 +372,14 @@ export function registerMarket(app: FastifyInstance, ctx: MarketContext): void {
         f: number;
       }
     ).f;
+    // 숫자만 반환한다 — "대면 지불은 영구 무료" 같은 화면 문구는 각 웹의 i18n
+    // 사전(transparency.marketNote)이 4개 언어로 갖는다. 서버는 UI 문장을 만들지 않는다.
     return {
       openListings: open,
       settledListings: settled.n,
       settledDshv: settled.dshv,
       collectedFeesUsdcMicro: fees,
       feeBps,
-      note: '생태계 내부 대면 지불은 영구 무료 — 수수료는 마켓 체결에만 부과됩니다.',
     };
   });
 }

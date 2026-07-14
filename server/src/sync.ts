@@ -14,7 +14,13 @@
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
-import { addressFromPublicKey, type CoinFingerprint } from '@shvil/shared';
+import {
+  addressFromPublicKey,
+  isOverproductionCode,
+  type CoinFingerprint,
+  type FlagReason,
+  type FlagReasonCode,
+} from '@shvil/shared';
 
 export interface SyncMemberRow {
   member_id: string;
@@ -42,15 +48,16 @@ function dateToEpochDay(date: string): number {
 export function registerSync(app: FastifyInstance, ctx: SyncContext): void {
   const { db, authenticate } = ctx;
 
-  function flagMember(memberId: string, reason: string, now: number): void {
+  /** 사유는 코드 + 파라미터로만 기록한다 — 화면 문장은 클라이언트 사전이 조립한다. */
+  function flagMember(memberId: string, reason: FlagReason, now: number): void {
     // 이미 PENDING이면 유지 (사유 덮어쓰지 않음 — 최초 포착 기록 보존)
     const existing = db.prepare('SELECT status FROM flagged_members WHERE member_id = ?').get(memberId) as
       | { status: string }
       | undefined;
     if (existing?.status === 'PENDING') return;
     db.prepare(
-      "INSERT OR REPLACE INTO flagged_members (member_id, reason, status, flagged_at) VALUES (?, ?, 'PENDING', ?)",
-    ).run(memberId, reason, now);
+      "INSERT OR REPLACE INTO flagged_members (member_id, reason_code, params_json, status, flagged_at) VALUES (?, ?, ?, 'PENDING', ?)",
+    ).run(memberId, reason.reasonCode, JSON.stringify(reason.params), now);
   }
 
   /** 주소 → 회원 번호 (기기 공개키에서 주소 계산). 없으면 null. */
@@ -72,7 +79,11 @@ export function registerSync(app: FastifyInstance, ctx: SyncContext): void {
         // 분기 확정: 같은 지불자가 같은 코인을 두 수령자에게 — 이중 지불자 등재
         const suspect = memberByAddress(fp.lastFromAddress);
         if (suspect) {
-          flagMember(suspect, `이중 사용 의심: 코인 ${fp.coinId.slice(0, 12)}… 분기 (체인 ${fp.chainLen})`, now);
+          flagMember(
+            suspect,
+            { reasonCode: 'DOUBLE_SPEND_SUSPECT', params: { coinId: fp.coinId, chainLen: fp.chainLen } },
+            now,
+          );
           return suspect;
         }
       }
@@ -107,14 +118,28 @@ export function registerSync(app: FastifyInstance, ctx: SyncContext): void {
     for (const day of days) {
       if (perDay.get(day)! > ctx.dailyMaxDshv) {
         const date = new Date(day * 86_400_000).toISOString().slice(0, 10);
-        flagMember(fp.producerMemberId, `초과 생성 의심: ${date} 합산 ${perDay.get(day)! / 10} SHV > 일 상한`, now);
+        flagMember(
+          fp.producerMemberId,
+          {
+            reasonCode: 'OVERPRODUCTION_DAILY',
+            params: { date, totalDshv: perDay.get(day)!, limitDshv: ctx.dailyMaxDshv },
+          },
+          now,
+        );
         return fp.producerMemberId;
       }
       let week = 0;
       for (let d = day - 6; d <= day; d++) week += perDay.get(d) ?? 0;
       if (week > ctx.weeklyMaxDshv) {
         const date = new Date(day * 86_400_000).toISOString().slice(0, 10);
-        flagMember(fp.producerMemberId, `초과 생성 의심: ~${date} 7일 합산 ${week / 10} SHV > 주 상한`, now);
+        flagMember(
+          fp.producerMemberId,
+          {
+            reasonCode: 'OVERPRODUCTION_WEEKLY',
+            params: { date, totalDshv: week, limitDshv: ctx.weeklyMaxDshv },
+          },
+          now,
+        );
         return fp.producerMemberId;
       }
     }
@@ -163,17 +188,19 @@ export function registerSync(app: FastifyInstance, ctx: SyncContext): void {
     return { accepted };
   });
 
-  /** 이상 포착 현황 (익명 카운트) — 투명성 페이지 공시 (지시서 3장 4절). */
+  /**
+   * 이상 포착 현황 (익명 카운트) — 투명성 페이지 공시 (지시서 3장 4절).
+   * 숫자만 반환한다. 설명 문구는 각 웹의 i18n 사전 몫이다 (서버는 UI 문장을 만들지 않는다).
+   */
   app.get('/transparency/anomalies', async () => {
     const flagged = db
-      .prepare("SELECT reason FROM flagged_members WHERE status = 'PENDING'")
-      .all() as unknown as { reason: string }[];
+      .prepare("SELECT reason_code FROM flagged_members WHERE status = 'PENDING'")
+      .all() as unknown as { reason_code: FlagReasonCode }[];
     return {
       pendingTotal: flagged.length,
-      doubleSpendSuspects: flagged.filter((f) => f.reason.startsWith('이중 사용')).length,
-      overproductionSuspects: flagged.filter((f) => f.reason.startsWith('초과 생성')).length,
+      doubleSpendSuspects: flagged.filter((f) => f.reason_code === 'DOUBLE_SPEND_SUSPECT').length,
+      overproductionSuspects: flagged.filter((f) => isOverproductionCode(f.reason_code)).length,
       sightings: (db.prepare('SELECT COUNT(*) AS n FROM coin_sightings').get() as { n: number }).n,
-      note: '동기화 지문 기반 사후 포착 — 거래 승인이 아니며, 소명 통과 시 해제됩니다.',
     };
   });
 }

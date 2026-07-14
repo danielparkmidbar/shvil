@@ -25,7 +25,7 @@ beforeAll(async () => {
   await app.inject({
     method: 'POST',
     url: '/limits/flagged',
-    payload: { memberId: flaggedWalker.memberId, reason: '기준선 추월' },
+    payload: { memberId: flaggedWalker.memberId, reasonCode: 'MANUAL' },
   });
 });
 

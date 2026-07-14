@@ -17,6 +17,11 @@ export const DIRECTORY_URL =
 const REQUEST_TIMEOUT_MS = 8_000;
 
 // ── 계약 타입 (server/src/app.ts · community.ts 응답 형태) ────────
+//
+// 규칙: 응답 타입에 화면용 자연어(설명 문장·안내 문구) 필드를 두지 않는다.
+// 서버는 숫자·코드·ID만 반환하고, 다국어는 전적으로 이 웹의 책임이다
+// (i18n 사전 en/he/ko/es). 서버가 문장을 보내면 어떤 로케일에서도 번역할 수 없다.
+// 사용자 자유 텍스트(코스명·표시명 등)는 예외 — 번역 대상이 아닌 원문 데이터다.
 
 export interface GeoPoint {
   lat: number;
@@ -86,14 +91,11 @@ export interface BaselineInfo {
   dailyMaxDshv: number;
   weeklyMaxDshv: number;
   regions: { region: string; topTotalMintedDshv: number; verifiedMembers: number }[];
-  note: string;
 }
 
-/** 소명 대기 목록 — 지갑 배포용. 이 사이트는 익명 카운트만 표시한다. */
-export interface FlaggedList {
-  members: { memberId: string; reason: string; flaggedAt: number }[];
-  note: string;
-}
+// 소명 대기 목록(GET /limits/flagged)은 지갑 배포용이다 — 이 사이트는 회원 번호를
+// 표시하지 않고 익명 카운트(transparency.flaggedPending)만 쓴다. 소명 절차 안내 문구는
+// 사전(leaderboard.flaggedNote)에 4개 언어로 있다. 그래서 여기에 계약 타입을 두지 않는다.
 
 export interface CommunityTransparency {
   claims: { open: number; approved: number; issuedDshv: number };
@@ -143,11 +145,6 @@ export async function fetchLeaderboard(region?: string): Promise<LeaderboardEntr
 
 export function fetchBaseline(): Promise<BaselineInfo> {
   return getJson<BaselineInfo>('/limits/baseline');
-}
-
-/** 익명 카운트 확인용 — 회원 번호는 화면에 표시하지 않는다 (지갑 배포 전용 정보). */
-export function fetchFlagged(): Promise<FlaggedList> {
-  return getJson<FlaggedList>('/limits/flagged');
 }
 
 export function fetchCommunityTransparency(): Promise<CommunityTransparency> {

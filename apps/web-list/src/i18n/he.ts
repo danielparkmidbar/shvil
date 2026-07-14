@@ -68,7 +68,8 @@ export const he: Strings = {
     colName: 'שם המסלול',
     colSegments: 'מקטעים',
     colDifficulty: 'מקדם קושי',
-    segmentsValue: (n) => `${n} מקטעים`,
+    // 히브리어 단복수 분기 — n=1일 때 '1 מקטעים'(= "1 segments") 같은 비문을 막는다.
+    segmentsValue: (n) => (n === 1 ? 'מקטע אחד' : `${n} מקטעים`),
     difficultyValue: (v) => `×${v}`,
     candidateTitle: 'מסלולים מועמדים (ממתינים להעלאה)',
     candidateEmpty: 'אין כרגע הצעות למסלולים מועמדים.',
@@ -121,7 +122,7 @@ export const he: Strings = {
     filterAll: 'כל המסלולים',
     kindFull: 'סיום מלא (10 SHV)',
     kindSection: 'מקטע (3 SHV)',
-    photosValue: (n) => `${n} תמונות`,
+    photosValue: (n) => (n === 1 ? 'תמונה אחת' : `${n} תמונות`),
     empty: 'עדיין לא פורסמו אישורים.',
     submitInApp: 'הגשת אישורי סיום נעשית באפליקציית הארנק.',
     issuanceTitle: 'פרסום הנפקת מטבעות העידוד',
@@ -148,7 +149,7 @@ export const he: Strings = {
     baselineDaily: (shv) => `תקרת יצירה יומית: ${shv}`,
     baselineWeekly: (shv) => `תקרת סבירות שבועית: ${shv}`,
     baselineRegionRow: (region, shv, members) =>
-      `${region} — ${members} מטיילים מאומתים, שיא יצירה כולל ${shv}`,
+      `${region} — ${members === 1 ? 'מטייל מאומת אחד' : `${members} מטיילים מאומתים`}, שיא יצירה כולל ${shv}`,
     baselineCatch: 'כל יוצר מטבעות שעוקף את קו הבסיס נלכד אוטומטית.',
     flaggedTitle: 'ממתינים למתן הסבר',
     flaggedCount: (n) => `ממתינים להסבר: ${n}`,

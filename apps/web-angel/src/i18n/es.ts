@@ -100,6 +100,8 @@ export const es: Strings = {
     marketOpen: (n) => `Listados abiertos: ${n}`,
     marketSettled: (n, shv) => `Listados liquidados: ${n} (total ${shv})`,
     marketFees: (usdc, pct) => `Comisiones acumuladas: ${usdc} (${pct} al liquidar)`,
+    marketNote:
+      'Los pagos cara a cara dentro del ecosistema son gratuitos, para siempre — la comisión se aplica solo a las liquidaciones del mercado.',
     mintStatsTitle: 'Monedas caminadas frente a monedas compradas',
     mintStatsPlaceholder:
       'En preparación — las monedas acuñadas caminando y las compradas en el mercado se distinguen permanentemente por su linaje, y las cifras se publicarán aquí a medida que se acumule la sincronización.',

@@ -90,6 +90,8 @@ export interface Strings {
     marketOpen: (n: number) => string;
     marketSettled: (n: number, shv: string) => string;
     marketFees: (usdc: string, pct: string) => string;
+    /** 수수료의 범위 — 대면 지불은 무료임을 밝히는 문구. 서버가 아니라 사전이 갖는다. */
+    marketNote: string;
     mintStatsTitle: string;
     mintStatsPlaceholder: string;
     regionalTitle: string;

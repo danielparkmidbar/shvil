@@ -99,6 +99,7 @@ export const ko: Strings = {
     marketOpen: (n) => `열린 리스팅: ${n}건`,
     marketSettled: (n, shv) => `체결된 리스팅: ${n}건 (누계 ${shv})`,
     marketFees: (usdc, pct) => `수수료 누계: ${usdc} (체결 시 ${pct})`,
+    marketNote: '생태계 내부 대면 지불은 영구 무료입니다 — 수수료는 마켓 체결에만 부과됩니다.',
     mintStatsTitle: '생성 코인 vs 구매 코인 구분 통계',
     mintStatsPlaceholder:
       '집계 준비 중 — 걸어서 생성한 코인과 마켓에서 구매한 코인은 계보로 영구 구분되며, 동기화 통계가 모이는 대로 이곳에 공시됩니다.',
@@ -106,8 +107,9 @@ export const ko: Strings = {
     regionalPlaceholder:
       '집계 준비 중 — 지역별 생성량(위치 아닌 코스 단위)이 이곳에 공시됩니다. 개인의 이동 경로는 어디에도 기록되지 않습니다.',
     reserveTitle: '리저브 공시',
-    reservePlaceholder:
-      '준비 중 — 리저브 운용 원칙과 현황은 리저브 기획 보고서(docs/쉬빌_리저브_기획보고서.md)를 기준으로 이곳에 공시됩니다.',
+    // 공시 기준 문서는 docs/쉬빌_리저브_기획보고서.md — 내부 경로는 화면에 쓰지 않는다
+    // (방문자는 접근할 수 없고, 다른 3개 사전과도 어긋난다).
+    reservePlaceholder: '준비 중 — 리저브 운용 원칙과 현황은 이곳에 공시됩니다.',
   },
 
   region: {

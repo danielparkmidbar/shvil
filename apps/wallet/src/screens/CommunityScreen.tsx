@@ -16,6 +16,7 @@ import { Alert, Button, Pressable, ScrollView, StyleSheet, Text, TextInput, View
 import { useFocusEffect } from '@react-navigation/native';
 import { SHVIL_ISRAEL_NORTH_SAMPLE } from '@shvil/shared';
 import { ApiError, type ClaimEntry, type FlaggedMemberEntry } from '../core/api';
+import { flagReasonText } from '../core/flagReasonText';
 import {
   directoryApi,
   getTrustedIssuerKeys,
@@ -454,7 +455,7 @@ function VoteTab({ registered, myMemberId }: { registered: boolean; myMemberId: 
         </Muted>
         {flagged.map((f) => (
           <Muted key={f.memberId}>
-            {f.memberId} · {f.reason} · {new Date(f.flaggedAt).toLocaleDateString()}
+            {f.memberId} · {flagReasonText(f)} · {new Date(f.flaggedAt).toLocaleDateString()}
           </Muted>
         ))}
       </Card>

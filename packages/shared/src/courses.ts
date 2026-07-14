@@ -72,7 +72,8 @@ export function corridorHalfWidthAt(course: CourseData, segmentIndex: number): n
  */
 export const SHVIL_ISRAEL_NORTH_SAMPLE: CourseData = {
   courseId: 'shvil-israel',
-  name: '쉬빌 이스라엘 (북부 샘플 구간)',
+  // 코스명은 현지 공식 명칭(고유명사)으로 둔다 — 서버·데이터 계층은 UI 문구를 나르지 않는다.
+  name: 'Israel National Trail (north sample section)',
   version: 1,
   polyline: [
     { lat: 33.2485, lon: 35.6523 },

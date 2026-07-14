@@ -19,6 +19,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import {
   buildGrant,
   hashObject,
+  isFlagReasonCode,
   signDistribution,
   type CourseData,
   type SignedGrant,
@@ -435,26 +436,34 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
          FROM leaderboard WHERE verified = 1 GROUP BY region`,
       )
       .all() as unknown as { region: string; top_dshv: number; members: number }[];
+    // 숫자만 반환한다 — 기준선의 의미를 설명하는 문구는 각 웹의 i18n 사전 몫이다.
     return {
       dailyMaxDshv: 400,
       weeklyMaxDshv: 3000,
       regions: regions.map((r) => ({ region: r.region, topTotalMintedDshv: r.top_dshv, verifiedMembers: r.members })),
-      note: '기준선을 추월하는 생성자는 자동 포착되어 검토 절차에 회부됩니다.',
     };
   });
 
   // ── 소명 대기 목록 (지시서 3장 5절) ───────────────────────────
 
-  /** 지갑 배포용: 이 목록의 회원 번호가 생성한 코인은 수령 보류 대상. */
+  /**
+   * 지갑 배포용: 이 목록의 회원 번호가 생성한 코인은 수령 보류 대상.
+   * 사유는 코드 + 파라미터로만 나간다 (@shvil/shared FlagReason) — 서버는 화면
+   * 문장을 만들지 않는다. 소명 절차 설명 문구는 각 클라이언트 사전에 있다.
+   */
   app.get('/limits/flagged', async () => {
     const rows = db
-      .prepare("SELECT member_id, reason, flagged_at FROM flagged_members WHERE status = 'PENDING'")
-      .all() as unknown as { member_id: string; reason: string; flagged_at: number }[];
+      .prepare("SELECT member_id, reason_code, params_json, flagged_at FROM flagged_members WHERE status = 'PENDING'")
+      .all() as unknown as { member_id: string; reason_code: string; params_json: string; flagged_at: number }[];
     // 배포 서명(_sig) 부착 — MITM의 소명 목록 조작 차단 (보안 감사 H-3).
     return signDistribution(
       {
-        members: rows.map((r) => ({ memberId: r.member_id, reason: r.reason, flaggedAt: r.flagged_at })),
-        note: '소명 통과 시 해제됩니다. 이미 유통 중인 정상 코인과 타인의 거래는 영향받지 않습니다.',
+        members: rows.map((r) => ({
+          memberId: r.member_id,
+          reasonCode: r.reason_code,
+          params: JSON.parse(r.params_json) as Record<string, string | number>,
+          flaggedAt: r.flagged_at,
+        })),
       },
       ctx.distSigner,
       ctx.distKeyId,
@@ -466,11 +475,14 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
     // TODO(운영): 자동 포착(동기화 통계·기준선 추월) + 검토단(검증 배지 추첨) 판정 절차.
     // 개발 모드에서는 수동 등재·해제로 흐름을 검증한다.
     app.post('/limits/flagged', async (req, reply) => {
-      const body = req.body as { memberId?: string; reason?: string } | null;
+      const body = req.body as { memberId?: string; reasonCode?: string; params?: Record<string, unknown> } | null;
       if (!body?.memberId) return reply.code(400).send({ error: 'memberId required' });
+      // 자연어 사유는 받지 않는다 — 코드만. 미지정 시 수동 등재(MANUAL).
+      const code = body.reasonCode ?? 'MANUAL';
+      if (!isFlagReasonCode(code)) return reply.code(400).send({ error: 'unknown reasonCode' });
       db.prepare(
-        "INSERT OR REPLACE INTO flagged_members (member_id, reason, status, flagged_at) VALUES (?, ?, 'PENDING', ?)",
-      ).run(body.memberId, body.reason ?? 'manual', Date.now());
+        "INSERT OR REPLACE INTO flagged_members (member_id, reason_code, params_json, status, flagged_at) VALUES (?, ?, ?, 'PENDING', ?)",
+      ).run(body.memberId, code, JSON.stringify(body.params ?? {}), Date.now());
       return { flagged: true };
     });
     app.post('/limits/flagged/:memberId/clear', async (req) => {

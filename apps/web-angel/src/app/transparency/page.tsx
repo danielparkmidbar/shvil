@@ -79,7 +79,7 @@ export default function TransparencyPage() {
               {s.marketFees(fmtUsdcMicro(market.collectedFeesUsdcMicro), fmtBps(market.feeBps))}
             </li>
           </ul>
-          <p className="muted">{market.note}</p>
+          <p className="muted">{s.marketNote}</p>
         </>
       ) : (
         !serverDown && <p className="muted">{t.common.loading}</p>

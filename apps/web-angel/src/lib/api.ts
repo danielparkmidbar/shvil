@@ -16,6 +16,12 @@ export const DIRECTORY_URL =
 const REQUEST_TIMEOUT_MS = 8_000;
 
 // ── 계약 타입 (server/src/app.ts · market.ts 응답 형태) ──────────
+//
+// 규칙: 응답 타입에 화면용 자연어(설명 문장·안내 문구) 필드를 두지 않는다.
+// 서버는 숫자·코드·ID만 반환하고, 다국어는 전적으로 이 웹의 책임이다
+// (i18n 사전 en/he/ko/es). 서버가 문장을 보내면 어떤 로케일에서도 번역할 수 없다 —
+// 실제로 /transparency/market의 note가 영어 화면에 한국어를 노출한 적이 있다.
+// 사용자 자유 텍스트(엔젤 이름·접대 조건 등)는 예외 — 번역 대상이 아닌 원문 데이터다.
 
 export interface GeoPoint {
   lat: number;
@@ -70,7 +76,6 @@ export interface MarketTransparency {
   settledDshv: number;
   collectedFeesUsdcMicro: number;
   feeBps: number;
-  note: string;
 }
 
 // ── fetch 헬퍼 ───────────────────────────────────────────────────

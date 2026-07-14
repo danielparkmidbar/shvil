@@ -211,7 +211,9 @@ describe('DirectoryApi', () => {
     const flaggedApi = makeApi(
       fakeFetch({
         headers: (h) => (seenHeaders = h),
-        responseBody: { members: [{ memberId: 'SHV-000009', reason: 'baseline', flaggedAt: 1 }] },
+        responseBody: {
+          members: [{ memberId: 'SHV-000009', reasonCode: 'MANUAL', params: {}, flaggedAt: 1 }],
+        },
       }),
     );
     const flaggedRes = await flaggedApi.getFlaggedMembers();
