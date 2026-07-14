@@ -23,10 +23,12 @@ export interface Strings {
     siteName: string;
     tagline: string;
     nav: {
+      angels: string;
       courses: string;
       claims: string;
       certificates: string;
       leaderboard: string;
+      transparency: string;
     };
     footer: {
       angelLink: string;
@@ -53,6 +55,33 @@ export interface Strings {
       certificates: { title: string; desc: string };
       leaderboard: { title: string; desc: string };
     };
+  };
+
+  /**
+   * 엔젤 찾기 (서비스 재조정 §2-2 — 지도는 걷는 사람의 것).
+   * intro는 "선의가 기반, 코인은 수단"의 정신을 담는다 (재조정 설계 0장).
+   */
+  angels: {
+    title: string;
+    intro: string;
+    filterTitle: string;
+    filters: {
+      bedRoom: string;
+      bedSofa: string;
+      bedTent: string;
+      internet: string;
+      shower: string;
+      meal: string;
+    };
+    angelCount: (n: number) => string;
+    capacity: (n: number) => string;
+    conditionsLabel: string;
+    /** R-4: "대략적 위치입니다 — 정확한 위치는 승인 후 지갑 메시지로" 안내. */
+    approxLocation: string;
+    /** 딥링크 버튼 — "지갑 앱에서 투숙 신청" (웹 신청 불허, R-7). */
+    requestCta: string;
+    requestNote: string;
+    selectHint: string;
   };
 
   courses: {
@@ -139,6 +168,32 @@ export interface Strings {
     flaggedTitle: string;
     flaggedCount: (n: number) => string;
     flaggedNote: string;
+  };
+
+  /**
+   * 투명성 공시 (재조정 §2-2 — 공통 공시를 양쪽 사이트에 배치).
+   * 서버 응답의 자연어 필드는 렌더하지 않는다 — 문구는 전부 이 사전이 갖는다.
+   */
+  transparency: {
+    title: string;
+    intro: string;
+    estimateNote: string;
+    promoTitle: string;
+    promoRegistration: (issued: number, quota: number) => string;
+    promoFirstHosting: (issued: number) => string;
+    promoRule: string;
+    marketTitle: string;
+    marketOpen: (n: number) => string;
+    marketSettled: (n: number, shv: string) => string;
+    marketFees: (usdc: string, pct: string) => string;
+    /** 수수료의 범위 — 대면 지불은 무료임을 밝히는 문구. 서버가 아니라 사전이 갖는다. */
+    marketNote: string;
+    mintStatsTitle: string;
+    mintStatsPlaceholder: string;
+    regionalTitle: string;
+    regionalPlaceholder: string;
+    reserveTitle: string;
+    reservePlaceholder: string;
   };
 
   /** 지역(트레일) 선택기 + 세계 확장 비전 (packages/shared WORLD_TRAILS). */

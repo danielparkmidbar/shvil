@@ -409,6 +409,93 @@ h2 {
   border-bottom: none;
 }
 
+/* ── 데스크톱 우선 와이드 레이아웃 ("여행 전엔 노트북" — 재조정 0-1절) ──
+   site-main(960px)을 유지하되, 넓게 볼 페이지(엔젤 찾기·투명성)만
+   가운데 정렬로 확장한다. 논리 속성만 사용 — RTL에서도 대칭. */
+
+.breakout-wide {
+  --wide-max: 1360px;
+  --wide-w: min(var(--wide-max), 100vw - 2.4rem);
+  width: var(--wide-w);
+  margin-inline: calc((100% - var(--wide-w)) / 2);
+}
+
+.page-intro {
+  max-width: 52rem;
+  font-size: 1rem;
+}
+
+/* ── 엔젤 찾기 지도 (M5 — 전체 여정을 한눈에) ──────────────── */
+
+.finder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 1.2rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .finder-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.map-canvas {
+  width: 100%;
+  height: clamp(520px, 68vh, 760px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--green-50);
+}
+
+.filter-row label {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.angel-card h3 {
+  margin: 0 0 0.3rem;
+  color: var(--green-900);
+  font-size: 1.15rem;
+}
+
+.service-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0;
+}
+
+.service-tag {
+  background: var(--green-100);
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+/* R-4 대략 위치 안내 — 카드 안에서 살짝 작게 */
+.approx-note {
+  font-size: 0.88rem;
+}
+
+/* ── 투명성 그리드 (데스크톱 정보 밀도) ────────────────────── */
+
+.transparency-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1rem;
+  margin-block-start: 1.2rem;
+}
+
+.transparency-grid .card {
+  margin: 0;
+}
+
+.transparency-grid h2 {
+  margin-block-start: 0.2rem;
+}
+
 /* ── 지역(트레일) 선택기 ───────────────────────────────────── */
 
 .header-controls {

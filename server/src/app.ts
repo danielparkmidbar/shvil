@@ -26,6 +26,7 @@ import {
   currentOwnerAddress,
   sha256Hex,
   signDistribution,
+  snapToPrivacyGrid,
   verifyAuthHeaders,
   verifyCoin,
   type Coin,
@@ -407,6 +408,11 @@ export function buildApp(
       return reply.code(400).send({ error: `region '${regionId}' is not open yet` });
     }
 
+    // R-4 (2026-07-14 확정): 서버는 엔젤의 정확한 좌표를 아예 저장하지 않는다.
+    // 지갑이 전송 전에 눈금화하지만, 클라이언트를 신뢰하지 않으므로 여기서
+    // 방어적으로 다시 ~1km 눈금(0.01°)으로 반올림한다 (이중 방어).
+    const snapped = snapToPrivacyGrid(body.location.lat, body.location.lon);
+
     const isNew =
       db.prepare('SELECT 1 FROM angels WHERE member_id = ?').get(member.member_id) === undefined;
     db.prepare(
@@ -416,8 +422,8 @@ export function buildApp(
     ).run(
       member.member_id,
       body.name,
-      body.location.lat,
-      body.location.lon,
+      snapped.lat,
+      snapped.lon,
       JSON.stringify(body.services ?? {}),
       body.capacity ?? 1,
       body.conditions ?? null,

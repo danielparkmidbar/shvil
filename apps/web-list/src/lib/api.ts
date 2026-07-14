@@ -2,10 +2,13 @@
  * 디렉토리 서버 공개 API 클라이언트 (지시서 6장 — shvilist.org).
  *
  * 이 웹은 공개(비서명) GET API만 소비한다:
- *   /courses · /courses/proposals · /claims?status= · /certificates?courseId= ·
- *   /leaderboard?region= · /limits/baseline · /limits/flagged · /transparency/community.
+ *   /angels?region= · /courses · /courses/proposals · /claims?status= ·
+ *   /certificates?courseId= · /leaderboard?region= · /limits/baseline ·
+ *   /limits/flagged · /transparency/community · /transparency/promo ·
+ *   /transparency/market.
  * 서버에는 거래 승인 기능이 없고, 이 클라이언트에도 지불·수령·제출 호출이 없다 —
- * 클레임 제출·인정 투표·완주 인증·리더보드 등재는 전부 지갑 앱(서명 인증)에서 한다.
+ * 클레임 제출·인정 투표·완주 인증·리더보드 등재·투숙 신청은 전부 지갑 앱
+ * (서명 인증)에서 한다 (재조정 설계 R-7: 웹 신청 불허 — 웹은 열람·계획까지).
  *
  * 모든 fetch는 클라이언트 컴포넌트에서만 호출한다 (프리렌더 중 서버 미가동이
  * 빌드를 깨지 않게). 실패 시 throw하고 호출부가 안내 문구로 처리한다.
@@ -26,6 +29,35 @@ const REQUEST_TIMEOUT_MS = 8_000;
 export interface GeoPoint {
   lat: number;
   lon: number;
+}
+
+// ── 엔젤 디렉토리 (엔젤 찾기 지도 — 서비스 재조정 §2-2) ─────────
+//
+// 위치 원칙 (확정 R-4): 서버가 저장·반환하는 좌표는 ~1km 눈금(0.01°)으로
+// 눈금화된 대략 위치뿐이다 (server가 PUT /angels/me에서 방어적으로 재눈금화).
+// 정확한 집 위치·주소는 승인된 두 사람 사이의 E2E 지갑 메시지로만 오간다.
+
+export type BedService = 'ROOM' | 'SOFA' | 'TENT' | null;
+
+export interface AngelServices {
+  bed?: BedService;
+  internet?: boolean;
+  shower?: boolean;
+  meal?: boolean;
+}
+
+export interface AngelEntry {
+  memberId: string;
+  /** 엔젤이 공개를 선택한 닉네임(표시명) — 실명이 아니다. */
+  name: string;
+  /** ~1km 눈금화된 대략 위치 (R-4). */
+  location: GeoPoint;
+  services: AngelServices | null;
+  capacity: number;
+  conditions: string | null;
+  visible: boolean;
+  regionId?: string;
+  distanceKm?: number;
 }
 
 export interface CourseSegmentMeta {
@@ -104,6 +136,21 @@ export interface CommunityTransparency {
   flaggedPending: number;
 }
 
+/** 사이트 발행분 공시 (전용 발행 키 서명 — 총량 투명성 페이지 공시 원칙). */
+export interface PromoTransparency {
+  registrationIssued: number;
+  firstHostingIssued: number;
+  registrationQuota: number;
+}
+
+export interface MarketTransparency {
+  openListings: number;
+  settledListings: number;
+  settledDshv: number;
+  collectedFeesUsdcMicro: number;
+  feeBps: number;
+}
+
 // ── fetch 헬퍼 ───────────────────────────────────────────────────
 
 async function getJson<T>(path: string): Promise<T> {
@@ -113,6 +160,12 @@ async function getJson<T>(path: string): Promise<T> {
   });
   if (!res.ok) throw new Error(`GET ${path} -> ${res.status}`);
   return (await res.json()) as T;
+}
+
+export async function fetchAngels(region?: string): Promise<AngelEntry[]> {
+  const qs = region ? `?region=${encodeURIComponent(region)}` : '';
+  const { angels } = await getJson<{ angels: AngelEntry[] }>(`/angels${qs}`);
+  return angels;
 }
 
 export async function fetchCourses(): Promise<CourseData[]> {
@@ -151,11 +204,38 @@ export function fetchCommunityTransparency(): Promise<CommunityTransparency> {
   return getJson<CommunityTransparency>('/transparency/community');
 }
 
+export function fetchPromoTransparency(): Promise<PromoTransparency> {
+  return getJson<PromoTransparency>('/transparency/promo');
+}
+
+export function fetchMarketTransparency(): Promise<MarketTransparency> {
+  return getJson<MarketTransparency>('/transparency/market');
+}
+
 // ── 표기 헬퍼 ────────────────────────────────────────────────────
 
 /** 10 dSHV = 1 SHV. 123 dSHV → "12.3 SHV". */
 export function fmtShv(amountDshv: number): string {
   return `${(amountDshv / 10).toFixed(1)} SHV`;
+}
+
+/** USDC 마이크로 단위 → "1.23 USDC". */
+export function fmtUsdcMicro(micro: number): string {
+  return `${(micro / 1_000_000).toFixed(2)} USDC`;
+}
+
+/** 수수료 bp → "2.5%". */
+export function fmtBps(bps: number): string {
+  return `${(bps / 100).toFixed(1).replace(/\.0$/, '')}%`;
+}
+
+/**
+ * 지갑 앱 메신저 딥링크 — href만 제공, 앱 연동은 후속 (지갑 = 메신저).
+ * 투숙 신청도 이 채널로 시작한다: 웹은 서명 주체가 아니므로 신청을 보낼 수
+ * 없고(R-7), 지갑 대화로 넘긴다.
+ */
+export function chatDeepLink(memberId: string): string {
+  return `shvil://chat/${encodeURIComponent(memberId)}`;
 }
 
 /** 미터 → "12.3" (km 숫자 문자열 — 단위 표기는 사전이 결정). */

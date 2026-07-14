@@ -5,7 +5,12 @@ export const en: Strings = {
   common: {
     siteName: 'Shvil Angel',
     tagline: 'Angel homes — the map of those who welcome pilgrims',
-    nav: { map: 'Angel Map', market: 'Coin Market', transparency: 'Transparency' },
+    nav: {
+      become: 'Become an Angel',
+      map: 'Neighbor Angels',
+      market: 'Coin Market',
+      transparency: 'Transparency',
+    },
     footer: {
       shvilistLink: 'Shvilist — the home of the walkers who mint coins (shvilist.org)',
       shvilistUrl: 'https://shvilist.org',
@@ -25,25 +30,27 @@ export const en: Strings = {
       'exchanged for the bed, the meal, and the shower an angel offers by the wayside. Open ' +
       'your home, and you can stay in someone else’s home elsewhere. On the opposite side of ' +
       'renting out homes for money, walking and hospitality repay one another in a cycle of reciprocity.',
-    mapPreviewCta: 'View the Angel Map',
+    becomeCta: 'Become an angel',
+    mapPreviewCta: 'See the neighbor angels',
     downloadCta: 'Download the wallet',
     downloadNote: 'App release in preparation — opening soon.',
     flowTitle: 'The way to become an angel',
     flowSteps: [
-      'Install the Shvil wallet app. The wallet is also a messenger.',
-      'Verify your phone in the app, then register what you can offer (a room, a sofa, a yard tent, meals, a shower) and your location.',
-      'The moment you register, your point appears on this site’s angel map, and pilgrims on the trail knock with a message.',
+      'In “Become an Angel”, choose your trail, type your village or address, and see your pin on the map.',
+      'Sketch what you could offer — a room, a sofa, a yard tent, meals, a shower.',
+      'Install the Shvil wallet app. The wallet is also a messenger, and only the wallet can sign your registration.',
+      'Finish registering in the wallet — your point appears on the neighbor angels map, and pilgrims on the trail knock with a message.',
     ],
     flowNote:
-      'Receiving the wallet registers you as an angel on the map. You can turn your visibility on and off at any time.',
+      'This site is the doorway. Everything after joining — requests, approvals, thanks — flows through the wallet, and you can turn your visibility on and off at any time.',
     faceToFaceFree:
       'A face-to-face payment between pilgrim and angel needs no server approval and carries no fee — payments inside the ecosystem are free, forever.',
   },
 
   map: {
-    title: 'Angel Map',
+    title: 'Neighbor Angels',
     intro:
-      'The points of angels who welcome pilgrims on the trail. Only locations that angels have voluntarily made public are shown.',
+      'The neighbors who open their homes along the trail with you. Only a nickname and the offered services are shown — locations are approximate, on a ~1 km grid.',
     filterTitle: 'Service filters',
     filters: {
       bedRoom: 'Room',
@@ -54,12 +61,35 @@ export const en: Strings = {
       meal: 'Meal',
     },
     angelCount: (n) => `${n} angel${n === 1 ? '' : 's'}`,
-    capacity: (n) => `Capacity: ${n} guest${n === 1 ? '' : 's'}`,
-    conditionsLabel: 'Hosting conditions',
-    messageCta: 'Send a message from the wallet app',
-    messageNote: 'Opens on a device with the Shvil wallet installed.',
-    selectHint: 'Tap a marker on the map to see the angel’s profile.',
-    attribution: '© OpenStreetMap contributors',
+    selectHint: 'Tap a marker on the map to see the angel’s nickname and services.',
+    pilgrimNotice: 'Walking the trail and looking for an angel? Pilgrim search and requests live at',
+  },
+
+  become: {
+    title: 'Become an Angel',
+    intro:
+      'Opening your home starts here. This page is only the doorway — try out your location and services, then complete the real registration in the wallet. Nothing you type here is sent to any server.',
+    stepAddressTitle: 'Where is your home? (village or address)',
+    addressPlaceholder: 'Village, town, or address',
+    addressHint: 'Type at least 3 characters — candidates appear when you pause.',
+    searching: 'Searching…',
+    noResults: 'No places found. Try the name of a nearby village or town.',
+    searchFailed:
+      'Address search is unavailable right now. You can still tap the map to drop the pin and drag it.',
+    stepPinTitle: 'Fine-tune the pin',
+    pinDragHint: 'Tap the map to drop the pin, then drag it to fine-tune.',
+    pinPrivacyNote:
+      'The public map shows only an approximate location on a ~1 km grid. Your exact location is delivered only by wallet message, and only to guests whose stay you have approved.',
+    publicPreviewLegend: 'The translucent circle is the approximate position that would be shown publicly.',
+    stepServicesTitle: 'What can you offer?',
+    servicesNote: 'A preview only — the actual offer is registered, and changed anytime, in the wallet.',
+    bedLabel: 'Sleeping place',
+    capacityLabel: 'Capacity (guests)',
+    stepWalletTitle: 'Complete your registration in the wallet',
+    walletCta: 'Download the wallet',
+    walletComingSoon: 'App release in preparation — opening soon.',
+    notSentNote:
+      'Everything you entered here stays in this browser and was not submitted to any Shvil server — only the address search text is sent to the Photon geocoding service, solely to find candidates. Registration is signed by the wallet alone.',
   },
 
   market: {

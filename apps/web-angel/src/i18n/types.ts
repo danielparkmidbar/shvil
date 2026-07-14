@@ -22,7 +22,7 @@ export interface Strings {
   common: {
     siteName: string;
     tagline: string;
-    nav: { map: string; market: string; transparency: string };
+    nav: { become: string; map: string; market: string; transparency: string };
     footer: {
       shvilistLink: string;
       shvilistUrl: string;
@@ -35,6 +35,8 @@ export interface Strings {
   landing: {
     heroTitle: string;
     vision: string;
+    /** 주 CTA — "엔젤 되기" (M5: 사이트는 문, 등록은 지갑). */
+    becomeCta: string;
     mapPreviewCta: string;
     downloadCta: string;
     downloadNote: string;
@@ -56,12 +58,44 @@ export interface Strings {
       meal: string;
     };
     angelCount: (n: number) => string;
-    capacity: (n: number) => string;
-    conditionsLabel: string;
-    messageCta: string;
-    messageNote: string;
     selectHint: string;
-    attribution: string;
+    /** 순례자용 탐색·신청은 shvilist.org로 갔다는 한 줄 안내 (링크는 화면이 붙인다). */
+    pilgrimNotice: string;
+  };
+
+  /**
+   * "엔젤 되기" (M5 신규 — 서비스 재조정 설계 §4-1).
+   * 사이트는 문이다: 미리보기까지만, 어떤 것도 서버로 제출하지 않는다.
+   * 등록 서명은 지갑만 할 수 있다.
+   */
+  become: {
+    title: string;
+    intro: string;
+    /** ① 주소/마을 입력 (Photon 지오코딩). */
+    stepAddressTitle: string;
+    addressPlaceholder: string;
+    addressHint: string;
+    searching: string;
+    noResults: string;
+    searchFailed: string;
+    /** ② 핀 미세 조정 + 프라이버시 눈금 미리보기 (R-4 확정). */
+    stepPinTitle: string;
+    pinDragHint: string;
+    /** "공개 지도에는 약 1km 눈금의 대략 위치만 …" — R-4 안내 원문. */
+    pinPrivacyNote: string;
+    /** 반투명 원 = 공개될 대략 위치라는 범례. */
+    publicPreviewLegend: string;
+    /** ③ 제공 서비스 미리보기. */
+    stepServicesTitle: string;
+    servicesNote: string;
+    bedLabel: string;
+    capacityLabel: string;
+    /** ④ 지갑 다운로드 안내 (플레이스홀더 — 앱 배포 전). */
+    stepWalletTitle: string;
+    walletCta: string;
+    walletComingSoon: string;
+    /** "여기까지의 입력은 이 브라우저에만 있으며 서버로 전송되지 않았습니다" — 사실이어야 한다. */
+    notSentNote: string;
   };
   market: {
     title: string;

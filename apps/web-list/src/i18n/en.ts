@@ -7,10 +7,12 @@ export const en: Strings = {
     tagline:
       'The home of the shvilists — walkers who mint coins as they journey. You record it yourself, you attest it yourself.',
     nav: {
+      angels: 'Find an Angel',
       courses: 'Course Registry',
       claims: 'Claims Board',
       certificates: 'Completion Gallery',
       leaderboard: 'Top 100',
+      transparency: 'Transparency',
     },
     footer: {
       angelLink: 'Shvil Angel — angel map & coin market (shvilangel.org)',
@@ -58,6 +60,32 @@ export const en: Strings = {
         desc: 'The hall of fame of verified trekkers — the system’s living baseline.',
       },
     },
+  },
+
+  angels: {
+    title: 'Find an Angel',
+    intro:
+      'Along the trail there are homes that open their doors to those who walk. Goodwill is the ' +
+      'foundation — the coin is only a means of giving thanks and keeping the circle of good deeds ' +
+      'turning. Find the angels near your route and plan where you will rest.',
+    filterTitle: 'Service filters',
+    filters: {
+      bedRoom: 'Room',
+      bedSofa: 'Sofa',
+      bedTent: 'Yard tent',
+      internet: 'Internet',
+      shower: 'Shower',
+      meal: 'Meal',
+    },
+    angelCount: (n) => `${n} angel${n === 1 ? '' : 's'}`,
+    capacity: (n) => `Capacity: ${n} guest${n === 1 ? '' : 's'}`,
+    conditionsLabel: 'Hosting conditions',
+    approxLocation:
+      'This is an approximate location — the exact location is shared by wallet message after the angel approves your request.',
+    requestCta: 'Request a stay in the wallet app',
+    requestNote:
+      'Opens on a device with the Shvil wallet installed. Stay requests are sent only from the wallet — this site is for browsing and planning.',
+    selectHint: 'Select a marker on the map to see the angel’s profile.',
   },
 
   courses: {
@@ -158,6 +186,35 @@ export const en: Strings = {
     flaggedCount: (n) => `Awaiting explanation: ${n}`,
     flaggedNote:
       'Anonymous tally. Cleared once the explanation is accepted; genuine coins already in circulation and other people’s trades are unaffected.',
+  },
+
+  transparency: {
+    title: 'Transparency',
+    intro:
+      'Shvil has no central ledger. Instead, so the community can watch over itself, the site publishes everything it has issued and settled, along with sync statistics.',
+    estimateNote:
+      'Minting statistics are estimates based on device sync data — coins are created on each person’s phone, and the server neither approves nor enforces reporting.',
+    promoTitle: 'Promotional issuance (angel bonus)',
+    promoRegistration: (issued, quota) =>
+      `Registration bonus (20 SHV): ${issued} issued of a quota of ${quota}`,
+    promoFirstHosting: (issued) => `First-hosting bonus (30 SHV): ${issued} issued`,
+    promoRule:
+      'Angel bonuses are issued with a signing key limited in period and quantity, and minting happens on the angel’s phone.',
+    marketTitle: 'Market settlements & fees to date',
+    marketOpen: (n) => `Open listings: ${n}`,
+    marketSettled: (n, shv) => `Settled listings: ${n} (total ${shv})`,
+    marketFees: (usdc, pct) => `Accumulated fees: ${usdc} (${pct} at settlement)`,
+    marketNote:
+      'Face-to-face payments inside the ecosystem are free, forever — the fee applies only to market settlements.',
+    mintStatsTitle: 'Walked coins vs. purchased coins',
+    mintStatsPlaceholder:
+      'In preparation — coins minted by walking and coins bought on the market are permanently distinguished by lineage, and the figures will be disclosed here as sync data accumulates.',
+    regionalTitle: 'Regional minting trends',
+    regionalPlaceholder:
+      'In preparation — minting volume by region (by course, not by location) will be disclosed here. No one’s route is ever recorded anywhere.',
+    reserveTitle: 'Reserve disclosure',
+    reservePlaceholder:
+      'In preparation — the reserve’s operating principles and status will be disclosed here.',
   },
 
   region: {

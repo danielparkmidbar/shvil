@@ -26,3 +26,4 @@ export * from './flagReasons';
 export * from './mnemonic';
 export * from './backup';
 export * from './regions';
+export * from './geoPrivacy';

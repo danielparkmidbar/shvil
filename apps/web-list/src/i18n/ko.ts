@@ -6,10 +6,12 @@ export const ko: Strings = {
     siteName: '쉬빌리스트',
     tagline: '걷는 사람들의 집 — 여행하며 코인을 만드는 순례자. 스스로 기록하고 스스로 인증한다.',
     nav: {
+      angels: '엔젤 찾기',
       courses: '코스 등록부',
       claims: '클레임 게시판',
       certificates: '완주 갤러리',
       leaderboard: '탑 100',
+      transparency: '투명성',
     },
     footer: {
       angelLink: '쉬빌 엔젤 — 엔젤 지도·코인 마켓 (shvilangel.org)',
@@ -57,6 +59,32 @@ export const ko: Strings = {
         desc: '검증 트레커의 명예의 전당 — 시스템의 살아 있는 기준선.',
       },
     },
+  },
+
+  angels: {
+    title: '엔젤 찾기',
+    intro:
+      '길 위에는 걷는 사람에게 문을 여는 집들이 있습니다. 바탕은 선의입니다 — 코인은 ' +
+      '감사를 전하고 선행의 순환을 잇는 수단일 뿐입니다. 여정 가까이의 엔젤을 찾아 ' +
+      '쉬어 갈 곳을 미리 계획하세요.',
+    filterTitle: '서비스 필터',
+    filters: {
+      bedRoom: '방',
+      bedSofa: '소파',
+      bedTent: '마당 텐트',
+      internet: '인터넷',
+      shower: '샤워',
+      meal: '식사',
+    },
+    angelCount: (n) => `엔젤 ${n}곳`,
+    capacity: (n) => `수용 인원 ${n}명`,
+    conditionsLabel: '수용 조건',
+    approxLocation:
+      '대략적 위치입니다 — 정확한 위치는 엔젤이 신청을 승인한 뒤 지갑 메시지로 전달됩니다.',
+    requestCta: '지갑 앱에서 투숙 신청',
+    requestNote:
+      '쉬빌 지갑 앱이 설치된 기기에서 열립니다. 투숙 신청은 지갑에서만 보낼 수 있습니다 — 이 사이트는 열람과 계획까지입니다.',
+    selectHint: '지도의 마커를 누르면 엔젤 프로필이 표시됩니다.',
   },
 
   courses: {
@@ -155,6 +183,33 @@ export const ko: Strings = {
     flaggedCount: (n) => `소명 대기 중: ${n}건`,
     flaggedNote:
       '익명 집계입니다. 소명을 통과하면 해제되며, 이미 유통 중인 정상 코인과 타인의 거래는 영향받지 않습니다.',
+  },
+
+  transparency: {
+    title: '투명성',
+    intro:
+      '쉬빌에는 중앙 원장이 없습니다. 그 대신 커뮤니티가 스스로 지켜볼 수 있도록, 사이트가 발행·체결한 것과 동기화 통계를 모두 공개합니다.',
+    estimateNote:
+      '민팅 통계는 기기 동기화 데이터 기반 추정치입니다 — 코인은 각자의 폰에서 생성되며, 서버는 승인하지도 집계를 강제하지도 않습니다.',
+    promoTitle: '프로모션 발행 현황 (엔젤 보너스)',
+    promoRegistration: (issued, quota) =>
+      `등록 보너스 (20 SHV): ${issued}건 발행 / 쿼터 ${quota}건`,
+    promoFirstHosting: (issued) => `첫 접대 보너스 (30 SHV): ${issued}건 발행`,
+    promoRule:
+      '엔젤 보너스는 기간·수량 한정 서명 키로 발급되며, 민팅은 엔젤의 폰에서 이루어집니다.',
+    marketTitle: '마켓 체결·수수료 누계',
+    marketOpen: (n) => `열린 리스팅: ${n}건`,
+    marketSettled: (n, shv) => `체결된 리스팅: ${n}건 (누계 ${shv})`,
+    marketFees: (usdc, pct) => `수수료 누계: ${usdc} (체결 시 ${pct})`,
+    marketNote: '생태계 내부 대면 지불은 영구 무료입니다 — 수수료는 마켓 체결에만 부과됩니다.',
+    mintStatsTitle: '생성 코인 vs 구매 코인 구분 통계',
+    mintStatsPlaceholder:
+      '집계 준비 중 — 걸어서 생성한 코인과 마켓에서 구매한 코인은 계보로 영구 구분되며, 동기화 통계가 모이는 대로 이곳에 공시됩니다.',
+    regionalTitle: '지역별 생성량 추이',
+    regionalPlaceholder:
+      '집계 준비 중 — 지역별 생성량(위치 아닌 코스 단위)이 이곳에 공시됩니다. 개인의 이동 경로는 어디에도 기록되지 않습니다.',
+    reserveTitle: '리저브 공시',
+    reservePlaceholder: '준비 중 — 리저브 운용 원칙과 현황은 이곳에 공시됩니다.',
   },
 
   region: {

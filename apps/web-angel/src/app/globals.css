@@ -100,6 +100,13 @@ a {
   padding: 1.6rem 1.2rem 3rem;
 }
 
+/* 웹은 여행 준비 도구 — "여행 전엔 노트북" (서비스 재조정 설계 §0-1).
+   지도·등록처럼 넓은 화면이 필요한 페이지는 .page-wide로 컨테이너를 넓힌다.
+   (:has 미지원 브라우저는 960px 유지 — 우아한 축소) */
+.site-main:has(.page-wide) {
+  max-width: 1400px;
+}
+
 .site-footer {
   border-top: 1px solid var(--line);
   background: var(--green-50);
@@ -271,7 +278,8 @@ h2 {
 
 .map-canvas {
   width: 100%;
-  height: 480px;
+  /* 데스크톱 기준 와이드 지도 — 작은 화면에서는 자연히 줄어든다. */
+  height: clamp(480px, 65vh, 720px);
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
@@ -368,6 +376,157 @@ h2 {
   border: 1px dashed var(--line);
   border-radius: 10px;
   padding: 0.8rem 1.1rem;
+}
+
+/* ── 랜딩 히어로 (대형 — 데스크톱 첫 화면) ─────────────────── */
+
+/* 사진 교체 예정: 트레일 풍경·환대 장면 실사진이 확보되면 background-image로
+   교체한다 (에셋은 public/에 — 외부 이미지 핫링크 금지, 정적 자립 원칙).
+   지금은 하늘 → 언덕 → 길을 암시하는 CSS 그라디언트로 자리를 잡는다. */
+.hero-large {
+  min-height: min(62vh, 560px);
+  display: flex;
+  align-items: center;
+  background:
+    radial-gradient(ellipse 75% 55% at 78% 108%, rgba(214, 197, 158, 0.85), transparent 70%),
+    radial-gradient(ellipse 90% 60% at 15% 115%, rgba(58, 125, 76, 0.5), transparent 72%),
+    linear-gradient(180deg, #dcebf5 0%, #e9f2e6 45%, var(--green-100) 100%);
+}
+
+.hero-inner {
+  max-width: 46rem;
+}
+
+.hero-large h1 {
+  font-size: 2.2rem;
+  line-height: 1.25;
+}
+
+.btn-hero {
+  font-size: 1.1rem;
+  padding: 0.8rem 1.7rem;
+}
+
+@media (max-width: 700px) {
+  .hero-large {
+    min-height: 0;
+  }
+  .hero-large h1 {
+    font-size: 1.7rem;
+  }
+}
+
+/* ── 엔젤 되기 (become — 데스크톱 우선: 폼 + 지도 나란히) ──── */
+
+.become-intro {
+  max-width: 52rem;
+}
+
+.become-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 460px) 1fr;
+  gap: 1.2rem;
+  align-items: start;
+  margin-top: 0.6rem;
+}
+
+.become-map-col {
+  position: sticky;
+  top: 1rem;
+}
+
+.become-map {
+  height: clamp(520px, 75vh, 820px);
+}
+
+@media (max-width: 900px) {
+  .become-layout {
+    grid-template-columns: 1fr;
+  }
+  .become-map-col {
+    position: static;
+  }
+  .become-map {
+    height: 420px;
+  }
+}
+
+.become-step h2 {
+  margin-top: 0.2rem;
+}
+
+.address-input {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+  color: var(--ink);
+}
+
+.candidate-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.candidate-list button {
+  width: 100%;
+  text-align: start;
+  background: var(--green-50);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.candidate-list button:hover {
+  background: var(--green-100);
+}
+
+/* 프라이버시 눈금 미리보기 범례 — 지도 위 반투명 원과 같은 색 */
+.legend-swatch {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 50%;
+  background: rgba(46, 107, 63, 0.2);
+  border: 1px solid var(--green-700);
+  vertical-align: -0.12em;
+}
+
+.service-form {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.service-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  align-items: center;
+}
+
+.service-form-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.capacity-input {
+  width: 5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.95rem;
 }
 
 /* ── 지역(트레일) 선택기 ───────────────────────────────────── */

@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * 랜딩 (지시서 5장 1절): 비전 한 문단 + 엔젤 지도 링크 + 지갑 다운로드 +
- * "지갑을 받으면 지도에 엔젤로 등록된다" 흐름 설명.
+ * 랜딩 (M5 정비): "엔젤 되기"를 주 CTA로. 어조는 호혜·선의 우선 —
+ * "코인은 미래의 기대이지 목적이 아니다" (서비스 재조정 설계 §0). 과장 광고체 금지.
+ * 웹은 여행 준비 도구("여행 전엔 노트북") — 큰 화면을 채우는 히어로가 기준이다.
  * 데이터 fetch 없음 (빌드가 서버 가동에 의존하지 않는다). 문자열은 useI18n으로.
  */
 import Link from 'next/link';
@@ -14,18 +15,21 @@ export default function LandingPage() {
   const s = t.landing;
   return (
     <>
-      <section className="hero">
-        <h1>{s.heroTitle}</h1>
-        <p className="hero-vision">{s.vision}</p>
-        <div className="hero-actions">
-          {/* 지갑 다운로드 — 앱 배포 전 플레이스홀더 (스토어 링크는 후속). */}
-          <a className="btn" aria-disabled="true" title={s.downloadNote}>
-            {s.downloadCta}
-          </a>
-          <Link className="btn btn-secondary" href="/map">
-            {s.mapPreviewCta}
-          </Link>
-          <span className="muted">{s.downloadNote}</span>
+      {/* 히어로 — 트레일 풍경·환대 장면 사진으로 교체 예정 (실제 에셋 확보 시).
+          지금은 CSS 그라디언트로 하늘→언덕→길을 그려 자리를 잡는다.
+          외부 이미지 핫링크 금지 (정적 자립 원칙) — 에셋은 public/에 둘 것. */}
+      <section className="hero hero-large">
+        <div className="hero-inner">
+          <h1>{s.heroTitle}</h1>
+          <p className="hero-vision">{s.vision}</p>
+          <div className="hero-actions">
+            <Link className="btn btn-hero" href="/become">
+              {s.becomeCta}
+            </Link>
+            <Link className="btn btn-secondary" href="/map">
+              {s.mapPreviewCta}
+            </Link>
+          </div>
         </div>
       </section>
 

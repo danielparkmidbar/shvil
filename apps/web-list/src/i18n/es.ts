@@ -7,10 +7,12 @@ export const es: Strings = {
     tagline:
       'El hogar de los shvilists — caminantes que acuñan monedas mientras viajan. Tú lo registras, tú lo acreditas.',
     nav: {
+      angels: 'Buscar un ángel',
       courses: 'Registro de rutas',
       claims: 'Tablón de reclamos',
       certificates: 'Galería de finalizadores',
       leaderboard: 'Top 100',
+      transparency: 'Transparencia',
     },
     footer: {
       angelLink: 'Shvil Ángel — mapa de ángeles y mercado de monedas (shvilangel.org)',
@@ -59,6 +61,33 @@ export const es: Strings = {
         desc: 'El salón de la fama de los senderistas verificados — la línea base viva del sistema.',
       },
     },
+  },
+
+  angels: {
+    title: 'Buscar un ángel',
+    intro:
+      'A lo largo del sendero hay casas que abren su puerta a quienes caminan. La base es la ' +
+      'buena voluntad — la moneda es solo un medio para dar las gracias y mantener vivo el ' +
+      'círculo de las buenas obras. Encuentra a los ángeles cercanos a tu ruta y planifica ' +
+      'dónde descansarás.',
+    filterTitle: 'Filtros de servicios',
+    filters: {
+      bedRoom: 'Habitación',
+      bedSofa: 'Sofá',
+      bedTent: 'Tienda en el patio',
+      internet: 'Internet',
+      shower: 'Ducha',
+      meal: 'Comida',
+    },
+    angelCount: (n) => `${n} ángel${n === 1 ? '' : 'es'}`,
+    capacity: (n) => `Capacidad: ${n} huésped${n === 1 ? '' : 'es'}`,
+    conditionsLabel: 'Condiciones de acogida',
+    approxLocation:
+      'Esta es una ubicación aproximada — la ubicación exacta se comparte por mensaje de la billetera después de que el ángel apruebe la solicitud.',
+    requestCta: 'Solicitar alojamiento desde la aplicación de billetera',
+    requestNote:
+      'Se abre en un dispositivo con la billetera Shvil instalada. Las solicitudes se envían solo desde la billetera — este sitio es para consultar y planificar.',
+    selectHint: 'Toca un marcador del mapa para ver el perfil del ángel.',
   },
 
   courses: {
@@ -159,6 +188,35 @@ export const es: Strings = {
     flaggedCount: (n) => `A la espera de explicación: ${n}`,
     flaggedNote:
       'Recuento anónimo. Se levanta al aceptarse la explicación; las monedas legítimas ya en circulación y las transacciones de otras personas no se ven afectadas.',
+  },
+
+  transparency: {
+    title: 'Transparencia',
+    intro:
+      'Shvil no tiene libro mayor central. En su lugar, para que la comunidad pueda velar por sí misma, el sitio publica todo lo que ha emitido y liquidado, junto con las estadísticas de sincronización.',
+    estimateNote:
+      'Las estadísticas de acuñación son estimaciones basadas en datos de sincronización de dispositivos — las monedas se crean en el teléfono de cada persona, y el servidor ni aprueba ni impone informes.',
+    promoTitle: 'Emisión promocional (bono de ángel)',
+    promoRegistration: (issued, quota) =>
+      `Bono de registro (20 SHV): ${issued} emitidos de un cupo de ${quota}`,
+    promoFirstHosting: (issued) => `Bono de primera acogida (30 SHV): ${issued} emitidos`,
+    promoRule:
+      'Los bonos de ángel se emiten con una clave de firma limitada en período y cantidad, y la acuñación ocurre en el teléfono del ángel.',
+    marketTitle: 'Liquidaciones y comisiones acumuladas del mercado',
+    marketOpen: (n) => `Listados abiertos: ${n}`,
+    marketSettled: (n, shv) => `Listados liquidados: ${n} (total ${shv})`,
+    marketFees: (usdc, pct) => `Comisiones acumuladas: ${usdc} (${pct} al liquidar)`,
+    marketNote:
+      'Los pagos cara a cara dentro del ecosistema son gratuitos, para siempre — la comisión se aplica solo a las liquidaciones del mercado.',
+    mintStatsTitle: 'Monedas caminadas frente a monedas compradas',
+    mintStatsPlaceholder:
+      'En preparación — las monedas acuñadas caminando y las compradas en el mercado se distinguen permanentemente por su linaje, y las cifras se publicarán aquí a medida que se acumule la sincronización.',
+    regionalTitle: 'Tendencias de acuñación por región',
+    regionalPlaceholder:
+      'En preparación — el volumen de acuñación por región (por ruta, no por ubicación) se publicará aquí. El recorrido de nadie se registra jamás en ninguna parte.',
+    reserveTitle: 'Divulgación de la reserva',
+    reservePlaceholder:
+      'En preparación — los principios de gestión de la reserva y su estado se publicarán aquí.',
   },
 
   region: {

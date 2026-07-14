@@ -5,7 +5,12 @@ export const es: Strings = {
   common: {
     siteName: 'Shvil Ángel',
     tagline: 'Hogares de ángeles — el mapa de quienes acogen a los peregrinos',
-    nav: { map: 'Mapa de ángeles', market: 'Mercado de monedas', transparency: 'Transparencia' },
+    nav: {
+      become: 'Ser ángel',
+      map: 'Ángeles vecinos',
+      market: 'Mercado de monedas',
+      transparency: 'Transparencia',
+    },
     footer: {
       shvilistLink: 'Shvilist — el hogar de los caminantes (shvilist.org)',
       shvilistUrl: 'https://shvilist.org',
@@ -26,25 +31,27 @@ export const es: Strings = {
       'borde del camino. Si abres tu casa, podrás alojarte en la casa de otra persona en otro ' +
       'lugar. En el lado opuesto de alquilar casas por dinero, el caminar y la hospitalidad se ' +
       'corresponden mutuamente en un ciclo de reciprocidad.',
-    mapPreviewCta: 'Ver el mapa de ángeles',
+    becomeCta: 'Ser ángel',
+    mapPreviewCta: 'Ver los ángeles vecinos',
     downloadCta: 'Descargar la billetera',
     downloadNote: 'Aplicación en preparación — se abre pronto.',
     flowTitle: 'El camino para ser ángel',
     flowSteps: [
-      'Instala la aplicación de billetera Shvil. La billetera es también un mensajero.',
-      'Verifica tu teléfono en la aplicación y registra lo que puedes ofrecer (habitación, sofá, tienda en el patio, comidas, ducha) y tu ubicación.',
-      'En el momento de registrarte, tu punto aparece en el mapa de ángeles de este sitio, y los peregrinos del camino llaman a tu puerta con un mensaje.',
+      'En «Ser ángel», elige tu sendero, escribe tu pueblo o dirección y mira tu pin en el mapa.',
+      'Esboza lo que podrías ofrecer: habitación, sofá, tienda en el patio, comidas, ducha.',
+      'Instala la aplicación de billetera Shvil. La billetera es también un mensajero, y solo la billetera puede firmar tu registro.',
+      'Termina el registro en la billetera: tu punto aparece en el mapa de ángeles vecinos y los peregrinos del camino llaman con un mensaje.',
     ],
     flowNote:
-      'Al recibir la billetera quedas registrado como ángel en el mapa. Puedes activar y desactivar tu visibilidad cuando quieras.',
+      'Este sitio es la puerta. Todo lo que viene después de unirte — solicitudes, aprobaciones, gratitud — fluye por la billetera, y puedes activar y desactivar tu visibilidad cuando quieras.',
     faceToFaceFree:
       'Un pago cara a cara entre peregrino y ángel no necesita aprobación de servidor ni tiene comisión — los pagos dentro del ecosistema son gratuitos, para siempre.',
   },
 
   map: {
-    title: 'Mapa de ángeles',
+    title: 'Ángeles vecinos',
     intro:
-      'Los puntos de los ángeles que acogen a los peregrinos del camino. Solo se muestran las ubicaciones que los propios ángeles han hecho públicas voluntariamente.',
+      'Los vecinos que abren su casa a lo largo del sendero contigo. Solo se muestran el apodo y los servicios ofrecidos — las ubicaciones son aproximadas, en una cuadrícula de ~1 km.',
     filterTitle: 'Filtros de servicios',
     filters: {
       bedRoom: 'Habitación',
@@ -55,12 +62,35 @@ export const es: Strings = {
       meal: 'Comida',
     },
     angelCount: (n) => `${n} ángel${n === 1 ? '' : 'es'}`,
-    capacity: (n) => `Capacidad: ${n} huésped${n === 1 ? '' : 'es'}`,
-    conditionsLabel: 'Condiciones de acogida',
-    messageCta: 'Enviar un mensaje desde la aplicación',
-    messageNote: 'Se abre en un dispositivo con la billetera Shvil instalada.',
-    selectHint: 'Toca un marcador del mapa para ver el perfil del ángel.',
-    attribution: '© OpenStreetMap contributors',
+    selectHint: 'Toca un marcador del mapa para ver el apodo y los servicios del ángel.',
+    pilgrimNotice: '¿Caminas el sendero y buscas un ángel? La búsqueda y las solicitudes para peregrinos están en',
+  },
+
+  become: {
+    title: 'Ser ángel',
+    intro:
+      'Abrir tu casa empieza aquí. Esta página es solo la puerta: prueba tu ubicación y tus servicios, y completa el registro real en la billetera. Nada de lo que escribas aquí se envía a ningún servidor.',
+    stepAddressTitle: '¿Dónde está tu casa? (pueblo o dirección)',
+    addressPlaceholder: 'Pueblo, ciudad o dirección',
+    addressHint: 'Escribe al menos 3 caracteres — las sugerencias aparecen al hacer una pausa.',
+    searching: 'Buscando…',
+    noResults: 'No se encontraron lugares. Prueba con el nombre de un pueblo o ciudad cercanos.',
+    searchFailed:
+      'La búsqueda de direcciones no está disponible ahora. Aún puedes tocar el mapa para colocar el pin y arrastrarlo.',
+    stepPinTitle: 'Ajusta el pin',
+    pinDragHint: 'Toca el mapa para colocar el pin y arrástralo para afinar.',
+    pinPrivacyNote:
+      'El mapa público muestra solo una ubicación aproximada en una cuadrícula de ~1 km. Tu ubicación exacta se entrega solo por mensaje de la billetera, y solo a los huéspedes cuya estancia hayas aprobado.',
+    publicPreviewLegend: 'El círculo translúcido es la posición aproximada que se mostraría públicamente.',
+    stepServicesTitle: '¿Qué puedes ofrecer?',
+    servicesNote: 'Solo una vista previa — la oferta real se registra, y se cambia cuando quieras, en la billetera.',
+    bedLabel: 'Lugar para dormir',
+    capacityLabel: 'Capacidad (huéspedes)',
+    stepWalletTitle: 'Completa tu registro en la billetera',
+    walletCta: 'Descargar la billetera',
+    walletComingSoon: 'Aplicación en preparación — se abre pronto.',
+    notSentNote:
+      'Todo lo que escribiste aquí queda en este navegador y no se envió a ningún servidor de Shvil — solo el texto de búsqueda de dirección se envía al servicio de geocodificación Photon, únicamente para encontrar sugerencias. El registro lo firma únicamente la billetera.',
   },
 
   market: {
