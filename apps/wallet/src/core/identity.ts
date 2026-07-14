@@ -13,8 +13,10 @@
 import * as SecureStore from 'expo-secure-store';
 import {
   addressFromPublicKey,
+  deriveIdentityFromMnemonic,
   generateKeyPair,
   generateMessagingKeyPair,
+  generateMnemonic,
   signerFromKeyPair,
   type KeyPair,
   type MembershipCertificate,
@@ -25,6 +27,14 @@ import {
 const DEVICE_KEY_STORE = 'shvil.deviceKey.v1';
 const MEMBER_ID_STORE = 'shvil.memberId.v1';
 const MSG_KEY_STORE = 'shvil.msgKey.v1';
+/**
+ * 니모닉(복구 문구) — 진실의 원천 (지시서 2.1, 보안 감사 L-2). 기기·메시징·백업 키가
+ * 여기서 유도된다. SecureStore에 보관하되, 사용자에게 오프라인 백업(적어두기)을
+ * 강력 권고한다(강제 아님 — 결정 대기 4번).
+ */
+const MNEMONIC_STORE = 'shvil.mnemonic.v1';
+/** 니모닉 백업(적어두기) 안내를 사용자가 확인했는지 (강력 권고 UI 게이트). */
+const MNEMONIC_ACK_STORE = 'shvil.mnemonicAck.v1';
 /** 회원 증서·무결성 토큰은 민감·기기 결속 데이터 — SecureStore에 보관한다 (db 아님). */
 const MEMBERSHIP_STORE = 'shvil.membership.v1';
 const INTEGRITY_TOKEN_STORE = 'shvil.integrityToken.v1';
@@ -35,6 +45,8 @@ export interface Identity {
   signer: Signer;
   /** E2E 메신저 X25519 키쌍 — 디렉토리 프로필에 공개키를 등록한다. */
   messagingKeyPair: MessagingKeyPair;
+  /** 지갑 백업 암복호 키 (hex) — 니모닉에서 유도. null이면 레거시(니모닉 없는) 키. */
+  backupKeyHex: string | null;
   /**
    * 회원 증서 (보안 감사 C-2) — 회원 번호↔기기 키 결속. 온라인 가입 시 서버 발급.
    * 미가입·오프라인이면 null (증서 없이도 걷기·정산·지불 전 과정 동작 — 점진 전환).
@@ -57,20 +69,29 @@ function randomMemberId(): string {
 }
 
 export async function loadOrCreateIdentity(): Promise<Identity> {
-  let keyJson = await SecureStore.getItemAsync(DEVICE_KEY_STORE);
-  if (!keyJson) {
-    const kp = generateKeyPair();
-    keyJson = JSON.stringify(kp);
-    await SecureStore.setItemAsync(DEVICE_KEY_STORE, keyJson);
-  }
-  const keyPair = JSON.parse(keyJson) as KeyPair;
+  const legacyKeyJson = await SecureStore.getItemAsync(DEVICE_KEY_STORE);
+  let keyPair: KeyPair;
+  let messagingKeyPair: MessagingKeyPair;
+  let backupKeyHex: string | null;
 
-  let msgJson = await SecureStore.getItemAsync(MSG_KEY_STORE);
-  if (!msgJson) {
-    msgJson = JSON.stringify(generateMessagingKeyPair());
-    await SecureStore.setItemAsync(MSG_KEY_STORE, msgJson);
+  if (legacyKeyJson) {
+    // 레거시 지갑 (니모닉 이전) — 저장된 랜덤 키 유지. 백업 불가(니모닉 없음)로 표시.
+    keyPair = JSON.parse(legacyKeyJson) as KeyPair;
+    const msgJson = await SecureStore.getItemAsync(MSG_KEY_STORE);
+    messagingKeyPair = msgJson ? (JSON.parse(msgJson) as MessagingKeyPair) : generateMessagingKeyPair();
+    backupKeyHex = null;
+  } else {
+    // 신규 지갑 — 니모닉이 진실의 원천. 키는 저장 대신 니모닉에서 유도한다.
+    let mnemonic = await SecureStore.getItemAsync(MNEMONIC_STORE);
+    if (!mnemonic) {
+      mnemonic = generateMnemonic();
+      await SecureStore.setItemAsync(MNEMONIC_STORE, mnemonic);
+    }
+    const derived = deriveIdentityFromMnemonic(mnemonic);
+    keyPair = derived.deviceKeyPair;
+    messagingKeyPair = derived.messagingKeyPair;
+    backupKeyHex = derived.backupKeyHex;
   }
-  const messagingKeyPair = JSON.parse(msgJson) as MessagingKeyPair;
 
   let memberId = await SecureStore.getItemAsync(MEMBER_ID_STORE);
   if (!memberId) {
@@ -87,9 +108,39 @@ export async function loadOrCreateIdentity(): Promise<Identity> {
     address: addressFromPublicKey(signer.publicKeyHex),
     signer,
     messagingKeyPair,
+    backupKeyHex,
     membership,
     integrityToken,
   };
+}
+
+// ── 니모닉 백업·복구 (지시서 2.1, 보안 감사 L-2) ─────────────────
+
+/** 복구 문구를 조회한다 (레거시 지갑이면 null). "적어두기" 화면용. */
+export async function getMnemonic(): Promise<string | null> {
+  return SecureStore.getItemAsync(MNEMONIC_STORE);
+}
+
+/** 사용자가 복구 문구 백업을 확인했는지. */
+export async function isMnemonicAcknowledged(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(MNEMONIC_ACK_STORE)) === 'true';
+}
+
+export async function acknowledgeMnemonic(): Promise<void> {
+  await SecureStore.setItemAsync(MNEMONIC_ACK_STORE, 'true');
+}
+
+/**
+ * 복구 문구로 지갑을 되살린다 (새 폰). 니모닉을 저장하면 다음 init에서 그 키가
+ * 유도된다. 회원 번호는 백업 blob에서 복원되므로 여기서는 문구만 저장한다.
+ * 반환: 유도된 기기 주소(백업 조회에 필요).
+ */
+export async function restoreFromMnemonic(mnemonic: string): Promise<{ backupKeyHex: string; devicePublicKey: string }> {
+  const derived = deriveIdentityFromMnemonic(mnemonic); // 유효성 검증 포함(throw)
+  await SecureStore.setItemAsync(MNEMONIC_STORE, mnemonic.trim());
+  await SecureStore.deleteItemAsync(DEVICE_KEY_STORE); // 레거시 랜덤 키 제거 → 니모닉 파생 사용
+  await SecureStore.setItemAsync(MNEMONIC_ACK_STORE, 'true'); // 복구 사용자는 이미 문구 보유
+  return { backupKeyHex: derived.backupKeyHex, devicePublicKey: derived.deviceKeyPair.publicKeyHex };
 }
 
 /** 가입 성공 시 서버 발급 회원 번호로 갱신 (SecureStore 영속화). */

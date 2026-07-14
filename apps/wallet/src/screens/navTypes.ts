@@ -7,5 +7,6 @@ export type MoreStackParamList = {
   '내 포인트': undefined;
   마켓: undefined;
   커뮤니티: undefined;
+  '복구 문구': undefined;
   '가입/설정': undefined;
 };

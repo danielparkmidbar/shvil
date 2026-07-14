@@ -13,6 +13,7 @@
  */
 import {
   buildAuthHeaders,
+  stableStringify,
   type CoinFingerprint,
   type CourseData,
   type Coin,
@@ -471,6 +472,59 @@ export class DirectoryApi {
    */
   syncCoinFingerprints(fingerprints: CoinFingerprint[]): Promise<{ accepted: number }> {
     return this.#request('POST', '/sync/coins', { fingerprints }, true);
+  }
+
+  // ── 암호화 지갑 백업 (보안 감사 L-2) — 서버는 blob 내용을 못 본다 ──
+
+  /** 백업 blob 업로드 (서명 인증). */
+  uploadBackup(blob: string): Promise<{ stored: boolean; digest: string }> {
+    return this.#request('POST', '/backup', { blob }, true);
+  }
+
+  /**
+   * 백업 복구 조회 — 회원 번호 없이 기기 키 소유 증명(별도 서명 헤더)으로.
+   * 니모닉으로 기기 키를 복원한 새 폰이 회원 번호를 모른 채로도 복구한다.
+   */
+  async fetchBackup(recoverySigner: Signer): Promise<{ blob: string; digest: string; updatedAt: number }> {
+    const baseUrl = await this.#opts.getBaseUrl();
+    const now = (this.#opts.now ?? Date.now)();
+    // 서버 backup.ts의 recoverPayload와 동일한 정준 서명 대상.
+    const payload = stableStringify({
+      t: 'shvil-backup-recover-v1',
+      devicePublicKey: recoverySigner.publicKeyHex,
+      timestamp: now,
+    });
+    const sig = recoverySigner.sign(new TextEncoder().encode(payload));
+    const fetchFn = this.#opts.fetchFn ?? fetch;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetchFn(`${baseUrl}/backup`, {
+        method: 'GET',
+        headers: {
+          'x-shvil-device-pubkey': recoverySigner.publicKeyHex,
+          'x-shvil-ts': String(now),
+          'x-shvil-sig': sig,
+        },
+        signal: controller.signal,
+      });
+    } catch (e) {
+      throw new ApiError(0, `서버에 연결할 수 없습니다: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      clearTimeout(timer);
+    }
+    const text = await res.text();
+    if (!res.ok) {
+      let detail = text;
+      try {
+        detail = (JSON.parse(text) as { error?: string }).error ?? text;
+      } catch {
+        /* 원문 유지 */
+      }
+      throw new ApiError(res.status, detail || `HTTP ${res.status}`);
+    }
+    return JSON.parse(text) as { blob: string; digest: string; updatedAt: number };
   }
 
   // ── 메신저 릴레이 (서버는 암호문 봉투만 중계) ──

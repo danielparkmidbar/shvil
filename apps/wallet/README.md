@@ -13,7 +13,7 @@ src/
     corridorEngine.ts 창 단위 판정: 코스 위/이탈/일상/엔젤 우회 → WalkSample 방출 후 좌표 폐기
     data/            내장 코스 (쉬빌 이스라엘 북부 샘플 — 파일럿 확정 시 교체)
   core/
-    identity.ts      기기 키·메시징 키(SecureStore)·회원 번호 (가입 시 SHV- 정식 번호)
+    identity.ts      니모닉(진실의 원천)→기기·메시징·백업 키 유도, 회원 번호, 복구 (L-2)
     db.ts            SQLite 로컬 원장 — 코인·잠정 스냅숏·영수증·대화 (좌표 컬럼 없음)
     walletService.ts 잠정 누적→정산(사용/수동만)→민팅, QR 지불/수령, 모드, grant 민팅,
                      마켓 커스터디(리스팅 선택→에스크로 이전 서명→ESCROWED 잠금→완료 정리)

@@ -71,6 +71,27 @@ export async function saveCoin(coin: Coin, origin: CoinOrigin, now: number): Pro
   );
 }
 
+/**
+ * 니모닉 복구용 — 백업 blob에서 복원한 확정 코인들을 저장한다 (보안 감사 L-2).
+ * 이미 있는 코인은 건너뛴다(INSERT OR IGNORE). 잠정 누적은 백업에 없으므로 복원되지 않는다.
+ */
+export async function restoreCoins(coins: Coin[], origins: Record<string, CoinOrigin>, now: number): Promise<number> {
+  const d = await openDb();
+  let restored = 0;
+  for (const coin of coins) {
+    const res = await d.runAsync(
+      "INSERT OR IGNORE INTO coins (id, json, status, origin, amount_dshv, created_at) VALUES (?, ?, 'OWNED', ?, ?, ?)",
+      coin.id,
+      JSON.stringify(coin),
+      origins[coin.id] ?? 'RECEIVED',
+      coin.amountDshv,
+      now,
+    );
+    if (res.changes > 0) restored += 1;
+  }
+  return restored;
+}
+
 export async function setCoinStatus(coinId: string, status: CoinStatus): Promise<void> {
   const d = await openDb();
   await d.runAsync('UPDATE coins SET status = ? WHERE id = ?', status, coinId);

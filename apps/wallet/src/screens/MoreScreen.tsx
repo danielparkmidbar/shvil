@@ -16,6 +16,7 @@ const MENU: { screen: keyof MoreStackParamList; icon: string; title: string; des
   { screen: '내 포인트', icon: '🏠', title: '내 포인트 (엔젤)', desc: '엔젤 모드 전환 · 위치·서비스 등록 · 등록 보너스' },
   { screen: '마켓', icon: '🪙', title: '코인 마켓', desc: '무정가 리스팅 · 가격 제시 · 에스크로 USDC 정산 (온라인 전용)' },
   { screen: '커뮤니티', icon: '🤝', title: '커뮤니티', desc: '클레임 구제 · 완주 인증 격려 코인 · 인정 투표 (온라인 전용)' },
+  { screen: '복구 문구', icon: '🔑', title: '복구 문구 · 백업', desc: '12단어 복구 문구 확인 · 폰 분실 시 확정 코인 복구' },
   { screen: '가입/설정', icon: '⚙️', title: '가입 / 설정', desc: '정식 회원 번호 발급 (전화+이메일) · 서버 주소' },
 ];
 

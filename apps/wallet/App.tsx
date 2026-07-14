@@ -22,6 +22,7 @@ import { ChatScreen } from './src/screens/ChatScreen';
 import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
 import { CommunityScreen } from './src/screens/CommunityScreen';
+import { RecoveryScreen } from './src/screens/RecoveryScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import type { MoreStackParamList } from './src/screens/navTypes';
 
@@ -50,6 +51,7 @@ function MoreStackScreen() {
       <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
       <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
       <MoreStack.Screen name="커뮤니티" component={CommunityScreen} options={{ headerTitle: '커뮤니티' }} />
+      <MoreStack.Screen name="복구 문구" component={RecoveryScreen} options={{ headerTitle: '복구 문구 · 백업' }} />
       <MoreStack.Screen name="가입/설정" component={OnboardingScreen} />
     </MoreStack.Navigator>
   );
@@ -73,6 +75,9 @@ export default function App() {
         // 기회적 동기화 (보안 감사 H-1) — 코인 지문 제출로 사후 이중 사용·초과 생성
         // 대조에 기여. 승인 아님·실패 무해 (다음 온라인 기회에 재제출).
         syncCoinFingerprints().catch(() => {});
+        // 암호화 지갑 백업 (보안 감사 L-2) — 확정 코인을 종단간 암호화해 서버에 보관.
+        // 폰 분실 시 니모닉으로 복구. 온라인 전용·실패 무해.
+        wallet.backupWallet(Date.now()).catch(() => {});
         chatService.startPolling();
       })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));

@@ -18,6 +18,8 @@ import {
   createTransfer,
   currentOwnerAddress,
   decodeQr,
+  decryptBackup,
+  encryptBackup,
   mintGrantCoin,
   mintWalkCoin,
   splitCoin,
@@ -32,13 +34,16 @@ import {
   type SignedGrant,
   type WalkSample,
   type WalkSampleVerdict,
+  type WalletBackup,
 } from '@shvil/shared';
 import type { LiveWalkStatus } from '../walk/corridorEngine';
 import { planCoinSelection, type CoinSelectionPlan } from './coinSelection';
 import { FLAGGED_CACHE_KEY, findFlaggedProducer, parseFlaggedCache } from './flagged';
 import {
+  isProvisionalMemberId,
   loadOrCreateIdentity,
   persistMemberId,
+  restoreFromMnemonic,
   saveIntegrityToken,
   saveMembershipCertificate,
   type Identity,
@@ -50,6 +55,7 @@ import {
   loadOwnedCoins,
   loadPendingState,
   openDb,
+  restoreCoins,
   saveCoin,
   savePendingState,
   saveReceipt,
@@ -244,6 +250,55 @@ class WalletService {
     await saveCoin(coin, 'BONUS', now);
     await this.#reloadCoins();
     return coin;
+  }
+
+  // ── 니모닉 백업·복구 (지시서 2.1·2.3, 보안 감사 L-2) ─────────────
+
+  /**
+   * 확정 코인(OWNED)을 니모닉 파생 백업 키로 암호화해 서버에 업로드한다.
+   * 잠정 누적은 백업하지 않는다(지시서: 니모닉 백업은 확정 코인만). 레거시 지갑
+   * (니모닉 없음)·미가입이면 skip. 온라인 전용·실패 무해.
+   */
+  async backupWallet(now: number): Promise<boolean> {
+    const backupKeyHex = this.identity.backupKeyHex;
+    if (!backupKeyHex || isProvisionalMemberId(this.identity.memberId)) return false;
+    const owned = this.getState().coins.filter((c) => c.status === 'OWNED');
+    if (owned.length === 0) return false;
+    const backup: WalletBackup = {
+      v: 1,
+      memberId: this.identity.memberId,
+      coins: owned.map((c) => c.coin),
+      createdAt: now,
+    };
+    // origin은 뿌리 계보로 복원 시 재판정하므로 blob에 별도 저장 불필요.
+    const { directoryApi } = await import('./directory');
+    await directoryApi.uploadBackup(encryptBackup(backup, backupKeyHex));
+    return true;
+  }
+
+  /**
+   * 복구 문구로 새 폰에서 지갑을 되살린다: 니모닉 → 키 복원 → 서버 백업 blob 조회 →
+   * 복호화 → 확정 코인 복원 → 회원 번호 복원. 반환: 복원된 코인 수.
+   */
+  async restoreWallet(mnemonic: string, now: number): Promise<number> {
+    const { backupKeyHex, devicePublicKey } = await restoreFromMnemonic(mnemonic);
+    void devicePublicKey;
+    // 니모닉을 진실의 원천으로 재초기화 (레거시 랜덤 키는 restoreFromMnemonic이 제거).
+    this.#identity = await loadOrCreateIdentity();
+
+    const { directoryApi } = await import('./directory');
+    const { blob } = await directoryApi.fetchBackup(this.identity.signer);
+    const backup = decryptBackup(blob, backupKeyHex);
+
+    // 확정 코인 복원 — 뿌리 계보로 origin 재판정. 잠정 누적은 백업에 없다.
+    const origins: Record<string, CoinOrigin> = {};
+    for (const coin of backup.coins) origins[coin.id] = rootOriginOf(coin, backup.memberId);
+    const restored = await restoreCoins(backup.coins, origins, now);
+
+    // 회원 번호 복원 (백업에 담긴 정식 번호로).
+    if (!isProvisionalMemberId(backup.memberId)) await this.updateMemberId(backup.memberId);
+    await this.#reloadCoins();
+    return restored;
   }
 
   async #reloadCoins(): Promise<void> {
