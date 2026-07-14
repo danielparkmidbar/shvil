@@ -24,3 +24,4 @@ export * from './distribution';
 export * from './fingerprint';
 export * from './mnemonic';
 export * from './backup';
+export * from './regions';
