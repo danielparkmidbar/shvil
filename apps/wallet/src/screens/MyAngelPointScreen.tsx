@@ -5,7 +5,9 @@
  * - 위치 등록: expo-location 1회 조회. 이 좌표는 본인이 자발 공개하는 엔젤
  *   포인트다 (위치 비저장 원칙의 유일한 예외 — 이동 궤적이 아니다).
  * - 공개 on/off: 엔젤의 자율성 — 언제든 비공개 가능.
- * - 서비스 등록: 수면(방/소파/마당 텐트), 인터넷/샤워/식사, 수용 인원·조건.
+ * - 서비스 등록: 수면은 복수 선택 — 유형(방/소파/마당 텐트)별 수용 인원
+ *   (2026-07-15 다니엘 쌤). 총 수용 인원은 합계로 자동 계산된다.
+ *   인터넷/샤워/식사, 수용 조건은 기존대로.
  * - 저장 → PUT /angels/me. 최초 등록 보너스 20 SHV grant 수신 시 즉시 민팅.
  * - 첫 접대 보너스 30 SHV 수동 재시도 버튼.
  */
@@ -13,17 +15,25 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Button, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import * as Location from 'expo-location';
 import type { GeoPoint } from '@shvil/shared';
-import type { AngelProfileInput, BedService } from '../core/api';
-import { isFirstHostingClaimed, loadAngelProfile, maybeClaimFirstHosting, saveAngelProfile } from '../core/angelService';
+import type { AngelProfileInput } from '../core/api';
+import {
+  BED_COUNT_MAX,
+  bedCountsFromProfile,
+  bedFieldsFromCounts,
+  isFirstHostingClaimed,
+  loadAngelProfile,
+  maybeClaimFirstHosting,
+  saveAngelProfile,
+  type BedCounts,
+} from '../core/angelService';
 import { isProvisionalMemberId } from '../core/identity';
 import { useWallet, wallet } from '../core/walletService';
 import { Card, Muted, Title, colors, fmtShv } from '../ui/common';
 
-const BED_OPTIONS: { value: BedService; label: string }[] = [
-  { value: 'ROOM', label: '🛏 방' },
-  { value: 'SOFA', label: '🛋 소파' },
-  { value: 'TENT', label: '⛺ 마당 텐트' },
-  { value: null, label: '수면 제공 없음' },
+const BED_KINDS: { key: keyof BedCounts; label: string }[] = [
+  { key: 'room', label: '🛏 방 베드' },
+  { key: 'sofa', label: '🛋 거실 소파' },
+  { key: 'tent', label: '⛺ 마당 텐트' },
 ];
 
 export function MyAngelPointScreen() {
@@ -35,11 +45,11 @@ export function MyAngelPointScreen() {
   const [visible, setVisible] = useState(true);
   /** M6 (R-3): "지금 손님 받기 가능" — 가능 여부 수준만 자발 공개. */
   const [available, setAvailable] = useState(true);
-  const [bed, setBed] = useState<BedService>('ROOM');
+  /** 유형별 수용 인원 (잠자리 복수 선택 — 0 = 미제공). 총원은 합계로 파생. */
+  const [beds, setBeds] = useState<BedCounts>({ room: 2, sofa: 0, tent: 0 });
   const [internet, setInternet] = useState(false);
   const [shower, setShower] = useState(false);
   const [meal, setMeal] = useState(false);
-  const [capacityText, setCapacityText] = useState('2');
   const [conditions, setConditions] = useState('');
   const [busy, setBusy] = useState(false);
   const [hostingClaimed, setHostingClaimed] = useState(true);
@@ -51,11 +61,11 @@ export function MyAngelPointScreen() {
       setLocation(p.location);
       setVisible(p.visible);
       setAvailable(p.available !== false);
-      setBed(p.services.bed);
+      // 옛 레코드(beds 없음)는 단일 bed 유형에 capacity를 넣어 보여준다 (폴백).
+      setBeds(bedCountsFromProfile(p));
       setInternet(p.services.internet);
       setShower(p.services.shower);
       setMeal(p.services.meal);
-      setCapacityText(String(p.capacity));
       setConditions(p.conditions);
     });
     void isFirstHostingClaimed().then((claimed) => setHostingClaimed(claimed));
@@ -76,6 +86,23 @@ export function MyAngelPointScreen() {
       .finally(() => setBusy(false));
   };
 
+  /**
+   * 입력 상태 → 서버 계약 프로필. 유형별 인원(beds)에서 하위 호환 필드를
+   * 파생한다: bed = 최다 유형, capacity = 합계 (bedFieldsFromCounts).
+   */
+  const buildProfile = (loc: GeoPoint, availableNow: boolean): AngelProfileInput => {
+    const bedFields = bedFieldsFromCounts(beds);
+    return {
+      name: name.trim(),
+      location: loc,
+      services: { bed: bedFields.bed, internet, shower, meal, ...(bedFields.beds ? { beds: bedFields.beds } : {}) },
+      capacity: bedFields.capacity,
+      conditions: conditions.trim(),
+      visible,
+      available: availableNow,
+    };
+  };
+
   const save = () => {
     if (!name.trim()) {
       Alert.alert('입력 오류', '포인트 이름을 입력하세요.');
@@ -85,16 +112,7 @@ export function MyAngelPointScreen() {
       Alert.alert('입력 오류', '"현재 위치로 등록"으로 위치를 먼저 지정하세요.');
       return;
     }
-    const capacity = Math.max(1, parseInt(capacityText, 10) || 1);
-    const profile: AngelProfileInput = {
-      name: name.trim(),
-      location,
-      services: { bed, internet, shower, meal },
-      capacity,
-      conditions: conditions.trim(),
-      visible,
-      available,
-    };
+    const profile = buildProfile(location, available);
     setBusy(true);
     void saveAngelProfile(profile)
       .then((result) => {
@@ -120,16 +138,7 @@ export function MyAngelPointScreen() {
   const toggleAvailable = (on: boolean) => {
     setAvailable(on);
     if (!name.trim() || !location) return; // 아직 미등록 — "저장" 때 함께 반영된다.
-    const capacity = Math.max(1, parseInt(capacityText, 10) || 1);
-    const profile: AngelProfileInput = {
-      name: name.trim(),
-      location,
-      services: { bed, internet, shower, meal },
-      capacity,
-      conditions: conditions.trim(),
-      visible,
-      available: on,
-    };
+    const profile = buildProfile(location, on);
     setBusy(true);
     void saveAngelProfile(profile)
       .then((result) => {
@@ -159,6 +168,9 @@ export function MyAngelPointScreen() {
       .catch((e) => Alert.alert('청구 실패 (오프라인?)', String(e instanceof Error ? e.message : e)))
       .finally(() => setBusy(false));
   };
+
+  /** 총 수용 인원 = 유형별 인원 합계 (자동 계산 — 별도 입력 없음). */
+  const totalCapacity = beds.room + beds.sofa + beds.tent;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -215,18 +227,36 @@ export function MyAngelPointScreen() {
 
       <Card>
         <Title>서비스 등록</Title>
-        <Muted>수면 조건:</Muted>
-        <View style={styles.bedRow}>
-          {BED_OPTIONS.map((opt) => (
-            <View key={String(opt.value)} style={styles.bedBtn}>
-              <Button
-                title={opt.label}
-                color={bed === opt.value ? colors.primary : colors.muted}
-                onPress={() => setBed(opt.value)}
-              />
+        <Muted>잠자리 (복수 선택 — 유형별로 몇 명까지 받을 수 있는지):</Muted>
+        {BED_KINDS.map(({ key, label }) => (
+          <View key={key} style={styles.row}>
+            <Text style={beds[key] > 0 ? styles.bedOn : styles.bedOff}>{label}</Text>
+            <View style={styles.stepper}>
+              <View style={styles.stepBtn}>
+                <Button
+                  title="−"
+                  color={colors.muted}
+                  disabled={busy || beds[key] <= 0}
+                  onPress={() => setBeds((b) => ({ ...b, [key]: Math.max(0, b[key] - 1) }))}
+                />
+              </View>
+              <Text style={styles.bedCount}>{beds[key] > 0 ? `${beds[key]}명` : '미제공'}</Text>
+              <View style={styles.stepBtn}>
+                <Button
+                  title="＋"
+                  color={colors.primary}
+                  disabled={busy || beds[key] >= BED_COUNT_MAX}
+                  onPress={() => setBeds((b) => ({ ...b, [key]: Math.min(BED_COUNT_MAX, b[key] + 1) }))}
+                />
+              </View>
             </View>
-          ))}
-        </View>
+          </View>
+        ))}
+        <Muted>
+          {totalCapacity > 0
+            ? `총 수용 인원 ${totalCapacity}명 (유형별 인원의 합계로 자동 계산됩니다)`
+            : '잠자리 미제공 — 식사·샤워 등만 내어줄 수도 있습니다.'}
+        </Muted>
         <View style={styles.row}>
           <Text>📶 인터넷</Text>
           <Switch value={internet} onValueChange={setInternet} />
@@ -239,8 +269,6 @@ export function MyAngelPointScreen() {
           <Text>🍲 식사</Text>
           <Switch value={meal} onValueChange={setMeal} />
         </View>
-        <Muted>수용 인원:</Muted>
-        <TextInput style={styles.input} value={capacityText} onChangeText={setCapacityText} keyboardType="number-pad" />
         <Muted>수용 조건 (자기 결정 — 예: 팀만, 여성만):</Muted>
         <TextInput style={styles.input} value={conditions} onChangeText={setConditions} placeholder="예: 2인 이하, 애견 동반 불가" />
       </Card>
@@ -278,6 +306,9 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     fontSize: 16,
   },
-  bedRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 6 },
-  bedBtn: { flexGrow: 1, minWidth: '45%' },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepBtn: { minWidth: 44 },
+  bedCount: { minWidth: 52, textAlign: 'center', fontWeight: '600' },
+  bedOn: { fontWeight: '600' },
+  bedOff: { color: colors.muted },
 });

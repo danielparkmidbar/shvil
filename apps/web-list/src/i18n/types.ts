@@ -74,6 +74,14 @@ export interface Strings {
       meal: string;
     };
     angelCount: (n: number) => string;
+    /**
+     * 잠자리 복수 선택 (2026-07-15) — 유형별 수용 인원 태그: "방 2" 등.
+     * beds가 없는 옛 레코드는 filters.bedRoom 등 인원 없는 라벨로 폴백한다.
+     */
+    bedRoomCount: (n: number) => string;
+    bedSofaCount: (n: number) => string;
+    bedTentCount: (n: number) => string;
+    /** 총 수용 인원 — beds가 있으면 유형별 인원의 합계와 같다. */
     capacity: (n: number) => string;
     conditionsLabel: string;
     /** M6 (R-3): 가능 여부 배지 — 서버 공개는 이 수준뿐 (구체 날짜는 E2E로만). */

@@ -104,6 +104,34 @@ function rawBodyOf(req: FastifyRequest): string {
   return (req as FastifyRequest & { rawBody?: string }).rawBody ?? '';
 }
 
+/** 잠자리 유형별 수용 인원 한도 — 1~20 정수만 저장 (0/미지정 = 미제공). */
+const BED_COUNT_MAX = 20;
+
+/**
+ * services 방어 검증 (2026-07-15 — 잠자리 복수 선택): 클라이언트를 신뢰하지
+ * 않으므로 services.beds는 room/sofa/tent의 정수 1~20만 남기고 나머지는
+ * 버린다. 유효한 항목이 하나도 없으면 beds 자체를 제거한다 (옛 레코드와 동일한
+ * 폴백 경로). beds 외 필드는 그대로 통과 — 기존 계약(bed/internet/shower/meal) 유지.
+ */
+function sanitizeServices(services: unknown): unknown {
+  if (services === null || typeof services !== 'object' || Array.isArray(services)) {
+    return services ?? {};
+  }
+  const s = services as Record<string, unknown>;
+  if (s.beds === undefined) return services;
+  const { beds, ...rest } = s;
+  const clean: Record<string, number> = {};
+  if (beds !== null && typeof beds === 'object' && !Array.isArray(beds)) {
+    for (const kind of ['room', 'sofa', 'tent'] as const) {
+      const v = (beds as Record<string, unknown>)[kind];
+      if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= BED_COUNT_MAX) {
+        clean[kind] = v;
+      }
+    }
+  }
+  return Object.keys(clean).length > 0 ? { ...rest, beds: clean } : rest;
+}
+
 export function buildApp(
   options: AppOptions = {},
 ): FastifyInstance & { db: DatabaseSync; chain: ChainAdapter } {
@@ -398,6 +426,7 @@ export function buildApp(
     const body = req.body as {
       name?: string;
       location?: { lat?: number; lon?: number };
+      /** services.beds = 잠자리 유형별 수용 인원 (room/sofa/tent 정수 1~20) — 아래에서 방어 검증. */
       services?: unknown;
       capacity?: number;
       conditions?: string;
@@ -439,7 +468,7 @@ export function buildApp(
       body.name,
       snapped.lat,
       snapped.lon,
-      JSON.stringify(body.services ?? {}),
+      JSON.stringify(sanitizeServices(body.services)),
       body.capacity ?? 1,
       body.conditions ?? null,
       body.visible === false ? 0 : 1,

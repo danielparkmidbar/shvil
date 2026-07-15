@@ -171,8 +171,9 @@ async function main() {
 
   // 4) 엔젤 등록 + 보너스 민팅
   console.log('\n[4] 엔젤 등록 + 보너스 (M2)');
+  // 잠자리 복수 선택 (2026-07-15): beds = 유형별 인원, bed·capacity는 파생값(호환).
   const reg = await signedApi(aviva, 'PUT', '/angels/me', {
-    name: '아비바의 집', location: { lat: 33.229, lon: 35.655 }, services: { bed: 'ROOM', internet: true, shower: true, meal: true }, capacity: 3, visible: true,
+    name: '아비바의 집', location: { lat: 33.229, lon: 35.655 }, services: { bed: 'ROOM', internet: true, shower: true, meal: true, beds: { room: 2, sofa: 1 } }, capacity: 3, visible: true,
   });
   const bonusGrant = reg.json.registrationGrant;
   const bonusCoin = mintGrantCoin(bonusGrant);

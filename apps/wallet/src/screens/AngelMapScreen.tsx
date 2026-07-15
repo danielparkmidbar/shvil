@@ -39,9 +39,17 @@ interface AngelListItem {
 function serviceIcons(s: AngelServices | null): string {
   if (!s) return '';
   const icons: string[] = [];
-  if (s.bed === 'ROOM') icons.push('🛏');
-  if (s.bed === 'SOFA') icons.push('🛋');
-  if (s.bed === 'TENT') icons.push('⛺');
+  // 잠자리 복수 선택: beds(유형별 인원)가 있으면 "🛏2 🛋1 ⛺4"처럼 유형별로,
+  // 없으면(옛 레코드) 단일 bed 아이콘으로 폴백.
+  if (s.beds && ((s.beds.room ?? 0) > 0 || (s.beds.sofa ?? 0) > 0 || (s.beds.tent ?? 0) > 0)) {
+    if ((s.beds.room ?? 0) > 0) icons.push(`🛏${s.beds.room}`);
+    if ((s.beds.sofa ?? 0) > 0) icons.push(`🛋${s.beds.sofa}`);
+    if ((s.beds.tent ?? 0) > 0) icons.push(`⛺${s.beds.tent}`);
+  } else {
+    if (s.bed === 'ROOM') icons.push('🛏');
+    if (s.bed === 'SOFA') icons.push('🛋');
+    if (s.bed === 'TENT') icons.push('⛺');
+  }
   if (s.internet) icons.push('📶');
   if (s.shower) icons.push('🚿');
   if (s.meal) icons.push('🍲');

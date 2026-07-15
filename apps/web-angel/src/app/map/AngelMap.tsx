@@ -50,15 +50,36 @@ const SERVICE_ICONS: Record<FilterKey, string> = {
   meal: '🍲',
 };
 
+/**
+ * 잠자리 복수 선택 (2026-07-15): beds(유형별 인원)가 있으면 그것으로,
+ * 없으면(옛 레코드) 단일 bed 필드로 해당 유형 제공 여부를 판정한다.
+ */
+function offersBed(s: AngelServices | null, kind: 'room' | 'sofa' | 'tent'): boolean {
+  if (!s) return false;
+  if ((s.beds?.[kind] ?? 0) > 0) return true;
+  const legacy = { room: 'ROOM', sofa: 'SOFA', tent: 'TENT' } as const;
+  return s.bed === legacy[kind];
+}
+
 function serviceTags(
   services: AngelServices | null,
-  f: Strings['map']['filters'],
+  m: Strings['map'],
 ): { key: FilterKey; label: string }[] {
   if (!services) return [];
+  const f = m.filters;
   const tags: { key: FilterKey; label: string }[] = [];
-  if (services.bed === 'ROOM') tags.push({ key: 'bedRoom', label: f.bedRoom });
-  if (services.bed === 'SOFA') tags.push({ key: 'bedSofa', label: f.bedSofa });
-  if (services.bed === 'TENT') tags.push({ key: 'bedTent', label: f.bedTent });
+  const b = services.beds;
+  if (b && ((b.room ?? 0) > 0 || (b.sofa ?? 0) > 0 || (b.tent ?? 0) > 0)) {
+    // 유형별 수용 인원 표시: "🛏️ 방 2 · 🛋️ 소파 1 · ⛺ 텐트 4"
+    if ((b.room ?? 0) > 0) tags.push({ key: 'bedRoom', label: m.bedRoomCount(b.room!) });
+    if ((b.sofa ?? 0) > 0) tags.push({ key: 'bedSofa', label: m.bedSofaCount(b.sofa!) });
+    if ((b.tent ?? 0) > 0) tags.push({ key: 'bedTent', label: m.bedTentCount(b.tent!) });
+  } else {
+    // 옛 레코드 폴백: 단일 bed 유형만 (인원은 capacity가 총원으로 따로 표시된다).
+    if (services.bed === 'ROOM') tags.push({ key: 'bedRoom', label: f.bedRoom });
+    if (services.bed === 'SOFA') tags.push({ key: 'bedSofa', label: f.bedSofa });
+    if (services.bed === 'TENT') tags.push({ key: 'bedTent', label: f.bedTent });
+  }
   if (services.internet) tags.push({ key: 'internet', label: f.internet });
   if (services.shower) tags.push({ key: 'shower', label: f.shower });
   if (services.meal) tags.push({ key: 'meal', label: f.meal });
@@ -68,11 +89,11 @@ function serviceTags(
 /** 체크된 필터를 모두 만족해야 표시 (잠자리 유형은 체크된 것들 중 하나면 통과). */
 function passesFilters(angel: AngelEntry, filters: Record<FilterKey, boolean>): boolean {
   const s = angel.services;
-  const bedChecked: ('ROOM' | 'SOFA' | 'TENT')[] = [];
-  if (filters.bedRoom) bedChecked.push('ROOM');
-  if (filters.bedSofa) bedChecked.push('SOFA');
-  if (filters.bedTent) bedChecked.push('TENT');
-  if (bedChecked.length > 0 && (!s?.bed || !bedChecked.includes(s.bed))) return false;
+  const bedChecked: ('room' | 'sofa' | 'tent')[] = [];
+  if (filters.bedRoom) bedChecked.push('room');
+  if (filters.bedSofa) bedChecked.push('sofa');
+  if (filters.bedTent) bedChecked.push('tent');
+  if (bedChecked.length > 0 && !bedChecked.some((kind) => offersBed(s, kind))) return false;
   if (filters.internet && !s?.internet) return false;
   if (filters.shower && !s?.shower) return false;
   if (filters.meal && !s?.meal) return false;
@@ -270,7 +291,7 @@ export default function AngelMap() {
             <div className="card angel-card">
               <h3>{selected.name}</h3>
               <div className="service-tags">
-                {serviceTags(selected.services, s.filters).map(({ key, label }) => (
+                {serviceTags(selected.services, s).map(({ key, label }) => (
                   <span key={key} className="service-tag">
                     {SERVICE_ICONS[key]} {label}
                   </span>

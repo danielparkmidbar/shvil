@@ -30,11 +30,24 @@ export interface GeoPoint {
 
 export type BedService = 'ROOM' | 'SOFA' | 'TENT' | null;
 
+/**
+ * 잠자리 유형별 수용 인원 (2026-07-15 — 잠자리 복수 선택).
+ * 0 또는 undefined = 해당 유형 미제공. 서버가 정수 1~20으로 방어 검증한다.
+ */
+export interface AngelBeds {
+  room?: number;
+  sofa?: number;
+  tent?: number;
+}
+
 export interface AngelServices {
+  /** 하위 호환용 단일 유형 — beds가 있으면 "인원이 가장 많은 유형"의 파생값. */
   bed?: BedService;
   internet?: boolean;
   shower?: boolean;
   meal?: boolean;
+  /** 유형별 수용 인원 — 없으면 옛 레코드 (bed+capacity로 폴백 표시). */
+  beds?: AngelBeds;
 }
 
 export interface AngelEntry {

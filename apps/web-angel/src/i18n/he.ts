@@ -61,6 +61,9 @@ export const he: Strings = {
     },
     // 히브리어 단복수 분기 — n=1일 때 '1 מלאכים'(= "1 angels") 같은 비문을 막는다.
     angelCount: (n) => (n === 1 ? 'מלאך אחד' : `${n} מלאכים`),
+    bedRoomCount: (n) => `חדר ×${n}`,
+    bedSofaCount: (n) => `ספה ×${n}`,
+    bedTentCount: (n) => `אוהל בחצר ×${n}`,
     selectHint: 'הקישו על סמן במפה כדי לראות את הכינוי והשירותים של המלאך.',
     pilgrimNotice: 'הולכים בשביל ומחפשים מלאך? חיפוש והגשת בקשות לעולי רגל נמצאים כאן:',
   },
@@ -85,6 +88,7 @@ export const he: Strings = {
     servicesNote: 'תצוגה מקדימה בלבד — ההצעה עצמה נרשמת, וניתנת לשינוי בכל עת, בארנק.',
     bedLabel: 'מקום לינה',
     capacityLabel: 'קיבולת (אורחים)',
+    capacityAutoNote: 'מחושב אוטומטית כסכום מקומות הלינה שלמעלה.',
     stepWalletTitle: 'השלמת הרישום בארנק',
     walletCta: 'הורדת הארנק',
     walletComingSoon: 'האפליקציה בהכנה — נפתחת בקרוב.',

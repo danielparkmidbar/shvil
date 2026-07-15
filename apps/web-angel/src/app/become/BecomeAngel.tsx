@@ -88,7 +88,10 @@ function privacyCirclePolygon(lat: number, lon: number): Feature<Polygon> {
   };
 }
 
-type Bed = 'ROOM' | 'SOFA' | 'TENT';
+/** 잠자리 복수 선택 (2026-07-15) — 유형별 수용 인원. 0 = 미제공. */
+type BedKind = 'room' | 'sofa' | 'tent';
+type BedCounts = Record<BedKind, number>;
+const BED_COUNT_MAX = 20;
 
 export default function BecomeAngel() {
   const { t, locale } = useI18n();
@@ -113,11 +116,12 @@ export default function BecomeAngel() {
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   // ── ③ 서비스 미리보기 ──
-  const [bed, setBed] = useState<Bed>('ROOM');
+  // 잠자리는 복수 선택: 유형별 수용 인원 (0 = 미제공). 총원은 합계로 자동 계산.
+  const [beds, setBeds] = useState<BedCounts>({ room: 2, sofa: 0, tent: 0 });
   const [meal, setMeal] = useState(false);
   const [shower, setShower] = useState(false);
   const [internet, setInternet] = useState(false);
-  const [capacity, setCapacity] = useState(2);
+  const capacity = beds.room + beds.sofa + beds.tent;
 
   // ── 지도 초기화 (브라우저에서만 — SSR 안전) ──────────────────────
   useEffect(() => {
@@ -320,24 +324,44 @@ export default function BecomeAngel() {
             <h2>{s.stepServicesTitle}</h2>
             <p className="muted">{s.servicesNote}</p>
             <div className="service-form">
-              <div className="service-form-row" role="radiogroup" aria-label={s.bedLabel}>
+              {/* 잠자리 복수 선택: 유형별 체크 + 유형별 수용 인원 (2026-07-15) */}
+              <div className="service-form-row" role="group" aria-label={s.bedLabel}>
                 <strong>{s.bedLabel}:</strong>
                 {(
                   [
-                    ['ROOM', `🛏️ ${f.bedRoom}`],
-                    ['SOFA', `🛋️ ${f.bedSofa}`],
-                    ['TENT', `⛺ ${f.bedTent}`],
+                    ['room', `🛏️ ${f.bedRoom}`],
+                    ['sofa', `🛋️ ${f.bedSofa}`],
+                    ['tent', `⛺ ${f.bedTent}`],
                   ] as const
-                ).map(([value, label]) => (
-                  <label key={value}>
-                    <input
-                      type="radio"
-                      name="bed"
-                      checked={bed === value}
-                      onChange={() => setBed(value)}
-                    />
-                    {label}
-                  </label>
+                ).map(([kind, label]) => (
+                  <span key={kind}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={beds[kind] > 0}
+                        onChange={(e) =>
+                          setBeds((b) => ({ ...b, [kind]: e.target.checked ? 1 : 0 }))
+                        }
+                      />
+                      {label}
+                    </label>
+                    {beds[kind] > 0 && (
+                      <input
+                        className="capacity-input"
+                        type="number"
+                        min={1}
+                        max={BED_COUNT_MAX}
+                        value={beds[kind]}
+                        aria-label={label}
+                        onChange={(e) =>
+                          setBeds((b) => ({
+                            ...b,
+                            [kind]: Math.min(BED_COUNT_MAX, Math.max(1, Number(e.target.value) || 1)),
+                          }))
+                        }
+                      />
+                    )}
+                  </span>
                 ))}
               </div>
               <div className="service-form-row">
@@ -362,18 +386,12 @@ export default function BecomeAngel() {
                   📶 {f.internet}
                 </label>
               </div>
+              {/* 총 수용 인원 = 유형별 인원의 합계 (자동 계산 — 별도 입력 없음) */}
               <div className="service-form-row">
-                <label>
-                  {s.capacityLabel}
-                  <input
-                    className="capacity-input"
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={capacity}
-                    onChange={(e) => setCapacity(Math.max(1, Number(e.target.value) || 1))}
-                  />
-                </label>
+                <span>
+                  {s.capacityLabel}: <strong>{capacity}</strong>
+                </span>
+                <span className="muted">{s.capacityAutoNote}</span>
               </div>
             </div>
           </section>

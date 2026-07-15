@@ -12,7 +12,7 @@
  *   민팅은 이 기기에서 이루어진다 — 서버는 승인서만 발행한다.
  */
 import { snapToPrivacyGrid, type Coin, type SignedGrant } from '@shvil/shared';
-import { ApiError, type AngelProfileInput } from './api';
+import { ApiError, type AngelBeds, type AngelProfileInput, type BedService } from './api';
 import { directoryApi, getTrustedIssuerKeys } from './directory';
 import { kvGet, kvSet } from './db';
 import { isProvisionalMemberId } from './identity';
@@ -24,6 +24,62 @@ const FIRST_HOSTING_KEY = 'angel.firstHostingClaimed.v1';
 export async function loadAngelProfile(): Promise<AngelProfileInput | null> {
   const json = await kvGet(PROFILE_KEY);
   return json ? (JSON.parse(json) as AngelProfileInput) : null;
+}
+
+// ── 잠자리 복수 선택 (2026-07-15 다니엘 쌤 — 유형별 수용 인원) ────────
+//
+// 새 모델: services.beds = { room?, sofa?, tent? } (1~20, 0/미지정 = 미제공).
+// 하위 호환: bed(단일 유형)·capacity(총원)는 파생값으로 유지한다 —
+// bed = 인원이 가장 많은 유형, capacity = 합계. 옛 레코드(beds 없음)를 읽을 땐
+// bed 유형에 capacity를 넣어 보여준다 (폴백).
+
+export interface BedCounts {
+  room: number;
+  sofa: number;
+  tent: number;
+}
+
+/** 유형별 인원 한계 — 서버 검증(1~20)과 동일. */
+export const BED_COUNT_MAX = 20;
+
+function clampBedCount(n: unknown): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 0;
+  return Math.min(BED_COUNT_MAX, Math.max(0, Math.floor(n)));
+}
+
+/** 저장된 프로필 → 화면 표시용 유형별 인원. 옛 레코드는 bed+capacity 폴백. */
+export function bedCountsFromProfile(p: AngelProfileInput): BedCounts {
+  const beds = p.services.beds;
+  if (beds) {
+    return { room: clampBedCount(beds.room), sofa: clampBedCount(beds.sofa), tent: clampBedCount(beds.tent) };
+  }
+  // 옛 레코드: 단일 bed 유형에 총원을 넣어 보여준다.
+  const counts: BedCounts = { room: 0, sofa: 0, tent: 0 };
+  if (p.services.bed === 'ROOM') counts.room = clampBedCount(p.capacity);
+  if (p.services.bed === 'SOFA') counts.sofa = clampBedCount(p.capacity);
+  if (p.services.bed === 'TENT') counts.tent = clampBedCount(p.capacity);
+  return counts;
+}
+
+/**
+ * 유형별 인원 → 저장 필드: beds(양수 유형만) + 파생 bed(최다 유형 — 동수면
+ * 방>소파>텐트 순) + 파생 capacity(합계). 전부 0이면 잠자리 미제공(bed=null).
+ */
+export function bedFieldsFromCounts(c: BedCounts): { bed: BedService; beds?: AngelBeds; capacity: number } {
+  const room = clampBedCount(c.room);
+  const sofa = clampBedCount(c.sofa);
+  const tent = clampBedCount(c.tent);
+  const capacity = room + sofa + tent;
+  if (capacity === 0) return { bed: null, capacity: 0 };
+
+  const beds: AngelBeds = {};
+  if (room > 0) beds.room = room;
+  if (sofa > 0) beds.sofa = sofa;
+  if (tent > 0) beds.tent = tent;
+
+  const max = Math.max(room, sofa, tent);
+  const bed: BedService = room === max ? 'ROOM' : sofa === max ? 'SOFA' : 'TENT';
+  return { bed, beds, capacity };
 }
 
 export interface SaveProfileResult {

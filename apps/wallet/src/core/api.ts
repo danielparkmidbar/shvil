@@ -36,11 +36,24 @@ const REQUEST_TIMEOUT_MS = 8_000;
 
 export type BedService = 'ROOM' | 'SOFA' | 'TENT' | null;
 
+/**
+ * 잠자리 유형별 수용 인원 (2026-07-15 다니엘 쌤 — 잠자리 복수 선택).
+ * 0 또는 undefined = 해당 유형 미제공. 값 범위 1~20 (서버가 방어적으로 재검증).
+ */
+export interface AngelBeds {
+  room?: number;
+  sofa?: number;
+  tent?: number;
+}
+
 export interface AngelServices {
+  /** 하위 호환용 단일 유형 — beds가 있으면 "인원이 가장 많은 유형"의 파생값이다. */
   bed: BedService;
   internet: boolean;
   shower: boolean;
   meal: boolean;
+  /** 유형별 수용 인원 — 없으면 옛 레코드 (bed+capacity로 폴백 표시). */
+  beds?: AngelBeds;
 }
 
 /** 엔젤 프로필 등록 입력 — 위치는 본인이 자발 공개하는 엔젤 포인트다. */
@@ -48,6 +61,7 @@ export interface AngelProfileInput {
   name: string;
   location: GeoPoint;
   services: AngelServices;
+  /** 총 수용 인원 — services.beds가 있으면 유형별 인원의 합계(파생값)다. */
   capacity: number;
   conditions: string;
   visible: boolean;
