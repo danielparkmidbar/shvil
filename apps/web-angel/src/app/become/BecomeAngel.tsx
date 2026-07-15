@@ -34,7 +34,9 @@ const MIN_QUERY_LEN = 3;
 
 // ── 프라이버시 눈금 미리보기 ────────────────────────────────────────
 const PREVIEW_SOURCE = 'privacy-preview';
-const PREVIEW_RADIUS_M = 500; // 눈금 0.01° ≈ 1km → 반경 ~500m 원
+// 눈금 0.01° 반올림의 최대 오프셋은 대각 ~720m — 반경을 그보다 크게 잡아
+// 핀이 항상 원 안에 있게 한다 (원 밖의 핀은 사용자에게 고장처럼 보인다).
+const PREVIEW_RADIUS_M = 800;
 
 interface GeocodeCandidate {
   label: string;
@@ -215,6 +217,14 @@ export default function BecomeAngel() {
       const marker = new maplibre.Marker({ color: '#2e6b3f', draggable: true })
         .setLngLat([coords.lon, coords.lat])
         .addTo(map);
+      // 드래그 중에도 공개 위치 원이 실시간으로 따라온다 (상태 갱신 없이 소스만 —
+      // 드래그가 끝나면 dragend가 상태를 확정한다).
+      marker.on('drag', () => {
+        const p = marker.getLngLat();
+        const s = snapToPrivacyGrid(p.lat, p.lng);
+        const liveSrc = map.getSource(PREVIEW_SOURCE) as GeoJSONSource | undefined;
+        liveSrc?.setData(privacyCirclePolygon(s.lat, s.lon));
+      });
       marker.on('dragend', () => {
         const p = marker.getLngLat();
         setCoords({ lat: p.lat, lon: p.lng });

@@ -16,7 +16,7 @@ export const en: Strings = {
     },
     footer: {
       angelLink: 'Shvil Angel — angel map & coin market (shvilangel.org)',
-      angelUrl: 'https://shvilangel.org',
+      angelUrl: 'https://www.shvilangel.org',
       motto: 'You record it yourself, you attest it yourself.',
     },
     serverUnreachable:

@@ -13,7 +13,7 @@ export const es: Strings = {
     },
     footer: {
       shvilistLink: 'Shvilist — el hogar de los caminantes (shvilist.org)',
-      shvilistUrl: 'https://shvilist.org',
+      shvilistUrl: 'https://www.shvilist.org',
       faceToFaceFree: 'Los pagos cara a cara dentro del ecosistema son gratuitos, para siempre.',
     },
     serverUnreachable:

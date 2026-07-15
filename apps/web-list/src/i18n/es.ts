@@ -16,7 +16,7 @@ export const es: Strings = {
     },
     footer: {
       angelLink: 'Shvil Ángel — mapa de ángeles y mercado de monedas (shvilangel.org)',
-      angelUrl: 'https://shvilangel.org',
+      angelUrl: 'https://www.shvilangel.org',
       motto: 'Tú lo registras, tú lo acreditas.',
     },
     serverUnreachable:

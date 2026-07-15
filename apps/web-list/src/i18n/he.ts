@@ -15,7 +15,7 @@ export const he: Strings = {
     },
     footer: {
       angelLink: 'שביל אנג׳ל — מפת המלאכים ושוק המטבעות (shvilangel.org)',
-      angelUrl: 'https://shvilangel.org',
+      angelUrl: 'https://www.shvilangel.org',
       motto: 'מתעדים בעצמכם, מאמתים בעצמכם.',
     },
     serverUnreachable: 'לא ניתן להתחבר לשרת המדריך. נסו שוב בעוד רגע.',

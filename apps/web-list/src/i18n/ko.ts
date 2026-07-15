@@ -15,7 +15,7 @@ export const ko: Strings = {
     },
     footer: {
       angelLink: '쉬빌 엔젤 — 엔젤 지도·코인 마켓 (shvilangel.org)',
-      angelUrl: 'https://shvilangel.org',
+      angelUrl: 'https://www.shvilangel.org',
       motto: '스스로 기록하고 스스로 인증한다.',
     },
     serverUnreachable:

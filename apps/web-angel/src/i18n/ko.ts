@@ -13,7 +13,7 @@ export const ko: Strings = {
     },
     footer: {
       shvilistLink: '쉬빌리스트 — 걷는 사람들의 집 (shvilist.org)',
-      shvilistUrl: 'https://shvilist.org',
+      shvilistUrl: 'https://www.shvilist.org',
       faceToFaceFree: '생태계 내부 대면 지불은 영구 무료입니다.',
     },
     serverUnreachable:

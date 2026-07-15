@@ -13,7 +13,7 @@ export const he: Strings = {
     },
     footer: {
       shvilistLink: 'שביליסט — הבית של ההולכים (shvilist.org)',
-      shvilistUrl: 'https://shvilist.org',
+      shvilistUrl: 'https://www.shvilist.org',
       faceToFaceFree: 'תשלום פנים אל פנים בתוך המערכת חינם — לתמיד.',
     },
     serverUnreachable: 'לא ניתן להתחבר לשרת המדריך. נסו שוב בעוד רגע.',

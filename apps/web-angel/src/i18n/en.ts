@@ -13,7 +13,7 @@ export const en: Strings = {
     },
     footer: {
       shvilistLink: 'Shvilist — the home of the walkers who mint coins (shvilist.org)',
-      shvilistUrl: 'https://shvilist.org',
+      shvilistUrl: 'https://www.shvilist.org',
       faceToFaceFree: 'Face-to-face payments inside the ecosystem are free, forever.',
     },
     serverUnreachable:
