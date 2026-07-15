@@ -68,3 +68,49 @@ describe('내림과 일일 상한 (확정 파라미터)', () => {
     expect(applyDailyCap(dshv, 0)).toBe(400);
   });
 });
+
+describe('자전거 모드 요율 ×0.5 (M11 · T-2 확정)', () => {
+  it('자전거 코스 위: 1km = 0.5 SHV (도보의 절반)', () => {
+    expect(floorMicroToDshv(metersToMicroDshv(1_000, 'ON_COURSE', undefined, DEFAULT_ECONOMIC_PARAMS, 'BIKE'))).toBe(5);
+    expect(floorMicroToDshv(metersToMicroDshv(20_000, 'ON_COURSE', undefined, DEFAULT_ECONOMIC_PARAMS, 'BIKE'))).toBe(100);
+  });
+
+  it('자전거는 도보의 정확히 절반이다 (micro 단위 비교)', () => {
+    const walk = metersToMicroDshv(10_000, 'ON_COURSE');
+    const bike = metersToMicroDshv(10_000, 'ON_COURSE', undefined, DEFAULT_ECONOMIC_PARAMS, 'BIKE');
+    expect(bike).toBe(walk / 2);
+  });
+
+  it('mode 미지정·명시 WALK은 도보 요율 그대로 (0층 불변)', () => {
+    expect(metersToMicroDshv(3_456, 'ON_COURSE', 15)).toBe(
+      metersToMicroDshv(3_456, 'ON_COURSE', 15, DEFAULT_ECONOMIC_PARAMS, 'WALK'),
+    );
+  });
+
+  it('난이도 계수는 자전거에도 같은 계수로 적용된 뒤 ×0.5 (1차 구현)', () => {
+    // 8km × ×2.5 = 20 SHV(도보), 자전거는 그 절반 10 SHV
+    expect(floorMicroToDshv(metersToMicroDshv(8_000, 'ON_COURSE', 25, DEFAULT_ECONOMIC_PARAMS, 'BIKE'))).toBe(100);
+  });
+
+  it('배율은 모든 tier에 적용된다 (엔젤 우회 자전거도 ×0.5)', () => {
+    const walk = metersToMicroDshv(1_000, 'ANGEL_DETOUR');
+    const bike = metersToMicroDshv(1_000, 'ANGEL_DETOUR', undefined, DEFAULT_ECONOMIC_PARAMS, 'BIKE');
+    expect(bike).toBe(walk / 2);
+  });
+
+  it('일 상한 40 SHV는 이동 수단 무관 동일: 자전거 ~80km에서 상한 도달', () => {
+    // 자전거 80km × 0.5 = 40 SHV → 상한 400 dSHV
+    const dshv = floorMicroToDshv(metersToMicroDshv(80_000, 'ON_COURSE', undefined, DEFAULT_ECONOMIC_PARAMS, 'BIKE'));
+    expect(dshv).toBe(400);
+    expect(applyDailyCap(dshv, 0)).toBe(400);
+    // 90km여도 상한은 그대로 40 SHV
+    const over = floorMicroToDshv(metersToMicroDshv(90_000, 'ON_COURSE', undefined, DEFAULT_ECONOMIC_PARAMS, 'BIKE'));
+    expect(applyDailyCap(over, 0)).toBe(400);
+  });
+
+  it('정수 microDshv 유지 — 홀수 배율 결과도 내림 정수 (부동소수 금지)', () => {
+    // 1m 코스 위 도보 = 10,000 micro → 자전거 ×0.5 = 5,000 (정수)
+    expect(metersToMicroDshv(1, 'ON_COURSE', undefined, DEFAULT_ECONOMIC_PARAMS, 'BIKE')).toBe(5_000);
+    expect(Number.isInteger(metersToMicroDshv(333, 'ON_COURSE', 15, DEFAULT_ECONOMIC_PARAMS, 'BIKE'))).toBe(true);
+  });
+});

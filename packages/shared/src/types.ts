@@ -9,13 +9,20 @@
 /** 걸음의 자리 — 3단계 요율 + 엔젤 우회 (지시서 2.2). */
 export type WalkTier = 'ON_COURSE' | 'OFF_COURSE' | 'DAILY_LIFE' | 'ANGEL_DETOUR';
 
+/**
+ * 이동 수단 (M11 — docs/몸인증_보물마이닝_설계.md 3장). 사용자가 스스로 선언한다(감시 아님).
+ * WALK: 기존 도보(기본값). BIKE: 자전거 — 요율 ×0.5, 속도 필터 자전거 프로파일.
+ * 미지정은 WALK로 취급한다 — 자전거를 선택하지 않으면 0층은 기존과 완전히 동일하다.
+ */
+export type TravelMode = 'WALK' | 'BIKE';
+
 /** 걷기 창(window) 요약 샘플 — 판정 엔진이 좌표를 폐기한 뒤 코어에 넘기는 단위. */
 export interface WalkSample {
   /** 창 길이 (초). */
   durationS: number;
   /** 창 동안 GPS 파생 이동 거리 (m). 좌표가 아니라 거리만. */
   distanceM: number;
-  /** 창 동안 걸음 수 (가속도계 파형 기반). */
+  /** 창 동안 걸음 수 (가속도계 파형 기반). 자전거 모드는 0 (만보기 걸음 없음). */
   steps: number;
   /** 회랑 판정 결과. */
   tier: WalkTier;
@@ -27,6 +34,11 @@ export interface WalkSample {
   detourAngelMemberId?: string | undefined;
   /** 코스 ID (예: "shvil-israel") — 계보에 좌표 대신 남는 유일한 장소 정보. */
   courseId?: string | undefined;
+  /**
+   * 이동 수단 (사용자 선언). 미지정은 WALK. 자전거면 요율 ×0.5 + 자전거 속도 필터.
+   * 세션 중 전환은 이후 창부터 반영된다("새 구간부터" — 이미 누적된 창은 그 시점 요율 유지).
+   */
+  mode?: TravelMode | undefined;
 }
 
 export type WalkRejectReason =

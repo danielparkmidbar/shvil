@@ -48,13 +48,42 @@ export function WalkScreen() {
     );
   };
 
+  const bike = w.travelMode === 'BIKE';
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <Card>
+        <Title>이동 수단</Title>
+        <View style={styles.modeRow}>
+          <Pressable
+            style={[styles.modeBtn, !bike && styles.modeBtnActive]}
+            onPress={() => void wallet.setTravelMode('WALK')}
+          >
+            <Text style={[styles.modeText, !bike && styles.modeTextActive]}>🥾 도보</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeBtn, bike && styles.modeBtnActive]}
+            onPress={() => void wallet.setTravelMode('BIKE')}
+          >
+            <Text style={[styles.modeText, bike && styles.modeTextActive]}>🚲 자전거</Text>
+          </Pressable>
+        </View>
+        {bike ? (
+          <Muted>
+            자전거 1km = 0.5 SHV (도보의 절반 — 에너지 비례) · 일 상한은 도보와 동일 40 SHV.
+            트레일 포인트에서는 자전거를 세우고 지시대로 걸어 실주행을 인증합니다.
+          </Muted>
+        ) : (
+          <Muted>도보 1km = 1 SHV (기준 요율). 자전거를 선택하면 요율·속도 필터가 자전거용으로 바뀝니다.</Muted>
+        )}
+      </Card>
+
       <Card>
         <Title>현재 상태</Title>
         <View style={[styles.badge, { backgroundColor: label.color }]}>
           <Text style={styles.badgeText}>{label.text}</Text>
         </View>
+        {bike && <Text style={styles.bikeTag}>🚲 자전거 모드 — 요율 ×0.5</Text>}
         {!w.walkTracking && <Muted>홈에서 걷기 추적을 시작하세요.</Muted>}
         {w.liveStatus?.mockLocationDetected && (
           <Text style={styles.warn}>⚠ 가짜 위치(mock location) 감지 — 걷기 기록이 차단됩니다</Text>
@@ -103,6 +132,20 @@ const styles = StyleSheet.create({
   big: { fontSize: 28, fontWeight: '800', marginBottom: 6 },
   badge: { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 8 },
   badgeText: { color: 'white', fontWeight: '700' },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  modeBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#E7ECE7',
+    borderWidth: 1,
+    borderColor: '#D3DAD3',
+  },
+  modeBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  modeText: { fontWeight: '700', color: colors.muted },
+  modeTextActive: { color: 'white' },
+  bikeTag: { color: colors.detour, fontWeight: '700', marginBottom: 6 },
   warn: { color: colors.danger, fontWeight: '700', marginTop: 6 },
   claimLink: { backgroundColor: colors.card, borderRadius: 12, padding: 14, marginTop: 12, gap: 4 },
   claimLinkText: { fontWeight: '700', color: colors.detour },

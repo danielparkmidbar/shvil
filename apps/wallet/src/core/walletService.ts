@@ -32,6 +32,7 @@ import {
   type PaymentMessage,
   type PendingSnapshot,
   type SignedGrant,
+  type TravelMode,
   type WalkSample,
   type WalkSampleVerdict,
   type WalletBackup,
@@ -68,6 +69,8 @@ import {
 export type WalletMode = 'LIST' | 'ANGEL';
 
 const MODE_KEY = 'walletMode.v1';
+/** 이동 수단 선언 (M11) — 지갑 로컬 설정. 서버 불필요. 기본 WALK. */
+const TRAVEL_MODE_KEY = 'travelMode.v1';
 const SALES_KEY = 'market.sales.v1';
 /**
  * 회원 증서 필수화 게이트 (보안 감사 C-2). 기본 false — 점진 전환:
@@ -101,6 +104,8 @@ export interface WalletState {
   address: string;
   /** 모드 전환은 토글 한 번 — 지갑·코인·키는 두 모드가 공유한다. */
   mode: WalletMode;
+  /** 이동 수단 선언 (M11) — 기본 WALK. 자전거면 요율 ×0.5 + 자전거 속도 필터. */
+  travelMode: TravelMode;
   pending: PendingSnapshot;
   coins: StoredCoin[];
   /** 걸어서 생성한 코인 잔액 (dSHV) — 계보상 영구 구분. */
@@ -142,6 +147,7 @@ class WalletService {
     memberId: '',
     address: '',
     mode: 'LIST',
+    travelMode: 'WALK',
     pending: EMPTY_PENDING,
     coins: [],
     walkedBalanceDshv: 0,
@@ -184,11 +190,13 @@ class WalletService {
     this.#ledger = saved ? PendingWalkLedger.fromState(config, saved) : new PendingWalkLedger(config);
     await this.#reloadCoins();
     const savedMode = await kvGet(MODE_KEY);
+    const savedTravelMode = await kvGet(TRAVEL_MODE_KEY);
     this.#set({
       ready: true,
       memberId: this.#identity.memberId,
       address: this.#identity.address,
       mode: savedMode === 'ANGEL' ? 'ANGEL' : 'LIST',
+      travelMode: savedTravelMode === 'BIKE' ? 'BIKE' : 'WALK',
       pending: this.#ledger.getPending(),
     });
   }
@@ -197,6 +205,16 @@ class WalletService {
   async setMode(mode: WalletMode): Promise<void> {
     await kvSet(MODE_KEY, mode);
     this.#set({ mode });
+  }
+
+  /**
+   * 이동 수단 선언 전환 (M11) — 사용자가 스스로 도보/자전거를 고른다(감시 아님).
+   * 로컬 설정일 뿐 서버로 가지 않는다. 전환은 이후 걷기 창부터 새 요율로 반영된다
+   * ("새 구간부터" — 이미 누적된 잠정분은 그 시점 요율을 유지). 기본 WALK.
+   */
+  async setTravelMode(travelMode: TravelMode): Promise<void> {
+    await kvSet(TRAVEL_MODE_KEY, travelMode);
+    this.#set({ travelMode });
   }
 
   /**
@@ -316,9 +334,15 @@ class WalletService {
 
   // ── 걷기 파이프라인 ────────────────────────────────────────────
 
-  /** 회랑 엔진이 방출한 창 샘플을 잠정 누적한다 (좌표 없음). */
+  /**
+   * 회랑 엔진이 방출한 창 샘플을 잠정 누적한다 (좌표 없음).
+   * 회랑 엔진은 이동 수단을 모르므로, 현재 선언된 이동 수단(travelMode)을 여기서
+   * 창에 각인해 원장에 넘긴다 — 자전거면 요율 ×0.5 + 자전거 속도 필터가 적용된다.
+   * 창이 이미 mode를 지정했다면 그대로 존중한다(테스트·미래 확장 대비).
+   */
   recordSample(sample: WalkSample): WalkSampleVerdict {
-    const verdict = this.#ledger!.recordSample(sample);
+    const stamped: WalkSample = sample.mode ? sample : { ...sample, mode: this.#state.travelMode };
+    const verdict = this.#ledger!.recordSample(stamped);
     this.#set({ pending: this.#ledger!.getPending() });
     void savePendingState(this.#ledger!.getState());
     return verdict;

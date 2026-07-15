@@ -60,3 +60,42 @@ describe('걷기 판별 필터 (지시서 2.2 — 뛰기·차량 제외)', () =>
     expect(evaluateWalkSample(makeSample({ durationS: 0 })).reason).toBe('INVALID_SAMPLE');
   });
 });
+
+describe('자전거 모드 속도 필터 (M11 3장 — 원동기만 배제, 걸음 검사 없음)', () => {
+  it('자전거 정상 주행(걸음 0)은 인정 — 만보기 걸음이 없어도 거부하지 않는다', () => {
+    // 72초에 400m = 20 km/h, steps=0 (자전거는 걸음 없음)
+    const v = evaluateWalkSample(makeSample({ mode: 'BIKE', distanceM: 400, steps: 0 }));
+    expect(v.accepted).toBe(true);
+    expect(v.creditedDistanceM).toBe(400);
+  });
+
+  it('보행 속도로 끌고 가는 자전거(느린 창)도 인정', () => {
+    const v = evaluateWalkSample(makeSample({ mode: 'BIKE', distanceM: 100, steps: 0 }));
+    expect(v.accepted).toBe(true);
+    expect(v.creditedDistanceM).toBe(100);
+  });
+
+  it('원동기 속도(≥35 km/h)는 자전거 모드에서도 VEHICLE로 배제', () => {
+    // 72초에 800m = 40 km/h
+    const v = evaluateWalkSample(makeSample({ mode: 'BIKE', distanceM: 800, steps: 0 }));
+    expect(v.accepted).toBe(false);
+    expect(v.reason).toBe('VEHICLE');
+  });
+
+  it('자전거는 도보 상한(6~10km/h)을 넘는 25km/h도 인정 (도보라면 거부될 속도)', () => {
+    const fast = makeSample({ distanceM: 500, steps: 0 }); // 25 km/h
+    expect(evaluateWalkSample({ ...fast, mode: 'WALK' }).accepted).toBe(false); // 도보면 배제
+    expect(evaluateWalkSample({ ...fast, mode: 'BIKE' }).accepted).toBe(true); // 자전거면 인정
+  });
+
+  it('정지/신호 대기 창(거리 미미)은 자전거도 기여 0', () => {
+    const v = evaluateWalkSample(makeSample({ mode: 'BIKE', distanceM: 5, steps: 0 }));
+    expect(v.accepted).toBe(true);
+    expect(v.creditedDistanceM).toBe(0);
+  });
+
+  it('mode 미지정은 도보 필터 그대로 (0층 불변) — 걸음 없는 진행은 NO_STEPS', () => {
+    const v = evaluateWalkSample(makeSample({ distanceM: 90, steps: 0 }));
+    expect(v.reason).toBe('NO_STEPS');
+  });
+});

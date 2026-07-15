@@ -122,6 +122,41 @@ describe('일일 상한 40 SHV (확정 파라미터)', () => {
   });
 });
 
+describe('자전거 모드 원장 통합 (M11 · T-2)', () => {
+  it('자전거 코스 위 20km = 10 SHV (도보 20km=20 SHV의 절반)', () => {
+    const ledger = newLedger();
+    const end = walkKm(ledger, 20, { mode: 'BIKE', steps: 0 });
+    expect(ledger.settleOnSpend(end)!.amountDshv).toBe(100); // 10 SHV
+  });
+
+  it('도보+자전거 발행은 같은 날 하나의 40 SHV 상한에 합산된다 (따로 벌 수 없다)', () => {
+    const ledger = newLedger();
+    // 같은 날: 도보 30km(=30 SHV=300 dSHV) + 자전거 30km(=15 SHV=150 dSHV) → 후보 450
+    let end = walkKm(ledger, 30);
+    end = walkKm(ledger, 30, { mode: 'BIKE', steps: 0 }, end);
+    // 만약 수단별로 따로 상한이 걸린다면 300+150=450이 되겠지만, 합산 상한이므로 400.
+    const draft = ledger.settleOnSpend(end);
+    expect(draft!.amountDshv).toBe(400);
+    expect(draft!.dailyBreakdown).toEqual([{ date: '2026-07-01', amountDshv: 400 }]);
+  });
+
+  it('세션 중 도보→자전거 전환: 이미 누적된 도보분은 유지, 이후 창만 자전거 요율', () => {
+    const ledger = newLedger();
+    // 도보 10km(=10 SHV) 후 자전거 10km(=5 SHV) — 전환은 이후 창부터
+    let end = walkKm(ledger, 10);
+    end = walkKm(ledger, 10, { mode: 'BIKE', steps: 0 }, end);
+    expect(ledger.settleManual(end)!.amountDshv).toBe(150); // 100 + 50
+  });
+
+  it('자전거는 걸음 0으로도 거리 기반 누적된다 (만보기 없이)', () => {
+    const ledger = newLedger();
+    const end = walkKm(ledger, 12, { mode: 'BIKE', steps: 0 });
+    expect(ledger.getPending().pendingDshvEstimate).toBe(60); // 12km × 0.5 = 6 SHV
+    expect(ledger.getPending().stepCount).toBe(0);
+    expect(end).toBeGreaterThan(0);
+  });
+});
+
 describe('3단계 요율 통합 (원장 경유)', () => {
   it('코스 이탈 걸음은 일상과 동일 미세 요율(1/1,000)로 누적된다 (T-1 확정)', () => {
     const ledger = newLedger();

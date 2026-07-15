@@ -38,6 +38,14 @@ export interface EconomicParams {
   difficultyMaxTenths: number;
   /** 엔젤 우회 인정 한도, 편도 미터. 결정 대기 — 제안 5,000 m. */
   angelDetourMaxMeters: number;
+  /**
+   * 자전거 모드 배율 (×10 정수: 5 = ×0.5). 확정 (2026-07-15 다니엘 쌤, T-2):
+   * 자전거 1km = 0.5 SHV — 에너지 비율(자전거 ≈ 도보의 1/2). 도보는 tenths=10(×1.0).
+   * 부동소수 금지 규칙에 맞춰 정수 tenths로 두고 metersToMicroDshv가 정수 나눗셈으로 적용한다.
+   * 일 상한(dailyCapDshv 40 SHV)은 이동 수단과 무관하게 동일 — 도보·자전거 발행을 합산해
+   * 하루 40 SHV 상한에 함께 걸린다(에너지 총량이 하나이므로). 이 합산은 원장 정산에서 이루어진다.
+   */
+  bikeMultiplierTenths: number;
 }
 
 export const DEFAULT_ECONOMIC_PARAMS: EconomicParams = {
@@ -46,6 +54,7 @@ export const DEFAULT_ECONOMIC_PARAMS: EconomicParams = {
   dailyLifeDivisor: 1_000,
   difficultyMaxTenths: 40,
   angelDetourMaxMeters: 5_000,
+  bikeMultiplierTenths: 5, // T-2 확정: 자전거 ×0.5
 };
 
 export interface WalkFilterParams {
@@ -73,6 +82,29 @@ export const DEFAULT_WALK_FILTER_PARAMS: WalkFilterParams = {
   strideToleranceRatio: 0.3,
   cadenceMinSpm: 60,
   cadenceMaxSpm: 140,
+  restDistanceThresholdM: 20,
+};
+
+/**
+ * 자전거 모드 속도 필터 (M11 — docs/몸인증_보물마이닝_설계.md 3장).
+ *
+ * 도보 필터의 걸음-거리·케이던스 교차 검증은 자전거에 쓸 수 없다 — 자전거는
+ * 만보기 걸음이 없다(steps=0). 따라서 자전거 필터는 **속도 상한만으로 원동기(차량·
+ * 오토바이)를 배제**하고, 실주행 확인은 걸음이 아니라 트레일 포인트의 M9 몸 인증
+ * 미션(자전거를 세우고 지시대로 걷기)이 담당한다. 이 이원화가 3장의 설계다.
+ *
+ * 속도 상한 35km/h: 사람 다리 힘의 지속 주행 상한을 여유 있게 잡은 값. 그 이상은
+ * 내리막 순간을 빼면 원동기다 → 차량으로 배제(도보 컷 ~8km/h의 자전거판).
+ */
+export interface BikeFilterParams {
+  /** 자전거 인정 최대 속도(km/h). 이 이상은 원동기(차량·오토바이)로 배제. */
+  maxBikeSpeedKmh: number;
+  /** 이 미만의 창 거리(m)는 정지/신호 대기로 보고 발행 기여 0 (도보와 동일 관용). */
+  restDistanceThresholdM: number;
+}
+
+export const DEFAULT_BIKE_FILTER_PARAMS: BikeFilterParams = {
+  maxBikeSpeedKmh: 35,
   restDistanceThresholdM: 20,
 };
 

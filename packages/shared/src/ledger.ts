@@ -9,21 +9,25 @@
  * - 위치 비저장: 이 원장에는 좌표가 없다. 날짜별 micro 발행량·거리·걸음 수뿐.
  */
 import {
+  DEFAULT_BIKE_FILTER_PARAMS,
   DEFAULT_ECONOMIC_PARAMS,
   DEFAULT_WALK_FILTER_PARAMS,
   MICRO_PER_DSHV,
+  type BikeFilterParams,
   type EconomicParams,
   type WalkFilterParams,
 } from './params';
 import { applyDailyCap, floorMicroToDshv, metersToMicroDshv } from './rates';
 import { evaluateWalkSample } from './walkFilter';
 import { hashObject } from './crypto';
-import type { SettlementKind, WalkSample, WalkSampleVerdict } from './types';
+import type { SettlementKind, TravelMode, WalkSample, WalkSampleVerdict } from './types';
 
 export interface LedgerConfig {
   memberId: string;
   economicParams?: EconomicParams;
   filterParams?: WalkFilterParams;
+  /** 자전거 모드 속도 필터 (M11). 미지정 시 기본 자전거 프로파일. */
+  bikeFilterParams?: BikeFilterParams;
   /** 사용자 현지 시간대 오프셋(분) — 일일 상한의 역일 귀속 기준. */
   tzOffsetMinutes?: number;
 }
@@ -74,6 +78,7 @@ export class PendingWalkLedger {
   private readonly memberId: string;
   private readonly eco: EconomicParams;
   private readonly filter: WalkFilterParams;
+  private readonly bikeFilter: BikeFilterParams;
   private readonly tzOffsetMinutes: number;
 
   private days = new Map<string, DayAccrual>();
@@ -90,6 +95,7 @@ export class PendingWalkLedger {
     this.memberId = config.memberId;
     this.eco = config.economicParams ?? DEFAULT_ECONOMIC_PARAMS;
     this.filter = config.filterParams ?? DEFAULT_WALK_FILTER_PARAMS;
+    this.bikeFilter = config.bikeFilterParams ?? DEFAULT_BIKE_FILTER_PARAMS;
     this.tzOffsetMinutes = config.tzOffsetMinutes ?? 0;
     if (mintedHistory) {
       for (const [date, dshv] of Object.entries(mintedHistory)) this.mintedByDate.set(date, dshv);
@@ -107,10 +113,19 @@ export class PendingWalkLedger {
     return d.toISOString().slice(0, 10);
   }
 
-  /** 걷기 창 샘플 기록: 필터 통과분만 요율에 따라 잠정 누적된다. */
+  /**
+   * 걷기·자전거 창 샘플 기록: 필터 통과분만 요율에 따라 잠정 누적된다.
+   *
+   * 이동 수단(sample.mode)은 필터 프로파일(도보/자전거)과 요율 배율(자전거 ×0.5) 양쪽에
+   * 반영된다. 도보·자전거 발행은 같은 일자의 regularMicro에 함께 쌓이므로, 정산 시
+   * 하나의 40 SHV/일 상한에 **합산되어** 걸린다(자전거로 따로 40을 더 벌 수 없다).
+   * 세션 중 mode 전환은 이후 창부터 반영된다("새 구간부터" — 기존 누적은 유지).
+   */
   recordSample(sample: WalkSample): WalkSampleVerdict {
-    const verdict = evaluateWalkSample(sample, this.filter);
+    const verdict = evaluateWalkSample(sample, this.filter, this.bikeFilter);
     if (!verdict.accepted || verdict.creditedDistanceM <= 0) return verdict;
+
+    const mode: TravelMode = sample.mode ?? 'WALK';
 
     if (this.startedAt === null) this.startedAt = sample.timestamp;
     this.distanceM += verdict.creditedDistanceM;
@@ -125,14 +140,14 @@ export class PendingWalkLedger {
       const angelId = sample.detourAngelMemberId;
       if (!angelId) {
         // 목적지 엔젤 없는 우회는 코스 이탈로 강등 처리.
-        day.regularMicro += metersToMicroDshv(verdict.creditedDistanceM, 'OFF_COURSE', undefined, this.eco);
+        day.regularMicro += metersToMicroDshv(verdict.creditedDistanceM, 'OFF_COURSE', undefined, this.eco, mode);
       } else {
         // 우회 인정 한도(편도) 초과분은 잠정 카운트하지 않는다.
         const used = this.detourMetersByAngel.get(angelId) ?? 0;
         const credit = Math.max(0, Math.min(verdict.creditedDistanceM, this.eco.angelDetourMaxMeters - used));
         this.detourMetersByAngel.set(angelId, used + verdict.creditedDistanceM);
         if (credit > 0) {
-          const micro = metersToMicroDshv(credit, 'ANGEL_DETOUR', undefined, this.eco);
+          const micro = metersToMicroDshv(credit, 'ANGEL_DETOUR', undefined, this.eco, mode);
           day.detourMicroByAngel.set(angelId, (day.detourMicroByAngel.get(angelId) ?? 0) + micro);
         }
       }
@@ -142,6 +157,7 @@ export class PendingWalkLedger {
         sample.tier,
         sample.difficultyTenths,
         this.eco,
+        mode,
       );
     }
 

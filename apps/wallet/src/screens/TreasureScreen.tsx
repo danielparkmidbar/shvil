@@ -9,6 +9,7 @@ import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { LegRejectReason, MovementDir } from '@shvil/shared';
 import { treasureService, useTreasure } from '../core/treasureService';
+import { useWallet } from '../core/walletService';
 import { Card, Muted, colors, fmtShv } from '../ui/common';
 
 const DIR_KO: Record<MovementDir, string> = { N: '북쪽', E: '동쪽', S: '남쪽', W: '서쪽' };
@@ -22,6 +23,7 @@ const FAIL_TEXT: Record<LegRejectReason, string> = {
 
 export function TreasureSection() {
   const t = useTreasure();
+  const bike = useWallet().travelMode === 'BIKE';
 
   // 보물이 없으면 아무것도 그리지 않는다 (0층 신성불가침).
   if (!t.nearby && !t.session && !t.lastResult) return null;
@@ -34,9 +36,10 @@ export function TreasureSection() {
             {t.nearby.amountDshv > 0 ? '🎁 보물이 근처에 숨겨져 있습니다' : '📍 구간 인증 스탬프 지점입니다'}
           </Text>
           <Muted>
-            약 {t.nearby.distanceM}m 이내 · 실시간 이동 지시를 몸으로 수행하면{' '}
+            약 {t.nearby.distanceM}m 이내 · {bike ? '자전거를 세우고 ' : ''}실시간 이동 지시를 몸으로 수행하면{' '}
             {t.nearby.amountDshv > 0 ? '보물이 열립니다' : '스탬프가 찍힙니다'}
           </Muted>
+          {bike && <Muted>🚲 자전거 모드 — 세워두고 걸어서 실주행을 인증합니다 (안전한 곳에서).</Muted>}
           <Pressable style={styles.startBtn} onPress={() => treasureService.startChallenge()}>
             <Text style={styles.startBtnText}>도전하기</Text>
           </Pressable>
@@ -78,6 +81,7 @@ function resultDetail(r: NonNullable<ReturnType<typeof useTreasure>['lastResult'
 
 function ChallengeBody() {
   const t = useTreasure();
+  const bike = useWallet().travelMode === 'BIKE';
   const s = t.session;
   if (!s) return null;
 
@@ -124,6 +128,7 @@ function ChallengeBody() {
       <Muted>
         {s.amountDshv > 0 ? '보물 열기' : '구간 인증 스탬프'} · 단계 {s.legIndex + 1} / {s.legCount}
       </Muted>
+      {bike && s.legIndex === 0 && <Text style={styles.bikeHint}>🚲 자전거를 세우고 지시대로 걸으세요</Text>}
       <Text style={styles.instruction}>
         {DIR_KO[s.currentLeg.dir]}으로 {s.currentLeg.steps}걸음
       </Text>
@@ -156,6 +161,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
   sheet: { backgroundColor: 'white', borderRadius: 16, padding: 24, gap: 8 },
   instruction: { fontSize: 32, fontWeight: '900', textAlign: 'center', marginVertical: 12 },
+  bikeHint: { fontSize: 15, fontWeight: '700', color: colors.detour, textAlign: 'center', marginTop: 6 },
   progress: { fontSize: 18, fontWeight: '700', textAlign: 'center', color: colors.primary },
   progressTrack: { height: 8, borderRadius: 4, backgroundColor: colors.card, overflow: 'hidden', marginVertical: 8 },
   progressFill: { height: 8, backgroundColor: colors.primary },
