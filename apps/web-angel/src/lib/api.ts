@@ -68,6 +68,22 @@ export interface CourseData {
   version: number;
 }
 
+/**
+ * 게스트북 카드 (M7-A — 빈집 방명록의 디지털판, 재조정 §4-5).
+ * 엔젤이 받은 감사 카드 중 작성자가 공개에 동의한 것을 자발 게시한 것이다.
+ * 회원 번호는 없다 — 닉네임(fromDisplayName)과 메시지만. message/journeyLine은
+ * 번역 대상이 아닌 사용자 원문 데이터다.
+ */
+export interface GuestbookCard {
+  cardId: string;
+  fromDisplayName: string;
+  /** 쪽지 템플릿 코드 — 화면 이모지는 이 웹이 붙인다 (자연어 아님). */
+  template: 'DEFAULT' | 'TENT' | 'MEAL' | 'ROAD' | string;
+  message: string;
+  journeyLine: string | null;
+  createdAt: number;
+}
+
 /** 무정가 리스팅 — 가격 필드는 존재하지 않는다. 구매자가 제시한다. */
 export interface MarketListing {
   listingId: number;
@@ -125,6 +141,14 @@ export async function fetchAngels(): Promise<AngelEntry[]> {
 export async function fetchCourses(): Promise<CourseData[]> {
   const { courses } = await getJson<{ courses: CourseData[] }>('/courses');
   return courses;
+}
+
+/**
+ * 특정 엔젤의 공개 방명록 (M7-A) — 닉네임 + 감사 메시지만, 회원 번호 없음.
+ * 이웃 엔젤 프로필 카드의 "방명록 N" 미리보기에 쓴다. 실패 시 throw (호출부가 폴백).
+ */
+export async function fetchGuestbook(memberId: string): Promise<{ total: number; cards: GuestbookCard[] }> {
+  return getJson<{ total: number; cards: GuestbookCard[] }>(`/guestbook?member=${encodeURIComponent(memberId)}`);
 }
 
 export async function fetchListings(): Promise<MarketListing[]> {

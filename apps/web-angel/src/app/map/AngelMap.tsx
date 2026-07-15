@@ -18,9 +18,11 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import {
   fetchAngels,
   fetchCourses,
+  fetchGuestbook,
   type AngelEntry,
   type AngelServices,
   type CourseData,
+  type GuestbookCard,
 } from '@/lib/api';
 import { useI18n, type Strings } from '@/i18n';
 import {
@@ -49,6 +51,17 @@ const SERVICE_ICONS: Record<FilterKey, string> = {
   shower: '🚿',
   meal: '🍲',
 };
+
+/** 감사 카드 템플릿 코드 → 쪽지 이모지 (자연어 아님 — 서버는 코드만 준다). */
+const TEMPLATE_EMOJI: Record<string, string> = {
+  DEFAULT: '💌',
+  TENT: '⛺',
+  MEAL: '🍲',
+  ROAD: '🥾',
+};
+
+/** 프로필 카드에 미리 보여줄 최근 감사 카드 수. */
+const GUESTBOOK_PREVIEW = 3;
 
 /**
  * 잠자리 복수 선택 (2026-07-15): beds(유형별 인원)가 있으면 그것으로,
@@ -114,6 +127,8 @@ export default function AngelMap() {
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [serverDown, setServerDown] = useState(false);
   const [selected, setSelected] = useState<AngelEntry | null>(null);
+  // M7-A: 선택한 이웃 엔젤의 공개 방명록 (감사 카드) 미리보기. null = 아직 안 불러옴.
+  const [guestbook, setGuestbook] = useState<{ total: number; cards: GuestbookCard[] } | null>(null);
   const [filters, setFilters] = useState<Record<FilterKey, boolean>>({
     bedRoom: false,
     bedSofa: false,
@@ -186,6 +201,28 @@ export default function AngelMap() {
     () => (angels ?? []).filter((a) => passesFilters(a, filters)),
     [angels, filters],
   );
+
+  // ── 선택한 엔젤의 공개 방명록 (감사 카드) — 선택 변경 시마다 ────
+  //    공개 GET /guestbook?member= 만 소비한다 (회원 번호 없음, 닉네임뿐).
+  useEffect(() => {
+    if (!selected) {
+      setGuestbook(null);
+      return;
+    }
+    let cancelled = false;
+    setGuestbook(null);
+    (async () => {
+      try {
+        const gb = await fetchGuestbook(selected.memberId);
+        if (!cancelled) setGuestbook(gb);
+      } catch {
+        if (!cancelled) setGuestbook({ total: 0, cards: [] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
 
   // ── 코스 폴리라인 ───────────────────────────────────────────
   useEffect(() => {
@@ -297,6 +334,29 @@ export default function AngelMap() {
                   </span>
                 ))}
               </div>
+
+              {/* M7-A: 공개 방명록 (빈집 방명록의 디지털판) — 닉네임 + 감사 메시지만 */}
+              {guestbook !== null && (
+                <div className="guestbook">
+                  <h4>
+                    {guestbook.total > 0 ? s.guestbookCount(guestbook.total) : s.guestbookTitle}
+                  </h4>
+                  {guestbook.cards.length === 0 ? (
+                    <p className="muted">{s.guestbookEmpty}</p>
+                  ) : (
+                    <ul className="guestbook-list">
+                      {guestbook.cards.slice(0, GUESTBOOK_PREVIEW).map((c) => (
+                        <li key={c.cardId} className="guestbook-card">
+                          <p className="guestbook-message">
+                            {TEMPLATE_EMOJI[c.template] ?? TEMPLATE_EMOJI.DEFAULT} {c.message}
+                          </p>
+                          <p className="muted guestbook-from">— {c.fromDisplayName}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="card">

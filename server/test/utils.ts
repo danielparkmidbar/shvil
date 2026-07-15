@@ -67,7 +67,7 @@ export async function register(
 export async function signedInject(
   app: FastifyInstance,
   who: TestIdentity,
-  method: 'GET' | 'POST' | 'PUT',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   url: string,
   body?: unknown,
 ) {

@@ -93,6 +93,11 @@ export interface Strings {
     requestCta: string;
     requestNote: string;
     selectHint: string;
+    /** M7-A: 게스트북 미리보기 (빈집 방명록의 디지털판, §4-5). */
+    guestbookTitle: string;
+    /** "방명록 N" — 공개된 감사 카드 수. */
+    guestbookCount: (n: number) => string;
+    guestbookEmpty: string;
   };
 
   courses: {

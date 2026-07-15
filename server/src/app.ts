@@ -41,6 +41,7 @@ import { haversineKm } from './geo';
 import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
 import { officialCourses, registerCommunity } from './community';
+import { registerGuestbook } from './guestbook';
 import { registerTreasures, treasureTransparency } from './treasure';
 import { registerSync } from './sync';
 import { registerBackup } from './backup';
@@ -191,7 +192,7 @@ export function buildApp(
       'access-control-allow-headers',
       `content-type, ${AUTH_HEADER_MEMBER}, ${AUTH_HEADER_TS}, ${AUTH_HEADER_SIG}`,
     );
-    reply.header('access-control-allow-methods', 'GET, POST, PUT, OPTIONS');
+    reply.header('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
     if (req.method === 'OPTIONS') {
       void reply.code(204).send();
       return;
@@ -632,6 +633,11 @@ export function buildApp(
     claimWindowMs: 24 * 60 * 60 * 1000,
     devMode,
   });
+
+  // ── 게스트북 (M7-A): 엔젤이 받은 감사 카드를 자발 공개 게시 ────────
+  // 서버는 E2E 원본 카드를 못 본다 — 엔젤 서명으로 인증된 자발 게시만 신뢰한다
+  // (신뢰 모델 상세는 guestbook.ts 주석). 공개 조회는 닉네임만, 회원 번호 비노출.
+  registerGuestbook(app, { db, authenticate });
 
   // ── 보물 마이닝 (M9): 명세 배포 + 수량 한정 발행 회계 ─────────────
   // 이동 검증은 100% 폰 로컬 — 서버는 걸음·방향·좌표를 받지 않는다.

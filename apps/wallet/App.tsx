@@ -22,7 +22,9 @@ import { AngelMapScreen } from './src/screens/AngelMapScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { BookingRequestScreen } from './src/screens/BookingRequestScreen';
+import { ThanksCardScreen } from './src/screens/ThanksCardScreen';
 import { GuestsScreen } from './src/screens/GuestsScreen';
+import { GuestbookScreen } from './src/screens/GuestbookScreen';
 import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
 import { CommunityScreen } from './src/screens/CommunityScreen';
@@ -58,6 +60,12 @@ function MoreStackScreen() {
         component={BookingRequestScreen}
         options={({ route }) => ({ headerTitle: `투숙 신청 — ${route.params.peerName}` })}
       />
+      <MoreStack.Screen
+        name="감사 카드"
+        component={ThanksCardScreen}
+        options={({ route }) => ({ headerTitle: `감사 카드 — ${route.params.peerName}` })}
+      />
+      <MoreStack.Screen name="게스트북" component={GuestbookScreen} options={{ headerTitle: '게스트북 (엔젤)' }} />
       <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
       <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
       <MoreStack.Screen name="커뮤니티" component={CommunityScreen} options={{ headerTitle: '커뮤니티' }} />

@@ -93,6 +93,9 @@ export const es: Strings = {
     requestNote:
       'Se abre en un dispositivo con la billetera Shvil instalada. Las solicitudes se envían solo desde la billetera — este sitio es para consultar y planificar.',
     selectHint: 'Toca un marcador del mapa para ver el perfil del ángel.',
+    guestbookTitle: 'Libro de visitas',
+    guestbookCount: (n) => `Libro de visitas · ${n} tarjeta${n === 1 ? '' : 's'}`,
+    guestbookEmpty: 'Aún no hay tarjetas de agradecimiento aquí.',
   },
 
   courses: {

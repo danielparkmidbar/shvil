@@ -68,6 +68,11 @@ export interface Strings {
     selectHint: string;
     /** 순례자용 탐색·신청은 shvilist.org로 갔다는 한 줄 안내 (링크는 화면이 붙인다). */
     pilgrimNotice: string;
+    /** M7-A: 게스트북 미리보기 (빈집 방명록의 디지털판, §4-5). */
+    guestbookTitle: string;
+    /** "방명록 N" — 공개된 감사 카드 수. */
+    guestbookCount: (n: number) => string;
+    guestbookEmpty: string;
   };
 
   /**

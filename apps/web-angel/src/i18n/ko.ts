@@ -66,6 +66,9 @@ export const ko: Strings = {
     bedTentCount: (n) => `마당 텐트 ${n}`,
     selectHint: '지도의 마커를 누르면 엔젤의 닉네임과 서비스가 표시됩니다.',
     pilgrimNotice: '길을 걸으며 엔젤을 찾고 계신가요? 순례자용 탐색과 신청은 여기에 있습니다:',
+    guestbookTitle: '방명록',
+    guestbookCount: (n) => `방명록 ${n}장`,
+    guestbookEmpty: '아직 남겨진 감사 카드가 없습니다.',
   },
 
   become: {

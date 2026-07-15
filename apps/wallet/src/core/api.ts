@@ -128,6 +128,31 @@ export interface RelayedMessage {
   envelope: MessageEnvelope;
 }
 
+// ── 게스트북 계약 타입 (M7-A — server/src/guestbook.ts와 계약을 공유한다) ──
+// 감사 카드는 E2E 메시지다 (서버는 원본을 못 본다). 게스트북 게시는 엔젤이
+// makePublic=true 동의를 확인한 뒤 자발적으로 하는 공개다 — 서버는 엔젤 서명으로
+// 인증된 게시를 그대로 신뢰한다 (신뢰 모델은 guestbook.ts 주석). 공개 조회 응답에는
+// 회원 번호가 없다 — 닉네임(fromDisplayName)만.
+
+/** 방명록에 올릴 카드 내용 (엔젤 게시 입력) — makePublic 확인은 지갑이 이미 마쳤다. */
+export interface GuestbookPublishInput {
+  cardId: string;
+  fromDisplayName: string;
+  template: string;
+  message: string;
+  journeyLine?: string;
+}
+
+/** 공개 방명록 카드 (GET /guestbook) — 회원 번호 없음, 닉네임만. */
+export interface GuestbookCard {
+  cardId: string;
+  fromDisplayName: string;
+  template: string;
+  message: string;
+  journeyLine: string | null;
+  createdAt: number;
+}
+
 // ── 보물 마이닝 계약 타입 (M9 — server/src/treasure.ts와 계약을 공유한다) ──
 // 이동 검증은 100% 폰 로컬이다. 서버로 가는 것은 treasureId + 성공 요약 해시뿐 —
 // 걸음·방향·좌표를 실어 보내는 필드는 이 계약에 존재하지 않는다.
@@ -600,6 +625,24 @@ export class DirectoryApi {
       true,
     );
     return res.messages;
+  }
+
+  // ── 게스트북 (M7-A — 엔젤이 받은 감사 카드를 자발 공개 게시) ──
+
+  /** 게스트북 게시 (엔젤 서명 인증) — makePublic 동의 확인은 호출부(지갑)의 몫. */
+  publishGuestbookCard(input: GuestbookPublishInput): Promise<{ published: boolean; cardId: string }> {
+    return this.#request('POST', '/guestbook', input, true);
+  }
+
+  /** 게시 철회 (엔젤 서명 인증) — 자기 방명록의 카드만 삭제된다. */
+  removeGuestbookCard(cardId: string): Promise<{ removed: boolean; cardId: string }> {
+    return this.#request('DELETE', `/guestbook/${encodeURIComponent(cardId)}`, null, true);
+  }
+
+  /** 공개 방명록 열람 (비서명) — member 미지정 시 최근 전체. 회원 번호 없음. */
+  async getGuestbook(memberId?: string): Promise<{ total: number; cards: GuestbookCard[] }> {
+    const q = memberId ? `/guestbook?member=${encodeURIComponent(memberId)}` : '/guestbook';
+    return this.#request('GET', q, null, false);
   }
 
   // ── 코인 마켓 (지시서 0-8, 5장 4절 — 마켓은 온라인 전용 서버 기능) ──

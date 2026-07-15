@@ -90,6 +90,9 @@ export const ko: Strings = {
     requestNote:
       '쉬빌 지갑 앱이 설치된 기기에서 열립니다. 투숙 신청은 지갑에서만 보낼 수 있습니다 — 이 사이트는 열람과 계획까지입니다.',
     selectHint: '지도의 마커를 누르면 엔젤 프로필이 표시됩니다.',
+    guestbookTitle: '방명록',
+    guestbookCount: (n) => `방명록 ${n}장`,
+    guestbookEmpty: '아직 남겨진 감사 카드가 없습니다.',
   },
 
   courses: {

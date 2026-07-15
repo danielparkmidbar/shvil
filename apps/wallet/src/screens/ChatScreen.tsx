@@ -19,7 +19,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { chatService, useChat } from '../core/chatService';
 import { buildEtaMessage, SENDER_UNVERIFIED_PREFIX } from '../core/chatFormat';
 import { parseChatBooking } from '../core/bookingFormat';
+import { parseChatThanksCard } from '../core/thanksCardFormat';
+import { publishToGuestbook } from '../core/thanksCardService';
 import { BookingReplyCard, BookingRequestCard } from '../ui/BookingCards';
+import { ThanksCardMessageCard } from '../ui/ThanksCards';
 import { Muted, colors } from '../ui/common';
 import type { MoreStackParamList } from './navTypes';
 
@@ -27,11 +30,33 @@ type Props = NativeStackScreenProps<MoreStackParamList, '채팅'>;
 
 const ETA_HOURS = [1, 2, 4];
 
-export function ChatScreen({ route }: Props) {
+export function ChatScreen({ route, navigation }: Props) {
   const { peerMemberId, peerName } = route.params;
   const chat = useChat();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  /** 이 세션에서 게스트북에 공개한 카드 id — 버튼을 "게시함"으로 바꾼다. */
+  const [publishedCardIds, setPublishedCardIds] = useState<Set<string>>(new Set());
+  const [publishingCardId, setPublishingCardId] = useState<string | null>(null);
+
+  const publishCard = (cardId: string, run: () => Promise<void>) => {
+    if (publishingCardId) return;
+    setPublishingCardId(cardId);
+    void run()
+      .then(() => {
+        setPublishedCardIds((prev) => new Set(prev).add(cardId));
+        Alert.alert('게스트북 게시', '감사 카드를 방명록에 공개했습니다. 더보기 → 게스트북에서 관리할 수 있습니다.');
+      })
+      .catch((e) => {
+        const msg = String(e instanceof Error ? e.message : e);
+        if (msg.includes('already published')) {
+          setPublishedCardIds((prev) => new Set(prev).add(cardId));
+          return;
+        }
+        Alert.alert('게시 실패', msg);
+      })
+      .finally(() => setPublishingCardId(null));
+  };
 
   useEffect(() => {
     void chatService.openConversation(peerMemberId);
@@ -69,12 +94,19 @@ export function ChatScreen({ route }: Props) {
           // M6: 구조화 예약 메시지는 카드로 (신청/승인/거부 구분 — APPROVED 카드에는
           // 전달받은 정확 위치·주소가 보인다). 파싱 실패 시 일반 텍스트 (하위 호환).
           const booking = parseChatBooking(item.text);
+          // M7-A: 감사 카드도 카드로. 받은(IN) 카드이고 작성자가 공개에 동의했으면
+          // "게스트북에 공개" 버튼을 붙인다 (동의 확인은 지갑의 몫 — 서버는 원본을 못 봄).
+          const thanks = booking === null ? parseChatThanksCard(item.text) : null;
+          const structured = booking !== null || thanks !== null;
+          const canPublish =
+            thanks !== null && item.direction === 'IN' && thanks.makePublic;
+          const published = thanks !== null && publishedCardIds.has(thanks.cardId);
           return (
             <View
               style={[
                 styles.bubble,
                 item.direction === 'OUT' ? styles.out : styles.in,
-                booking !== null && styles.bookingBubble,
+                structured && styles.bookingBubble,
               ]}
             >
               {unverified && <Text style={styles.unverified}>발신자 확인 불가</Text>}
@@ -84,6 +116,23 @@ export function ChatScreen({ route }: Props) {
                 ) : (
                   <BookingReplyCard payload={booking} />
                 )
+              ) : thanks !== null ? (
+                <>
+                  <ThanksCardMessageCard payload={thanks} />
+                  {canPublish &&
+                    (published ? (
+                      <Text style={styles.publishedTag}>게스트북에 게시함</Text>
+                    ) : (
+                      <View style={styles.publishBtn}>
+                        <Button
+                          title={publishingCardId === thanks.cardId ? '게시 중…' : '게스트북에 공개'}
+                          color={colors.primary}
+                          onPress={() => publishCard(thanks.cardId, () => publishToGuestbook(thanks))}
+                          disabled={publishingCardId !== null}
+                        />
+                      </View>
+                    ))}
+                </>
               ) : (
                 <Text style={item.direction === 'OUT' ? styles.outText : styles.inText}>
                   {unverified ? item.text.slice(SENDER_UNVERIFIED_PREFIX.length) : item.text}
@@ -103,6 +152,13 @@ export function ChatScreen({ route }: Props) {
             <Button title={`+${h}시간`} color={colors.detour} onPress={() => send(buildEtaMessage(h, Date.now()))} />
           </View>
         ))}
+        <View style={styles.etaBtn}>
+          <Button
+            title="💌 감사 카드"
+            color={colors.warn}
+            onPress={() => navigation.navigate('감사 카드', { peerMemberId, peerName })}
+          />
+        </View>
       </View>
 
       <View style={styles.inputRow}>
@@ -132,6 +188,8 @@ const styles = StyleSheet.create({
   outText: { color: 'white', fontSize: 15 },
   inText: { color: '#1A1F1A', fontSize: 15 },
   unverified: { color: colors.danger, fontSize: 11, fontWeight: '700', marginBottom: 2 },
+  publishBtn: { marginTop: 8 },
+  publishedTag: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.primary },
   time: { fontSize: 10, color: '#9AA79A', marginTop: 4, alignSelf: 'flex-end' },
   etaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4, flexWrap: 'wrap' },
   etaBtn: { marginLeft: 4 },

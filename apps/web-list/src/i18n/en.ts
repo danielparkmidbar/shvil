@@ -91,6 +91,9 @@ export const en: Strings = {
     requestNote:
       'Opens on a device with the Shvil wallet installed. Stay requests are sent only from the wallet — this site is for browsing and planning.',
     selectHint: 'Select a marker on the map to see the angel’s profile.',
+    guestbookTitle: 'Guestbook',
+    guestbookCount: (n) => `Guestbook · ${n} card${n === 1 ? '' : 's'}`,
+    guestbookEmpty: 'No thank-you cards left here yet.',
   },
 
   courses: {

@@ -221,6 +221,23 @@ export function createDb(path: string): DatabaseSync {
       digest TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    -- 게스트북 (M7-A, 재조정 §4-5) — 빈집 방명록의 디지털판 (헌법 제5조 감사의 화폐).
+    -- 엔젤이 자기가 받은 감사 카드 중 "공개해도 됨"(작성자 동의) 것을 자발 게시한다.
+    -- 서버는 원본 카드를 못 본다(E2E) → 엔젤 지갑이 makePublic 동의를 확인하고 게시하며,
+    -- 서버는 엔젤 서명으로 인증된 게시 요청을 그대로 신뢰한다 (이 신뢰 모델은 guestbook.ts
+    -- 주석에 명시). 저장 컬럼은 사용자 원문(닉네임·메시지·여정)뿐 — 회원 번호는 노출하지
+    -- 않는다(공개 조회는 from_display_name만). card_id UNIQUE로 같은 카드 이중 게시 차단.
+    CREATE TABLE IF NOT EXISTS guestbook (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      angel_member_id TEXT NOT NULL,
+      card_id TEXT UNIQUE NOT NULL,
+      from_display_name TEXT NOT NULL,
+      template TEXT NOT NULL,
+      message TEXT NOT NULL,
+      journey_line TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_guestbook_angel ON guestbook(angel_member_id, created_at);
   `);
   migrateFlaggedMembers(db);
   migrateAngelsAvailability(db);

@@ -66,6 +66,9 @@ export const en: Strings = {
     bedTentCount: (n) => `Yard tent ×${n}`,
     selectHint: 'Tap a marker on the map to see the angel’s nickname and services.',
     pilgrimNotice: 'Walking the trail and looking for an angel? Pilgrim search and requests live at',
+    guestbookTitle: 'Guestbook',
+    guestbookCount: (n) => `Guestbook · ${n} card${n === 1 ? '' : 's'}`,
+    guestbookEmpty: 'No thank-you cards left here yet.',
   },
 
   become: {

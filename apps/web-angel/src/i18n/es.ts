@@ -67,6 +67,9 @@ export const es: Strings = {
     bedTentCount: (n) => `Tienda en el patio ×${n}`,
     selectHint: 'Toca un marcador del mapa para ver el apodo y los servicios del ángel.',
     pilgrimNotice: '¿Caminas el sendero y buscas un ángel? La búsqueda y las solicitudes para peregrinos están en',
+    guestbookTitle: 'Libro de visitas',
+    guestbookCount: (n) => `Libro de visitas · ${n} tarjeta${n === 1 ? '' : 's'}`,
+    guestbookEmpty: 'Aún no hay tarjetas de agradecimiento aquí.',
   },
 
   become: {

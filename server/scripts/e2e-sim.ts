@@ -6,6 +6,7 @@
  * 다루는 것: 걷기 민팅 · 가입/회원증서 · 배포 서명 검증(TOFU) · QR 왕복 지불(로컬
  * 서명) · 첫 접대 보너스 · 마켓 에스크로 · 이중지불 사후 탐지 · 니모닉 백업/복구 ·
  * 예약 왕복(M6 — E2E 신청→승인→정확 위치 전달, 서버는 암호문만) ·
+ * 감사 카드→게스트북(M7-A — E2E 카드 발송 → 엔젤 자발 게시 → 공개 열람 → 철회) ·
  * 보물 마이닝 왕복(M9 — 폰 로컬 몸 인증 → 클레임 → 민팅 → 중복 거부).
  */
 import {
@@ -26,10 +27,13 @@ import {
   mintGrantCoin,
   mintWalkCoin,
   newBookingRequestId,
+  newThanksCardId,
   openMessage,
   parseBookingPayload,
+  parseThanksCardPayload,
   sealMessage,
   serializeBookingPayload,
+  serializeThanksCardPayload,
   signerFromKeyPair,
   snapToPrivacyGrid,
   stableStringify,
@@ -40,6 +44,7 @@ import {
   verifyMembershipCertificate,
   type BookingReplyPayload,
   type BookingRequestPayload,
+  type ThanksCardPayload,
   type Coin,
   type MembershipCertificate,
   type MessageEnvelope,
@@ -412,8 +417,74 @@ async function main() {
   const promoT = await api('GET', '/transparency/promo');
   check('투명성 공시에 보물 발행·총량 집계 (T-3)', promoT.json.treasureIssued >= 1 && promoT.json.treasureQuota >= 5);
 
-  // 12) 거래 승인 엔드포인트 부재 (헌법 제9조)
-  console.log('\n[12] 무승인 시스템 확인 (헌법 제9조)');
+  // 12) 감사 카드 → 게스트북 (M7-A) — E2E 카드 발송 → 엔젤 자발 게시 → 공개 열람 → 철회.
+  //     감사 카드는 E2E 메시지다. 서버는 원본(공개 동의 makePublic 포함)을 못 본다 —
+  //     엔젤이 동의를 확인하고 서명 게시하면, 서버는 엔젤 서명으로만 게시를 신뢰한다.
+  console.log('\n[12] 감사 카드 → 게스트북 (M7-A)');
+  const thanksCard: ThanksCardPayload = {
+    kind: 'THANKS_CARD',
+    cardId: newThanksCardId(),
+    template: 'TENT',
+    message: '마당 텐트 자리와 따뜻한 차 정말 고마웠습니다. 덕분에 북쪽 구간을 잘 이어 걸었어요.',
+    fromDisplayName: '리오르',
+    journeyLine: '쉬빌 북부 구간을 걸었습니다',
+    makePublic: true,
+  };
+  const cardEnvelope = sealMessage({
+    plaintext: serializeThanksCardPayload(thanksCard),
+    fromMemberId: lior.memberId,
+    toMemberId: aviva.memberId,
+    senderMsgKeyPair: lior.msg,
+    recipientMsgPublicKey: angelOn.messagingPublicKey,
+    deviceSigner: lior.signer,
+    now: Date.now(),
+  });
+  check(
+    '감사 카드 봉투(서버가 보는 전부)에 카드 내용이 없다',
+    !JSON.stringify(cardEnvelope).includes('THANKS_CARD') && !JSON.stringify(cardEnvelope).includes('마당 텐트'),
+  );
+  await signedApi(lior, 'POST', '/messages', { envelope: cardEnvelope });
+
+  // 엔젤이 카드를 복호화·파싱하고, makePublic 동의를 확인한 뒤 게스트북에 자발 게시.
+  const cardInbox = await signedApi(aviva, 'GET', '/messages?sinceId=0');
+  const cardEnv = (cardInbox.json.messages as { envelope: MessageEnvelope }[])
+    .map((m) => m.envelope)
+    .filter((e) => e.fromMemberId === lior.memberId)
+    .pop()!;
+  const parsedCard = parseThanksCardPayload(openMessage(cardEnv, aviva.msg).plaintext);
+  check(
+    '엔젤 지갑이 감사 카드를 복호화·파싱하고 공개 동의를 확인한다',
+    parsedCard?.kind === 'THANKS_CARD' && parsedCard.makePublic === true && parsedCard.fromDisplayName === '리오르',
+  );
+  const pub = await signedApi(aviva, 'POST', '/guestbook', {
+    cardId: parsedCard!.cardId,
+    fromDisplayName: parsedCard!.fromDisplayName,
+    template: parsedCard!.template,
+    message: parsedCard!.message,
+    journeyLine: parsedCard!.journeyLine,
+  });
+  check('엔젤이 감사 카드를 게스트북에 게시한다 (엔젤 서명)', pub.status === 200 && pub.json.published === true);
+
+  // 공개 열람 (서명 불필요) — 닉네임·메시지만, 회원 번호 노출 금지.
+  const gbView = await api('GET', `/guestbook?member=${aviva.memberId}`);
+  const gbCards = gbView.json.cards as { cardId: string; fromDisplayName: string; message: string }[];
+  check(
+    '공개 방명록에 감사 카드가 닉네임·메시지로 열람된다',
+    gbView.json.total === 1 && gbCards.some((c) => c.cardId === parsedCard!.cardId && c.fromDisplayName === '리오르'),
+  );
+  check('방명록 응답에 회원 번호가 노출되지 않는다', !JSON.stringify(gbView.json).includes(aviva.memberId) && !JSON.stringify(gbView.json).includes(lior.memberId));
+
+  // 타 회원(노아)은 남의 방명록 카드를 지울 수 없다 (자기 카드 아님 → 404).
+  const badDel = await signedApi(noa, 'DELETE', `/guestbook/${parsedCard!.cardId}`);
+  check('타 회원은 남의 방명록에 손댈 수 없다 (404)', badDel.status === 404);
+
+  // 엔젤이 게시를 철회한다.
+  const del = await signedApi(aviva, 'DELETE', `/guestbook/${parsedCard!.cardId}`);
+  const gbAfter = await api('GET', `/guestbook?member=${aviva.memberId}`);
+  check('엔젤이 게시를 철회하면 방명록에서 사라진다', del.status === 200 && gbAfter.json.total === 0);
+
+  // 13) 거래 승인 엔드포인트 부재 (헌법 제9조)
+  console.log('\n[13] 무승인 시스템 확인 (헌법 제9조)');
   const approveTx = await api('POST', '/approve', {});
   const payments = await api('POST', '/payments', {});
   check('거래 승인/지불 엔드포인트가 존재하지 않는다', approveTx.status === 404 && payments.status === 404);
