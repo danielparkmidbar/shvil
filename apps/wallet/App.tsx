@@ -11,6 +11,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useWallet, wallet } from './src/core/walletService';
 import { chatService } from './src/core/chatService';
+import { treasureService } from './src/core/treasureService';
 import { renewMembershipIfDue, syncCoinFingerprints, syncCourses, syncFlaggedList } from './src/core/directory';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { WalkScreen } from './src/screens/WalkScreen';
@@ -87,6 +88,8 @@ export default function App() {
         // 암호화 지갑 백업 (보안 감사 L-2) — 확정 코인을 종단간 암호화해 서버에 보관.
         // 폰 분실 시 니모닉으로 복구. 온라인 전용·실패 무해.
         wallet.backupWallet(Date.now()).catch(() => {});
+        // 보물 대기 청구 (M9) — 오프라인에서 인증만 끝낸 보물을 통신 복구 시 자동 청구.
+        treasureService.flushPendingClaims().catch(() => {});
         chatService.startPolling();
       })
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));

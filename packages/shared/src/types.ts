@@ -82,10 +82,11 @@ export interface WalkSegmentProof {
   signature: string;
 }
 
-/** 프로모션·커뮤니티 발행 승인서 (엔젤 보너스, 클레임, 격려 코인 공용). */
+/** 프로모션·커뮤니티 발행 승인서 (엔젤 보너스, 클레임, 격려 코인, 보물 공용).
+ *  TREASURE: 몸 인증 보물 마이닝 (M9) — 격려 코인 체계에 신설된 항목 (T-3 확정). */
 export interface SignedGrant {
   v: 1;
-  kind: 'ANGEL_BONUS' | 'COMMUNITY_CLAIM' | 'COMMUNITY_REWARD';
+  kind: 'ANGEL_BONUS' | 'COMMUNITY_CLAIM' | 'COMMUNITY_REWARD' | 'TREASURE';
   memberId: string;
   amountDshv: number;
   /** 근거 참조 — 보너스 사유, 클레임 게시물 해시+인정자 수, 격려 게시물 해시 등. */

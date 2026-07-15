@@ -12,6 +12,7 @@ import {
   DirectoryApi,
   type AngelDirectoryEntry,
   type FlaggedMemberEntry,
+  type TreasureListEntry,
   type TrustedKeyInfo,
 } from './api';
 import { DIST_PIN_KEY, guardDistribution } from './distributionGuard';
@@ -26,6 +27,7 @@ const SERVER_URL_KEY = 'serverUrl.v1';
 const KEYS_INFO_CACHE = 'keysInfo.v1';
 const COURSES_CACHE = 'courses.v1';
 const ANGELS_CACHE = 'angels.v1';
+const TREASURES_CACHE = 'treasures.v1';
 
 export async function getServerUrl(): Promise<string> {
   return (await kvGet(SERVER_URL_KEY)) ?? DEFAULT_SERVER_URL;
@@ -169,6 +171,24 @@ export async function syncCourses(): Promise<void> {
 export async function loadCachedCourses(): Promise<CourseData[] | null> {
   const cached = await kvGet(COURSES_CACHE);
   return cached ? (JSON.parse(cached) as CourseData[]) : null;
+}
+
+// ── 보물 명세 캐시 (M9 — 존 진입 감지의 오프라인 입력) ────────────
+
+/**
+ * 지역 보물 명세를 kv에 캐시한다 (코스 캐시와 동일 패턴). 배포 서명 검증(H-3)
+ * 실패 시 기존 캐시 유지. 캐시 대상은 운영자가 공개한 존 좌표·지시뿐 —
+ * 사용자 이동 궤적이 아니다. 존 진입 판정은 휘발성 경로에서만 이루어진다.
+ */
+export async function syncTreasures(region?: string): Promise<void> {
+  const { treasures } = await verifyAndPin(await directoryApi.getTreasures(region));
+  await kvSet(TREASURES_CACHE, JSON.stringify(treasures));
+}
+
+/** 캐시된 보물 명세 (없으면 빈 목록 — 보물이 없으면 걷기 화면은 지금과 동일하다). */
+export async function loadCachedTreasures(): Promise<TreasureListEntry[]> {
+  const cached = await kvGet(TREASURES_CACHE);
+  return cached ? (JSON.parse(cached) as TreasureListEntry[]) : [];
 }
 
 // ── 엔젤 디렉토리 캐시 (엔젤 우회 판정·지도 오프라인 폴백) ────────

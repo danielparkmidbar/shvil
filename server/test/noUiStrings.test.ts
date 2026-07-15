@@ -25,6 +25,23 @@ beforeAll(async () => {
     url: '/limits/flagged',
     payload: { memberId: 'SHV-000001', reasonCode: 'OVERPRODUCTION_DAILY', params: { date: '2026-07-14', totalDshv: 500, limitDshv: 400 } },
   });
+  // 보물 목록도 빈 배열이 아니어야 명세 필드까지 검사된다 (M9).
+  await app.inject({
+    method: 'POST',
+    url: '/treasures',
+    payload: {
+      spec: {
+        treasureId: 'promo-noui-1',
+        regionId: 'israel-national',
+        zone: { center: { lat: 33.23, lon: 35.65 }, radiusM: 60 },
+        amountDshv: 50,
+        totalCount: 10,
+        validFrom: Date.now() - 1000,
+        validUntil: Date.now() + 86_400_000,
+        legs: [{ dir: 'N', steps: 10 }],
+      },
+    },
+  });
 });
 
 afterAll(async () => {
@@ -53,6 +70,7 @@ function findNoteKey(value: unknown, path = '$'): string | null {
 const PUBLIC_GETS = [
   '/keys',
   '/courses',
+  '/treasures',
   '/limits/baseline',
   '/limits/flagged',
   '/transparency/promo',

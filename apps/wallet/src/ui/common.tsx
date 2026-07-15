@@ -26,7 +26,13 @@ export function provenanceText(coin: Coin): string {
   }
   const g = root.provenance.grant;
   const label =
-    g.kind === 'ANGEL_BONUS' ? '엔젤 보너스' : g.kind === 'COMMUNITY_CLAIM' ? '클레임 구제' : '격려 코인';
+    g.kind === 'ANGEL_BONUS'
+      ? '엔젤 보너스'
+      : g.kind === 'COMMUNITY_CLAIM'
+        ? '클레임 구제'
+        : g.kind === 'TREASURE'
+          ? '보물 발견'
+          : '격려 코인';
   return `${label} 발행 · ${new Date(g.issuedAt).toISOString().slice(0, 10)}`;
 }
 

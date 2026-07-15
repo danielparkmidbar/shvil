@@ -310,6 +310,9 @@ describe('투명성 공시 + 승인 기능 부재', () => {
       registrationIssued: 2, // 아비바 + 미카
       firstHostingIssued: 1,
       registrationQuota: 500,
+      // 보물 마이닝 (M9) 집계 — 이 테스트에서는 등록된 보물이 없다.
+      treasureIssued: 0,
+      treasureQuota: 0,
     });
   });
 

@@ -3,6 +3,7 @@ import React from 'react';
 import { Alert, Button, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useWallet, wallet } from '../core/walletService';
+import { TreasureSection } from './TreasureScreen';
 import { Card, Muted, Title, colors, fmtKm, fmtShv } from '../ui/common';
 import type { MoreStackParamList } from './navTypes';
 
@@ -63,6 +64,9 @@ export function WalkScreen() {
           <Muted>코스까지 {fmtKm(w.liveStatus.distanceToCourseM)}</Muted>
         )}
       </Card>
+
+      {/* 보물 마이닝 (M9) — 존 근접 시에만 나타나는 선택 계층. 보물이 없으면 null. */}
+      <TreasureSection />
 
       <Card>
         <Title>이번 구간 (정산 전)</Title>

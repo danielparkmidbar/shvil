@@ -187,6 +187,31 @@ export function createDb(path: string): DatabaseSync {
       first_seen INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_proof_stats_member ON walk_proof_stats(producer_member);
+    -- 보물 마이닝 (M9, 몸인증_보물마이닝_설계) — 서버의 역할은 수량 한정 발행의
+    -- 회계뿐이다. 이동 검증은 100% 폰 로컬이며, 이 테이블 어디에도 사용자
+    -- 걸음·방향·좌표 컬럼이 없다 (존 좌표는 운영자가 공개하는 지도 데이터).
+    CREATE TABLE IF NOT EXISTS treasures (
+      treasure_id TEXT PRIMARY KEY,
+      region_id TEXT NOT NULL,
+      spec_json TEXT NOT NULL,
+      amount_dshv INTEGER NOT NULL,
+      total_count INTEGER NOT NULL,
+      issued_count INTEGER NOT NULL DEFAULT 0,
+      valid_from INTEGER NOT NULL,
+      valid_until INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    -- 1인 1회: (treasure_id, member_id) UNIQUE. transcript_hash는 성공 요약의
+    -- 해시일 뿐 이동 원자료가 아니다 — 서버는 이것으로 이동을 복원할 수 없다.
+    CREATE TABLE IF NOT EXISTS treasure_claims (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      treasure_id TEXT NOT NULL REFERENCES treasures(treasure_id),
+      member_id TEXT NOT NULL,
+      transcript_hash TEXT NOT NULL,
+      grant_json TEXT,
+      claimed_at INTEGER NOT NULL,
+      UNIQUE(treasure_id, member_id)
+    );
     -- 암호화 지갑 백업 (지시서 2.3, 보안 감사 L-2) — 서버는 blob을 보관만, 내용 못 봄.
     -- 기기 주소당 최신 1개. 니모닉 파생 키로만 복호화 가능 (종단간). 복구는 회원
     -- 번호 없이 기기 키 소유 증명만으로 자기 백업을 조회한다.

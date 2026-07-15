@@ -24,6 +24,7 @@ import {
   type Signed,
   type SignedGrant,
   type Signer,
+  type TreasureSpec,
 } from '@shvil/shared';
 
 /** 기본 서버 URL — kv 오버라이드 가능 (실기기 테스트 시 LAN IP로 변경). */
@@ -125,6 +126,23 @@ export interface TrustedKeyInfo {
 export interface RelayedMessage {
   id: number;
   envelope: MessageEnvelope;
+}
+
+// ── 보물 마이닝 계약 타입 (M9 — server/src/treasure.ts와 계약을 공유한다) ──
+// 이동 검증은 100% 폰 로컬이다. 서버로 가는 것은 treasureId + 성공 요약 해시뿐 —
+// 걸음·방향·좌표를 실어 보내는 필드는 이 계약에 존재하지 않는다.
+
+/** 배포 목록의 보물 항목 — 명세 + 잔여 수량. */
+export interface TreasureListEntry extends TreasureSpec {
+  remaining: number;
+}
+
+/** 획득 청구 결과 — amountDshv>0이면 grant(폰에서 민팅), 0이면 스탬프 기록만. */
+export interface TreasureClaimResult {
+  treasureId: string;
+  amountDshv: number;
+  grant?: SignedGrant;
+  stamp?: boolean;
 }
 
 // ── 커뮤니티 계약 타입 (M4 — server/src/community.ts와 계약을 공유한다) ──
@@ -376,6 +394,25 @@ export class DirectoryApi {
    */
   getCourses(): Promise<Signed<{ courses: CourseData[] }>> {
     return this.#request('GET', '/courses', null, false);
+  }
+
+  // ── 보물 마이닝 (M9) ──
+
+  /**
+   * 유효 기간 내 보물 목록 (배포 서명 포함 원본 — H-3). 검증·TOFU 핀은 directory.ts.
+   * 지시(legs)가 공개되어도 존에 도착해 몸으로 수행하지 않으면 소용없다.
+   */
+  getTreasures(region?: string): Promise<Signed<{ treasures: TreasureListEntry[] }>> {
+    const q = region ? `/treasures?region=${encodeURIComponent(region)}` : '/treasures';
+    return this.#request('GET', q, null, false);
+  }
+
+  /**
+   * 획득 청구 (서명 인증) — 서버 왕복은 이 1회뿐이며 수량 한정 발행의 회계 때문이다.
+   * 보내는 것은 성공 요약의 해시뿐 — 이동 원자료(걸음·방향·좌표)는 폰을 떠나지 않는다.
+   */
+  claimTreasure(treasureId: string, transcriptHash: string): Promise<TreasureClaimResult> {
+    return this.#request('POST', '/treasures/claim', { treasureId, transcriptHash }, true);
   }
 
   // ── 엔젤 디렉토리 ──

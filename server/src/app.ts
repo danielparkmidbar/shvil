@@ -41,12 +41,15 @@ import { haversineKm } from './geo';
 import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
 import { officialCourses, registerCommunity } from './community';
+import { registerTreasures, treasureTransparency } from './treasure';
 import { registerSync } from './sync';
 import { registerBackup } from './backup';
 
 export const PROMO_KEY_ID = 'promo-angel-2026';
 export const CLAIM_KEY_ID = 'community-claim-2026';
 export const REWARD_KEY_ID = 'community-reward-2026';
+/** 보물 마이닝 발행 키 ID (M9) — 기간·수량 한정, 투명성 공시 대상 (T-3). */
+export const TREASURE_KEY_ID = 'promo-treasure-2026';
 /** 회원 증서 발행 루트 키 ID — 지갑이 신뢰 루트로 핀한다 (보안 감사 C-2). */
 export const MEMBERSHIP_ROOT_KEY_ID = 'membership-root-2026';
 /** 배포 서명 키 ID — 신뢰 발행 키 목록·소명 목록·코스 데이터 서명 (보안 감사 H-3). */
@@ -149,6 +152,8 @@ export function buildApp(
   const promoSigner = keystore.loadOrCreateSigner('promoKey');
   const claimSigner = keystore.loadOrCreateSigner('claimKey');
   const rewardSigner = keystore.loadOrCreateSigner('rewardKey');
+  // 보물 발행 키 (M9) — 기존 promo 키 패턴과 동일하게 KEK로 봉인 저장.
+  const treasureSigner = keystore.loadOrCreateSigner('treasureKey');
   // 회원 증서 루트 키 — 회원 번호↔기기 공개키를 결속 서명한다 (보안 감사 C-2).
   const membershipRootSigner = keystore.loadOrCreateSigner('membershipRootKey');
   // 배포 서명 키 — /keys·/courses·/limits/flagged 응답 본문에 _sig를 붙여 MITM의
@@ -570,6 +575,8 @@ export function buildApp(
           { keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex, purpose: 'ANGEL_BONUS' },
           { keyId: CLAIM_KEY_ID, publicKey: claimSigner.publicKeyHex, purpose: 'COMMUNITY_CLAIM' },
           { keyId: REWARD_KEY_ID, publicKey: rewardSigner.publicKeyHex, purpose: 'COMMUNITY_REWARD' },
+          // 보물 발행 키 (M9) — 지갑이 TREASURE 계보 grant 검증에 사용.
+          { keyId: TREASURE_KEY_ID, publicKey: treasureSigner.publicKeyHex, purpose: 'TREASURE' },
           // 회원 증서 신뢰 루트 — 지갑이 핀해 수신 코인의 회원 증서를 검증 (보안 감사 C-2).
           { keyId: MEMBERSHIP_ROOT_KEY_ID, publicKey: membershipRootSigner.publicKeyHex, purpose: 'MEMBERSHIP_ROOT' },
           // 배포 서명 공개키 — 지갑이 TOFU 핀 후 자기 일관성 확인용 (핀 기준은 _sig.distPublicKey).
@@ -582,17 +589,20 @@ export function buildApp(
     ),
   );
 
-  /** 투명성 페이지 데이터 — 프로모션 발행 현황 공시 (지시서 2.4, 5장). */
+  /** 투명성 페이지 데이터 — 프로모션 발행 현황 공시 (지시서 2.4, 5장).
+   *  보물(M9) 집계 포함 — 발행 수·총량 (T-3: 총량·기간 공시, 숫자만). */
   app.get('/transparency/promo', async () => ({
     registrationIssued: grantCount('REGISTRATION'),
     firstHostingIssued: grantCount('FIRST_HOSTING'),
     registrationQuota: quota,
+    ...treasureTransparency(db),
   }));
 
   const trustedIssuerKeys = {
     [PROMO_KEY_ID]: promoSigner.publicKeyHex,
     [CLAIM_KEY_ID]: claimSigner.publicKeyHex,
     [REWARD_KEY_ID]: rewardSigner.publicKeyHex,
+    [TREASURE_KEY_ID]: treasureSigner.publicKeyHex,
   };
 
   // ── 코인 마켓 + 에스크로 (M3) ─────────────────────────────────
@@ -620,6 +630,18 @@ export function buildApp(
     claimVoteThreshold: options.claimVoteThreshold ?? 5,
     claimMonthlyLimit: options.claimMonthlyLimit ?? 2,
     claimWindowMs: 24 * 60 * 60 * 1000,
+    devMode,
+  });
+
+  // ── 보물 마이닝 (M9): 명세 배포 + 수량 한정 발행 회계 ─────────────
+  // 이동 검증은 100% 폰 로컬 — 서버는 걸음·방향·좌표를 받지 않는다.
+  registerTreasures(app, {
+    db,
+    authenticate,
+    treasureSigner,
+    treasureKeyId: TREASURE_KEY_ID,
+    distSigner,
+    distKeyId: DISTRIBUTION_KEY_ID,
     devMode,
   });
 

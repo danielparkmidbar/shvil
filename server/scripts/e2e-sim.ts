@@ -5,7 +5,8 @@
  * 실행: 서버 기동 후 `npx tsx scripts/e2e-sim.ts`
  * 다루는 것: 걷기 민팅 · 가입/회원증서 · 배포 서명 검증(TOFU) · QR 왕복 지불(로컬
  * 서명) · 첫 접대 보너스 · 마켓 에스크로 · 이중지불 사후 탐지 · 니모닉 백업/복구 ·
- * 예약 왕복(M6 — E2E 신청→승인→정확 위치 전달, 서버는 암호문만).
+ * 예약 왕복(M6 — E2E 신청→승인→정확 위치 전달, 서버는 암호문만) ·
+ * 보물 마이닝 왕복(M9 — 폰 로컬 몸 인증 → 클레임 → 민팅 → 중복 거부).
  */
 import {
   PendingWalkLedger,
@@ -32,16 +33,21 @@ import {
   signerFromKeyPair,
   snapToPrivacyGrid,
   stableStringify,
+  treasureTranscriptHash,
   verifyCoin,
   verifyDistribution,
+  verifyLeg,
   verifyMembershipCertificate,
   type BookingReplyPayload,
   type BookingRequestPayload,
   type Coin,
   type MembershipCertificate,
   type MessageEnvelope,
+  type LegTranscript,
   type MessagingKeyPair,
   type Signer,
+  type SignedGrant,
+  type TreasureSpec,
   type WalkSample,
   type WalletBackup,
 } from '@shvil/shared';
@@ -347,8 +353,67 @@ async function main() {
     angelOn.location.lat === snapped.lat && angelOn.location.lon === snapped.lon && angelOn.location.lat !== PRECISE.lat,
   );
 
-  // 11) 거래 승인 엔드포인트 부재 (헌법 제9조)
-  console.log('\n[11] 무승인 시스템 확인 (헌법 제9조)');
+  // 11) 보물 마이닝 (M9) — 등록→목록→폰 로컬 몸 인증→클레임→민팅→중복 거부.
+  //     서버로 가는 것은 treasureId + 성공 요약 해시뿐 — 이동 검증은 100% 폰 로컬이다.
+  console.log('\n[11] 보물 마이닝 — 몸 인증 왕복 (M9)');
+  const treasureSpec: TreasureSpec = {
+    treasureId: `promo-e2e-${Date.now()}`,
+    regionId: 'israel-national',
+    zone: { center: { lat: 33.229, lon: 35.652 }, radiusM: 60 },
+    amountDshv: 50,
+    totalCount: 5,
+    validFrom: Date.now() - 1000,
+    validUntil: Date.now() + DAY,
+    legs: [
+      { dir: 'N', steps: 10 },
+      { dir: 'E', steps: 30 },
+      { dir: 'S', steps: 3 },
+    ],
+  };
+  const treReg = await api('POST', '/treasures', { spec: treasureSpec });
+  check('개발 시드로 보물 등록', treReg.json.registered === true);
+  const treList = await api('GET', '/treasures?region=israel-national');
+  const treFound = (treList.json.treasures as (TreasureSpec & { remaining: number })[]).find(
+    (t) => t.treasureId === treasureSpec.treasureId,
+  );
+  check(
+    '보물 목록 배포 서명 유효 + 지시 포함 (존에 가야 의미 있음)',
+    verifyDistribution(treList.json).valid && treFound?.legs.length === 3 && treFound.remaining === 5,
+  );
+  // 폰 로컬 몸 인증: 지시대로 움직인 상대 변위(보폭 0.7 m 가정)를 verifyLeg로 판정.
+  const DIR_VEC: Record<string, [number, number]> = { N: [1, 0], E: [0, 1], S: [-1, 0], W: [0, -1] };
+  const transcript: LegTranscript[] = [];
+  let allLegsOk = true;
+  for (const leg of treFound!.legs) {
+    const [n, e] = DIR_VEC[leg.dir]!;
+    const d = leg.steps * 0.7;
+    if (!verifyLeg(n * d, e * d, leg.steps, leg).ok) allLegsOk = false;
+    transcript.push({ dir: leg.dir, steps: leg.steps, measuredSteps: leg.steps });
+  }
+  check('이동 검증이 전부 폰 로컬에서 완결된다 (서버 개입 0)', allLegsOk);
+  check('방향이 틀리면 로컬 판정이 실패한다 (몸 인증 보안)', !verifyLeg(-21, 0, 30, { dir: 'N', steps: 30 }).ok);
+  const treHash = treasureTranscriptHash(treasureSpec.treasureId, lior.memberId, transcript);
+  const treClaim = await signedApi(lior, 'POST', '/treasures/claim', {
+    treasureId: treasureSpec.treasureId,
+    transcriptHash: treHash,
+  });
+  const treGrant = treClaim.json.grant as SignedGrant;
+  check('클레임 → TREASURE 승인서 발행 (5 SHV)', treClaim.status === 200 && treGrant?.kind === 'TREASURE' && treGrant.amountDshv === 50);
+  const treCoin = mintGrantCoin(treGrant);
+  check(
+    '폰 민팅 코인이 검증 통과 + 잔액 반영 (BONUS 계보 — 걸음 코인과 구분)',
+    verifyCoin(treCoin, { trustedIssuerKeys: trustedKeys }).valid && treCoin.amountDshv === 50 && treCoin.memberId === lior.memberId,
+  );
+  const treDup = await signedApi(lior, 'POST', '/treasures/claim', {
+    treasureId: treasureSpec.treasureId,
+    transcriptHash: treHash,
+  });
+  check('중복 클레임 거부 (1인 1회, 에러 코드)', treDup.status === 409 && treDup.json.error === 'TREASURE_ALREADY_CLAIMED');
+  const promoT = await api('GET', '/transparency/promo');
+  check('투명성 공시에 보물 발행·총량 집계 (T-3)', promoT.json.treasureIssued >= 1 && promoT.json.treasureQuota >= 5);
+
+  // 12) 거래 승인 엔드포인트 부재 (헌법 제9조)
+  console.log('\n[12] 무승인 시스템 확인 (헌법 제9조)');
   const approveTx = await api('POST', '/approve', {});
   const payments = await api('POST', '/payments', {});
   check('거래 승인/지불 엔드포인트가 존재하지 않는다', approveTx.status === 404 && payments.status === 404);

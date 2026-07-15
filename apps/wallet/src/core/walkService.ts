@@ -14,6 +14,7 @@ import { Pedometer } from 'expo-sensors';
 import { CorridorEngine } from '../walk/corridorEngine';
 import { SAMPLE_ANGELS, SHVIL_ISRAEL_NORTH_SAMPLE } from '../walk/data/shvilIsraelSample';
 import { loadCachedAngels, loadCachedCourses } from './directory';
+import { treasureService } from './treasureService';
 import { wallet } from './walletService';
 
 const WINDOW_MS = 60_000;
@@ -60,6 +61,10 @@ class WalkService {
       angelPoints,
     );
 
+    // 보물 마이닝 (M9) — 선택 계층: 실패해도 걷기 추적에 영향 없음.
+    // 보물이 없으면 아래 onFix/onSteps 훅은 아무 일도 하지 않는다 (0층 불변).
+    await treasureService.startWatching().catch(() => {});
+
     this.#locationSub = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
@@ -67,13 +72,16 @@ class WalkService {
         distanceInterval: 5,
       },
       (loc) => {
-        this.#engine?.addFix({
+        const fix = {
           lat: loc.coords.latitude,
           lon: loc.coords.longitude,
           timestamp: loc.timestamp,
           accuracy: loc.coords.accuracy ?? undefined,
           mocked: loc.mocked ?? undefined,
-        });
+        };
+        this.#engine?.addFix(fix);
+        // 존 진입 감지·챌린지 측정 — 픽스는 휘발성 경로에서 비교에만 쓰인다.
+        treasureService.onFix(fix);
       },
     );
 
@@ -81,7 +89,9 @@ class WalkService {
       this.#lastStepTotal = null;
       this.#pedometerSub = Pedometer.watchStepCount((result) => {
         if (this.#lastStepTotal !== null) {
-          this.#engine?.addSteps(result.steps - this.#lastStepTotal);
+          const delta = result.steps - this.#lastStepTotal;
+          this.#engine?.addSteps(delta);
+          treasureService.onSteps(delta);
         }
         this.#lastStepTotal = result.steps;
       });
@@ -113,6 +123,7 @@ class WalkService {
     if (sample) wallet.recordSample(sample);
     if (this.#engine) wallet.setLiveStatus(this.#engine.getLiveStatus(), false);
     this.#engine = null;
+    treasureService.stopWatching();
   }
 }
 
