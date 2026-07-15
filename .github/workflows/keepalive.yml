@@ -1,0 +1,18 @@
+# 디렉토리 서버 콜드 스타트 방지 (Render free tier는 15분 유휴 시 슬립 → 첫 요청 ~50초).
+# 10분마다 가벼운 핑으로 서버를 깨워둔다. Render 무료 한도(월 750시간)는 상시 가동
+# (~720시간)을 감당한다. GitHub Actions 스케줄은 지연될 수 있으나 목적상 충분하다.
+name: keepalive
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: ping directory server
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 https://shvil-coec.onrender.com/transparency/promo || true)
+          echo "server responded: $code"

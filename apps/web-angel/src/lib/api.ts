@@ -80,13 +80,28 @@ export interface MarketTransparency {
 
 // ── fetch 헬퍼 ───────────────────────────────────────────────────
 
+/**
+ * 무료 서버(Render free tier)는 15분 유휴 후 잠들고 첫 요청이 ~50초 걸린다.
+ * 첫 시도는 짧게, 실패하면 점점 긴 타임아웃으로 재시도해 콜드 스타트를 견딘다.
+ * (GET 전용 헬퍼라 재시도가 안전하다.)
+ */
+const RETRY_TIMEOUTS_MS = [REQUEST_TIMEOUT_MS, 30_000, 60_000];
+
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${DIRECTORY_URL}${path}`, {
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`GET ${path} -> ${res.status}`);
-  return (await res.json()) as T;
+  let lastErr: unknown;
+  for (const timeoutMs of RETRY_TIMEOUTS_MS) {
+    try {
+      const res = await fetch(`${DIRECTORY_URL}${path}`, {
+        signal: AbortSignal.timeout(timeoutMs),
+        cache: 'no-store',
+      });
+      if (!res.ok) throw new Error(`GET ${path} -> ${res.status}`);
+      return (await res.json()) as T;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 export async function fetchAngels(): Promise<AngelEntry[]> {
