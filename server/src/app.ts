@@ -77,6 +77,12 @@ export interface AppOptions {
   claimVoteThreshold?: number;
   /** 1인당 클레임 월 한도 (제안 2회 — 결정 대기 8번). */
   claimMonthlyLimit?: number;
+  /**
+   * 발행 개인키 봉인 KEK 직접 주입 (보안 감사 H-2). 지정 시 SHVIL_KEK 환경변수보다
+   * 우선한다. 테스트가 devMode=false 서버를 환경변수 오염 없이 세우기 위한 용도 —
+   * 운영은 이 값을 코드로 넘기지 말고 SHVIL_KEK 환경변수로 주입한다.
+   */
+  kek?: string;
 }
 
 interface MemberRow {
@@ -151,7 +157,7 @@ export function buildApp(
   // 발행 서명 키들 — 프로모션(엔젤 보너스)·클레임·격려 코인·회원 증서 루트.
   // 전부 기간·수량/규칙 한정 발급 키이며, 지갑들은 GET /keys로 신뢰 목록에 넣는다.
   // 보안 감사 H-2: 개인키는 KEK로 봉인해 저장한다(평문 저장 금지). KEK는 DB에 없다.
-  const keystore = new SealedKeystore(db, devMode);
+  const keystore = new SealedKeystore(db, devMode, options.kek);
   const promoSigner = keystore.loadOrCreateSigner('promoKey');
   const claimSigner = keystore.loadOrCreateSigner('claimKey');
   const rewardSigner = keystore.loadOrCreateSigner('rewardKey');

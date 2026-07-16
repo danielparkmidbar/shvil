@@ -108,7 +108,9 @@ describe('/auth/certificate — 갱신 (만료 전 무결성 재확인)', () => 
 
 describe('C-1 게이팅 존중 — 운영(devMode=false) 기본은 UNVERIFIED', () => {
   it('운영 모드에서는 모의 토큰도 UNVERIFIED로 발급된다', async () => {
-    const prod = buildApp({ dbPath: ':memory:', devMode: false });
+    // 운영 모드는 KEK 필수 — 환경변수 오염(다른 테스트의 SHVIL_KEK 삭제)과 무관하게
+    // 옵션으로 직접 주입해 테스트를 격리한다.
+    const prod = buildApp({ dbPath: ':memory:', devMode: false, kek: 'k'.repeat(64) });
     await prod.ready();
     // OTP 코드는 devMode에서만 응답되므로, 운영 서버에 직접 회원을 심어 검증한다.
     const signer = (await import('@shvil/shared')).signerFromKeyPair(

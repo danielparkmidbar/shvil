@@ -19,9 +19,14 @@ import { kvGet, kvSet } from './db';
 /** 개발용 폴백 KEK — 운영에서는 절대 쓰이지 않는다(devMode에서만 도달). */
 const DEV_FALLBACK_KEK = 'shvil-dev-kek-not-for-production-0000000000000000';
 
-export function resolveKek(devMode: boolean): string {
-  const env = process.env.SHVIL_KEK;
-  if (env && env.length >= 16) return env;
+/**
+ * KEK 해석: 직접 주입(optKek)이 SHVIL_KEK 환경변수보다 우선한다.
+ * optKek은 테스트가 devMode=false 서버를 환경변수 오염 없이 세우기 위한 것 —
+ * 운영은 SHVIL_KEK 환경변수로 주입한다(코드에 KEK를 넣지 않는다).
+ */
+export function resolveKek(devMode: boolean, optKek?: string): string {
+  const kek = optKek ?? process.env.SHVIL_KEK;
+  if (kek && kek.length >= 16) return kek;
   if (!devMode) {
     throw new Error(
       'SHVIL_KEK 환경변수가 필요합니다 (발행 개인키 봉인용, 최소 16자). 운영에서는 필수입니다.',
@@ -38,9 +43,9 @@ export class SealedKeystore {
   #db: DatabaseSync;
   #kek: string;
 
-  constructor(db: DatabaseSync, devMode: boolean) {
+  constructor(db: DatabaseSync, devMode: boolean, optKek?: string) {
     this.#db = db;
-    this.#kek = resolveKek(devMode);
+    this.#kek = resolveKek(devMode, optKek);
   }
 
   loadOrCreateSigner(kvKey: string): Signer {
