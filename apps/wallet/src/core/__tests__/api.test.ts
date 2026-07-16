@@ -312,4 +312,69 @@ describe('DirectoryApi', () => {
     expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 삭제도 게시자 서명
     expect(del.removed).toBe(true);
   });
+
+  // ── 스팟 보물 (M12) — 맵 조회는 공개, 생성·예치·청구는 서명 제출 ──
+
+  it('GET /spot는 공개(비서명) — 지역 필터 쿼리 + 잔여·1인당 양 응답 언랩', async () => {
+    let seenUrl = '';
+    let seenHeaders: Record<string, string> = {};
+    const api = makeApi(
+      fakeFetch({
+        url: (u) => (seenUrl = u),
+        headers: (h) => (seenHeaders = h),
+        responseBody: {
+          spots: [{ spotId: 'spot-galilee', displayName: '갈릴리 카페', perClaimDshv: 30, remainingSlots: 4, totalSlots: 5 }],
+          reservePublicKey: 'ab',
+        },
+      }),
+    );
+    const res = await api.getSpots('israel-national');
+    expect(seenUrl).toBe('http://localhost:8787/spot?region=israel-national');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBeUndefined(); // 공개 맵 배포 — 걷는 사람이 캐시한다
+    expect(res.spots[0]!.remainingSlots).toBe(4); // 감소 양상
+    expect(res.spots[0]!.perClaimDshv).toBe(30); // 1인당 양
+    expect(res.reservePublicKey).toBe('ab');
+  });
+
+  it('POST /spot·/spot/deposit·/spot/claim은 서명 제출 — 경로·인증 헤더·응답 언랩', async () => {
+    let seenUrl = '';
+    let seenHeaders: Record<string, string> = {};
+    const createApi = makeApi(
+      fakeFetch({ url: (u) => (seenUrl = u), headers: (h) => (seenHeaders = h), responseBody: { spotId: 'spot-x', created: true, reservePublicKey: 'cd' } }),
+    );
+    const created = await createApi.createSpot({
+      spotId: 'spot-x',
+      regionId: 'israel-national',
+      displayName: '갈릴리 카페',
+      location: { lat: 33.23, lon: 35.65 },
+      perClaimDshv: 30,
+      validFrom: 1,
+      validUntil: 2,
+    });
+    expect(seenUrl).toBe('http://localhost:8787/spot');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 사업자 서명
+    expect(created.reservePublicKey).toBe('cd'); // 지갑이 예치 소각을 이 주소로 만든다
+
+    const depositApi = makeApi(
+      fakeFetch({
+        url: (u) => (seenUrl = u),
+        headers: (h) => (seenHeaders = h),
+        responseBody: { spotId: 'spot-x', depositedDshv: 100, depositTotalDshv: 100, totalSlots: 3, remainingSlots: 3 },
+      }),
+    );
+    const dep = await depositApi.depositSpot('spot-x', []);
+    expect(seenUrl).toBe('http://localhost:8787/spot/deposit');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456');
+    expect(dep.totalSlots).toBe(3); // 슬롯 = floor(예치 / 1인당)
+
+    let claimUrl = '';
+    const claimApi = makeApi(
+      fakeFetch({ url: (u) => (claimUrl = u), headers: (h) => (seenHeaders = h), responseBody: { spotId: 'spot-x', amountDshv: 30, grant: { kind: 'TREASURE' } } }),
+    );
+    const claim = await claimApi.claimSpot('spot-x');
+    expect(claimUrl).toBe('http://localhost:8787/spot/claim');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 스캐너 회원 서명
+    expect(claim.amountDshv).toBe(30);
+    expect(claim.grant?.kind).toBe('TREASURE'); // BONUS 계보 — 폰에서 민팅
+  });
 });

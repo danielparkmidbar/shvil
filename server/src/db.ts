@@ -212,6 +212,49 @@ export function createDb(path: string): DatabaseSync {
       claimed_at INTEGER NOT NULL,
       UNIQUE(treasure_id, member_id)
     );
+    -- 스팟 보물 (M12, 몸인증_보물마이닝_설계 4장) — 사업자 참여 계층.
+    -- 서버의 역할은 예치(소각) 검증 + 선착순 수량 한정 발행의 회계뿐이다.
+    -- ★총량 보존: deposit_total_dshv는 검증된 예치(소각)로만 증가하고, 발행 슬롯
+    --   수 = floor(deposit_total_dshv / per_claim_dshv)이므로 발행이 예치를 넘을 수
+    --   없다. issued_count는 청구마다 1씩 증가하며 슬롯 수를 넘으면 소진(에러)이다.
+    -- 무기명 베어러는 쓰지 않는다(M10 폐기): QR은 spot_id만 담고, 그랜트는 서버가
+    --   인증된 회원에게만 발행한다. 스팟 위치는 사업장이라 공개(눈금화 없음).
+    CREATE TABLE IF NOT EXISTS spot_treasures (
+      spot_id TEXT PRIMARY KEY,
+      region_id TEXT NOT NULL,
+      sponsor_member TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      lat REAL NOT NULL,
+      lon REAL NOT NULL,
+      per_claim_dshv INTEGER NOT NULL,
+      deposit_total_dshv INTEGER NOT NULL DEFAULT 0,
+      issued_count INTEGER NOT NULL DEFAULT 0,
+      valid_from INTEGER NOT NULL,
+      valid_until INTEGER NOT NULL,
+      status TEXT NOT NULL, -- OPEN | CLOSED
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_spot_region ON spot_treasures(region_id, status);
+    -- 예치 코인 대장 — 이중 예치 방지. coin_id(=coinFingerprint의 coinId) UNIQUE로
+    -- 같은 소각 코인을 두 번 예치할 수 없다. 좌표·경로 없음(코인 ID·금액·지문뿐).
+    CREATE TABLE IF NOT EXISTS spot_deposits (
+      coin_id TEXT PRIMARY KEY,
+      spot_id TEXT NOT NULL REFERENCES spot_treasures(spot_id),
+      sponsor_member TEXT NOT NULL,
+      amount_dshv INTEGER NOT NULL,
+      deposited_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_spot_deposits_spot ON spot_deposits(spot_id);
+    -- 청구 대장 — 1인 1회: (spot_id, member_id) UNIQUE. 스캔 지급·스탬프 공용.
+    -- 이동 원자료 없음: 회원 번호와 발행 그랜트(있으면)뿐.
+    CREATE TABLE IF NOT EXISTS spot_claims (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      spot_id TEXT NOT NULL REFERENCES spot_treasures(spot_id),
+      member_id TEXT NOT NULL,
+      grant_json TEXT,
+      claimed_at INTEGER NOT NULL,
+      UNIQUE(spot_id, member_id)
+    );
     -- 암호화 지갑 백업 (지시서 2.3, 보안 감사 L-2) — 서버는 blob을 보관만, 내용 못 봄.
     -- 기기 주소당 최신 1개. 니모닉 파생 키로만 복호화 가능 (종단간). 복구는 회원
     -- 번호 없이 기기 키 소유 증명만으로 자기 백업을 조회한다.

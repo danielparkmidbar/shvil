@@ -313,6 +313,11 @@ describe('투명성 공시 + 승인 기능 부재', () => {
       // 보물 마이닝 (M9) 집계 — 이 테스트에서는 등록된 보물이 없다.
       treasureIssued: 0,
       treasureQuota: 0,
+      // 스팟 보물 (M12) 집계 — 이 테스트에서는 예치·발행이 없다. 발행 ≤ 예치(총량 보존)를
+      // 공시로 확인 가능(둘 다 0). spotTransparency(db) 스프레드가 이 세 필드를 낸다.
+      spotDepositedDshv: 0,
+      spotIssuedDshv: 0,
+      spotIssuedCount: 0,
     });
   });
 

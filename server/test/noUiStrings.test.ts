@@ -71,6 +71,11 @@ const PUBLIC_GETS = [
   '/keys',
   '/courses',
   '/treasures',
+  // 스팟 보물 맵 배포 (M12) — 서버는 문구를 만들지 않는다. displayName(사업장명)은
+  // 사용자 원문이라 잔여>0 스팟이 있으면 여기 실려 나갈 수 있지만(엔젤 이름과 같은
+  // 범주), 이 검사(beforeAll)는 스팟을 예치하지 않아 spots가 비어 있으므로, 서버
+  // 스캐폴드(reservePublicKey·_sig·숫자)만 남고 자연어·note가 없음을 확인한다.
+  '/spot',
   '/limits/baseline',
   '/limits/flagged',
   '/transparency/promo',

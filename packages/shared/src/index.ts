@@ -32,3 +32,4 @@ export * from './backup';
 export * from './regions';
 export * from './geoPrivacy';
 export * from './treasure';
+export * from './spotTreasure';

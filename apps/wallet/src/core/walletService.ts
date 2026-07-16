@@ -38,6 +38,7 @@ import {
   type WalletBackup,
 } from '@shvil/shared';
 import type { LiveWalkStatus } from '../walk/corridorEngine';
+import type { SpotDepositResult } from './api';
 import { planCoinSelection, type CoinSelectionPlan } from './coinSelection';
 import { FLAGGED_CACHE_KEY, findFlaggedProducer, parseFlaggedCache } from './flagged';
 import {
@@ -575,6 +576,44 @@ class WalletService {
   /** 가격 제시 승인 후 판매 기록에 에스크로 ID를 연결한다. */
   async attachEscrowToSale(listingId: number, escrowId: number): Promise<void> {
     await this.#updateSale(listingId, { escrowId });
+  }
+
+  // ── 스팟 보물 예치 (M12): 자기 코인을 보물 리저브로 소각(재배포) ──
+  //
+  // 사업자는 발행 주체가 아니다 — 마켓에서 구매/생성한 자기 코인을 리저브로 소각한
+  // 만큼만 서버가 재배포한다(총량 보존). 무기명 베어러가 아니라 서버 회계다(M10 폐기).
+  // 소각 = 리저브 앞 미완결 이전(createTransfer): 리저브는 절대 확인하지 않으므로
+  // 코인은 리저브에 영구 봉인된다. 대면 지불(payCharge)과 같은 로컬 서명 경로다.
+
+  /**
+   * 스팟 보물 예치 (사업자) — 오래된 것부터 선택하고 필요하면 분할해 amountDshv를
+   * 정확히 맞춘 뒤, 리저브 앞 이전(소각)을 만들어 서버에 제출한다. 서버가 소각을
+   * 검증하고 동량을 예치 잔고로 등록하면(발행이 아니라 재배포), 그 코인들을 SPENT로
+   * 정리한다(지갑에서 빠짐). 서버 제출 실패 시 분할 잔돈은 남고 코인은 소각되지 않는다.
+   */
+  async depositToSpot(
+    spotId: string,
+    reservePublicKey: string,
+    amountDshv: number,
+    now: number,
+  ): Promise<SpotDepositResult> {
+    if (!Number.isInteger(amountDshv) || amountDshv <= 0) {
+      throw new Error('예치 수량이 올바르지 않습니다 (0.1 SHV 단위의 양수)');
+    }
+    // 잔액 검사 겸 선택 가능성 확인 — 부족하면 서버 호출 전에 여기서 던진다.
+    planCoinSelection(this.getState().coins.map((c) => c.coin), amountDshv);
+
+    const { directoryApi } = await this.#directory();
+    // 선택·분할 실행 후 리저브 앞 미완결 이전(소각) 생성.
+    const plan = planCoinSelection(this.getState().coins.map((c) => c.coin), amountDshv);
+    const picked = await this.#executeSelection(plan, now);
+    const burned = picked.map((coin) => createTransfer(coin, this.identity.signer, reservePublicKey, now));
+
+    const result = await directoryApi.depositSpot(spotId, burned);
+    // 소각 확정 — 이 코인들은 리저브로 넘어가 지갑에서 사라진다(영구 봉인).
+    for (const coin of picked) await setCoinStatus(coin.id, 'SPENT');
+    await this.#reloadCoins();
+    return result;
   }
 
   /**

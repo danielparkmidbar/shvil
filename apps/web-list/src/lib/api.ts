@@ -157,6 +157,32 @@ export interface CompanionFilter {
   status?: CompanionStatus;
 }
 
+/**
+ * 스팟 보물 (M12 — 사업자 참여 계층, 몸인증_보물마이닝_설계 4장).
+ *
+ * 트레일 근처 사업장(호텔·식당·주유소)이 숨긴 코인 — 걷는 사람이 벽 QR을 스캔하면
+ * 선착순으로 받는다. 무기명 베어러가 아니라 서버 선착순 회계다(M10 폐기). 서버는
+ * 잔여>0인 스팟만 내려준다 (코인이 없으면 지도에 뜨지 않는다 — 다니엘 쌤 결정 2번).
+ * 위치는 사업장이라 공개다(엔젤 집처럼 눈금화하지 않는다 — 걷는 사람이 "걸으며 갈지"를
+ * 정할 정보). displayName은 번역 대상이 아닌 사용자 원문이다. 웹은 열람·계획까지 —
+ * 받기는 지갑 앱에서 스캔·서명한다(R-7).
+ */
+export interface SpotEntry {
+  spotId: string;
+  regionId: string;
+  displayName: string;
+  location: GeoPoint;
+  /** 1인당 지급액 (dSHV) — 화면 표기는 fmtShv. */
+  perClaimDshv: number;
+  /** 선착순 인원(총 슬롯) = floor(예치총액 / 1인당 양). */
+  totalSlots: number;
+  /** 남은 선착순 슬롯 — 감소 양상(남은 수량). */
+  remainingSlots: number;
+  /** 예치 총액(규모, dSHV). */
+  depositTotalDshv: number;
+  validUntil: number;
+}
+
 export interface CourseSegmentMeta {
   fromIdx: number;
   toIdx: number;
@@ -316,6 +342,17 @@ export async function fetchCompanions(filter: CompanionFilter = {}): Promise<Com
   return companions;
 }
 
+/**
+ * 스팟 보물 목록 (M12) — 공개 열람. 지역 필터. 서버는 잔여>0인 것만 내려준다.
+ * 걷는 사람이 지도를 보고 "걸으며 갈지"를 정할 수 있게 위치·잔여·1인당 양을 보여준다.
+ * 웹은 열람만 — 받기는 지갑 앱에서 스캔·서명한다(R-7). 실패 시 throw (호출부가 폴백).
+ */
+export async function fetchSpots(region?: string): Promise<SpotEntry[]> {
+  const qs = region ? `?region=${encodeURIComponent(region)}` : '';
+  const { spots } = await getJson<{ spots: SpotEntry[] }>(`/spot${qs}`);
+  return spots;
+}
+
 export async function fetchProposals(): Promise<CourseProposal[]> {
   const { proposals } = await getJson<{ proposals: CourseProposal[] }>('/courses/proposals');
   return proposals;
@@ -389,6 +426,14 @@ export function publicRatioPercent(publicCount: number, receivedCount: number): 
  */
 export function chatDeepLink(memberId: string): string {
   return `shvil://chat/${encodeURIComponent(memberId)}`;
+}
+
+/**
+ * 지갑 앱 스팟 딥링크 — 걷는 사람이 현장에서 받는 것은 지갑(서명 주체)에서다(R-7).
+ * QR은 spotId만 담는다(비밀키 없음 — M10 폐기). 웹은 열람·계획까지만 제공한다.
+ */
+export function spotDeepLink(spotId: string): string {
+  return `shvil://spot/${encodeURIComponent(spotId)}`;
 }
 
 /** 미터 → "12.3" (km 숫자 문자열 — 단위 표기는 사전이 결정). */

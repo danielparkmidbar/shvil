@@ -45,6 +45,7 @@ import { registerGuestbook } from './guestbook';
 import { registerRatings } from './ratings';
 import { registerCompanions } from './companions';
 import { registerTreasures, treasureTransparency } from './treasure';
+import { registerSpotTreasures, spotTransparency } from './spotTreasure';
 import { registerSync } from './sync';
 import { registerBackup } from './backup';
 
@@ -163,6 +164,9 @@ export function buildApp(
   const rewardSigner = keystore.loadOrCreateSigner('rewardKey');
   // 보물 발행 키 (M9) — 기존 promo 키 패턴과 동일하게 KEK로 봉인 저장.
   const treasureSigner = keystore.loadOrCreateSigner('treasureKey');
+  // 스팟 보물 리저브 키 (M12) — 예치 코인의 소각 수령 주소. 이 키는 절대 서명·소비하지
+  // 않는다(코인은 리저브에 영구 봉인=소각). 공개키(주소)만 사용된다. KEK로 봉인 저장.
+  const spotReserveSigner = keystore.loadOrCreateSigner('spotReserveKey');
   // 회원 증서 루트 키 — 회원 번호↔기기 공개키를 결속 서명한다 (보안 감사 C-2).
   const membershipRootSigner = keystore.loadOrCreateSigner('membershipRootKey');
   // 배포 서명 키 — /keys·/courses·/limits/flagged 응답 본문에 _sig를 붙여 MITM의
@@ -605,6 +609,8 @@ export function buildApp(
     firstHostingIssued: grantCount('FIRST_HOSTING'),
     registrationQuota: quota,
     ...treasureTransparency(db),
+    // 스팟 보물 (M12) — 예치 총액·발행 총액·발행 수. 발행 ≤ 예치(총량 보존)를 공시로 확인 가능.
+    ...spotTransparency(db),
   }));
 
   const trustedIssuerKeys = {
@@ -670,6 +676,23 @@ export function buildApp(
     distSigner,
     distKeyId: DISTRIBUTION_KEY_ID,
     devMode,
+  });
+
+  // ── 스팟 보물 (M12): 사업자 예치(소각) → 서버 선착순 재배포 ────────
+  // 무기명 베어러 금지(M10 폐기). 발행 키는 기존 TREASURE 키 재사용 — 발행이
+  // 예치를 넘지 못하도록 슬롯 수를 예치에서 유도한다(총량 보존 불변식).
+  registerSpotTreasures(app, {
+    db,
+    authenticate,
+    spotSigner: treasureSigner,
+    spotKeyId: TREASURE_KEY_ID,
+    reserveSigner: spotReserveSigner,
+    distSigner,
+    distKeyId: DISTRIBUTION_KEY_ID,
+    trustedIssuerKeys,
+    // ★V-3: 예치 소각 코인을 sync와 동일한 초과생성 탐지에 연결한다 (fake-walk 세탁 차단).
+    dailyMaxDshv: 400, // 확정 파라미터: 일 40 SHV
+    weeklyMaxDshv: 3000, // 확정: 주 300 SHV
   });
 
   // ── 기회적 동기화 — 이중지불·초과 생성 사후 탐지 (보안 감사 H-1) ──

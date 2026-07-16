@@ -29,6 +29,10 @@ export type MoreStackParamList = {
   '동행 찾기': undefined;
   /** M8: 동행 글쓰기 (지역·날짜·팀 규모·도보/자전거·한마디). */
   '동행 글쓰기': undefined;
+  /** M12: 스팟 보물 받기 (스캐너) — 근처 스팟 목록·QR 스캔·선착순 지급. */
+  '스팟 보물': undefined;
+  /** M12: 스팟 보물 운영 (사업자) — 스팟 생성·코인 예치(소각)·회계. */
+  '스팟 운영': undefined;
   '내 포인트': undefined;
   마켓: undefined;
   커뮤니티: undefined;

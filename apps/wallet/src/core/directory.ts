@@ -12,6 +12,7 @@ import {
   DirectoryApi,
   type AngelDirectoryEntry,
   type FlaggedMemberEntry,
+  type SpotListEntry,
   type TreasureListEntry,
   type TrustedKeyInfo,
 } from './api';
@@ -189,6 +190,31 @@ export async function syncTreasures(region?: string): Promise<void> {
 export async function loadCachedTreasures(): Promise<TreasureListEntry[]> {
   const cached = await kvGet(TREASURES_CACHE);
   return cached ? (JSON.parse(cached) as TreasureListEntry[]) : [];
+}
+
+// ── 스팟 보물 캐시 (M12 — 잔여>0 스팟만 배포. 코인 없으면 애초에 안 온다) ──
+
+const SPOTS_CACHE = 'spots.v1';
+
+/**
+ * 잔여>0 스팟 목록을 서버에서 갱신 시도 → 배포 서명 검증(H-3) 후 kv 캐시.
+ * 실패(오프라인·검증 실패) 시 기존 캐시로 폴백. 캐시 대상은 공개 사업장 위치·잔여·
+ * 1인당 양뿐 — 사용자 이동 궤적이 아니다. 반환: 검증된 스팟 목록(없으면 캐시/빈 목록).
+ */
+export async function syncSpots(region?: string): Promise<SpotListEntry[]> {
+  try {
+    const { spots } = await verifyAndPin(await directoryApi.getSpots(region));
+    await kvSet(SPOTS_CACHE, JSON.stringify(spots));
+    return spots;
+  } catch {
+    return loadCachedSpots();
+  }
+}
+
+/** 캐시된 스팟 목록 (없으면 빈 목록 — 스팟이 없으면 지도에 아무것도 안 뜬다). */
+export async function loadCachedSpots(): Promise<SpotListEntry[]> {
+  const cached = await kvGet(SPOTS_CACHE);
+  return cached ? (JSON.parse(cached) as SpotListEntry[]) : [];
 }
 
 // ── 엔젤 디렉토리 캐시 (엔젤 우회 판정·지도 오프라인 폴백) ────────

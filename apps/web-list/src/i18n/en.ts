@@ -9,6 +9,7 @@ export const en: Strings = {
     nav: {
       angels: 'Find an Angel',
       companions: 'Find Companions',
+      spots: 'Spot Treasures',
       courses: 'Course Registry',
       claims: 'Claims Board',
       certificates: 'Completion Gallery',
@@ -128,6 +129,29 @@ export const en: Strings = {
       'Opens on a device with the Shvil wallet installed. Interest and contact happen only in the wallet — an end-to-end encrypted message to the poster.',
     postInApp: 'Post a companion notice from the wallet app (More → Find Companions → New post).',
     empty: 'No companion posts are recruiting yet. Post the first one from the wallet app.',
+  },
+
+  spots: {
+    title: 'Spot Treasures',
+    intro:
+      'Businesses along the trail — cafés, guesthouses, gas stations — hide coins at their door to welcome ' +
+      'walkers. A merchant cannot mint: they redistribute only coins they bought or earned, by depositing ' +
+      '(burning) them so the server can hand them out first-come, first-served. Only spots that still have ' +
+      'coins appear here — decide as you walk whether one is worth the detour.',
+    readOnlyNote:
+      'This site is for browsing and planning. Claiming happens in the wallet app, which scans the spot QR and signs — coins are handed out only to identity-verified members (no bearer voucher).',
+    filterTitle: 'Region',
+    filterAllRegions: 'All regions',
+    count: (n) => `${n} spot${n === 1 ? '' : 's'}`,
+    perClaim: (shv) => `${shv} each`,
+    remaining: (remaining, total) => `${remaining} of ${total} left`,
+    scale: (shv) => `Pool ${shv}`,
+    until: (date) => `Until ${date}`,
+    selectHint: 'Select a marker on the map to see the spot.',
+    getInApp: 'Claim in the wallet app',
+    getNote:
+      'Opens on a device with the Shvil wallet installed. Claiming is first-come, one per person — the server counts the slots, so coins can never exceed what the merchant deposited.',
+    empty: 'No funded spots right now. Spots with no coins do not appear on the map.',
   },
 
   courses: {

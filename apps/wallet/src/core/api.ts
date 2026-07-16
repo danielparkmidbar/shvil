@@ -252,6 +252,81 @@ export interface TreasureClaimResult {
   stamp?: boolean;
 }
 
+// ── 스팟 보물 계약 타입 (M12 — server/src/spotTreasure.ts와 계약을 공유한다) ──
+// 무기명 베어러 금지(M10 폐기). QR은 spotId만 담고, 그랜트는 서버가 인증된 회원에게만
+// 발행한다. 손님이 받는 것은 amountDshv>0이면 grant(폰 민팅), 0이면 스탬프뿐이다.
+// ★총량 보존: remainingSlots·totalSlots는 서버가 예치 총액에서 유도한 회계 파생값이며,
+// 발행 슬롯 수 = floor(예치총액 / 1인당 양)이므로 발행이 예치를 넘을 수 없다.
+
+/** 맵 배포의 스팟 항목 (GET /spot) — 잔여 > 0인 것만. 위치는 사업장이라 공개(눈금화 없음). */
+export interface SpotListEntry {
+  spotId: string;
+  regionId: string;
+  /** 사업장 표시명 (사용자 원문 — 번역 대상 아님, 엔젤 이름과 같은 범주). */
+  displayName: string;
+  location: GeoPoint;
+  /** 1인당 지급액 (dSHV). */
+  perClaimDshv: number;
+  /** 선착순 인원(총 슬롯) = floor(예치총액 / 1인당 양). */
+  totalSlots: number;
+  /** 남은 선착순 슬롯 — 감소 양상(남은 수량). */
+  remainingSlots: number;
+  /** 예치 총액 (규모). */
+  depositTotalDshv: number;
+  validUntil: number;
+}
+
+/** 내 스팟 항목 (GET /spot/mine — 사업자) — 미충전 포함 전체 + 회계. */
+export interface SpotMineEntry {
+  spotId: string;
+  regionId: string;
+  sponsorMemberId: string;
+  displayName: string;
+  location: GeoPoint;
+  perClaimDshv: number;
+  depositTotalDshv: number;
+  totalSlots: number;
+  remainingSlots: number;
+  issuedCount: number;
+  validFrom: number;
+  validUntil: number;
+  status: 'OPEN' | 'CLOSED' | string;
+}
+
+/** 스팟 생성 입력 (POST /spot). sponsorMemberId는 서버가 서명자로 결속한다(클라 신뢰 안 함). */
+export interface SpotCreateInput {
+  spotId: string;
+  regionId: string;
+  displayName: string;
+  location: GeoPoint;
+  perClaimDshv: number;
+  validFrom: number;
+  validUntil: number;
+}
+
+export interface SpotCreateResult {
+  spotId: string;
+  created: boolean;
+  /** 보물 리저브 공개키 — 사업자 지갑이 예치 소각 이전을 이 주소로 만든다. */
+  reservePublicKey: string;
+}
+
+export interface SpotDepositResult {
+  spotId: string;
+  depositedDshv: number;
+  depositTotalDshv: number;
+  totalSlots: number;
+  remainingSlots: number;
+}
+
+/** 스캔 청구 결과 — amountDshv>0이면 grant(폰에서 민팅), 0이면 스탬프 기록만. */
+export interface SpotClaimResult {
+  spotId: string;
+  amountDshv: number;
+  grant?: SignedGrant;
+  stamp?: boolean;
+}
+
 // ── 커뮤니티 계약 타입 (M4 — server/src/community.ts와 계약을 공유한다) ──
 // 클레임·격려의 발행은 전부 "승인서(SignedGrant)"다 — 코인이 되는 것은
 // 이 지갑의 민팅(mintFromGrant)에서다. 여기에도 거래 승인 API는 없다.
@@ -520,6 +595,50 @@ export class DirectoryApi {
    */
   claimTreasure(treasureId: string, transcriptHash: string): Promise<TreasureClaimResult> {
     return this.#request('POST', '/treasures/claim', { treasureId, transcriptHash }, true);
+  }
+
+  // ── 스팟 보물 (M12 — 사업자 예치 소각 → 서버 선착순 재배포) ──
+
+  /**
+   * 유효 기간 내·잔여>0 스팟 목록 (배포 서명 포함 원본 — H-3). 검증·TOFU 핀은 directory.ts.
+   * 코인이 없으면(잔여 0) 서버가 아예 내려주지 않는다 (다니엘 쌤 결정 2번).
+   */
+  getSpots(region?: string): Promise<Signed<{ spots: SpotListEntry[]; reservePublicKey: string }>> {
+    const q = region ? `/spot?region=${encodeURIComponent(region)}` : '/spot';
+    return this.#request('GET', q, null, false);
+  }
+
+  /** 내 스팟 목록 (사업자 서명) — 미충전 포함 전체 + 회계 + 리저브 공개키. */
+  getMySpots(): Promise<{ spots: SpotMineEntry[]; reservePublicKey: string }> {
+    return this.#request('GET', '/spot/mine', null, true);
+  }
+
+  /** 스팟 생성 (사업자 서명) — 예치 전 상태로 등록. 응답에 리저브 공개키가 온다. */
+  createSpot(input: SpotCreateInput): Promise<SpotCreateResult> {
+    return this.#request('POST', '/spot', input, true);
+  }
+
+  /**
+   * 예치(충전) — 리저브로 소각한 미완결 이전 코인들을 제출한다 (사업자 서명).
+   * 발행이 아니라 재배포다: 서버가 소각을 검증하고 그 동량을 예치 잔고로 등록한다.
+   */
+  depositSpot(spotId: string, coins: Coin[]): Promise<SpotDepositResult> {
+    return this.#request('POST', '/spot/deposit', { spotId, coins }, true);
+  }
+
+  /**
+   * 스캔 청구 (스캐너=회원 서명) — 스팟당 1인 1회. 서버 왕복은 수량 한정 발행의
+   * 회계다(승인 아님). grant면 폰에서 민팅(BONUS 계보), 아니면 스탬프뿐.
+   * ※ 현장 결속 없음(V-1): spotId만 알면 원격 청구 가능 — 서버가 위치를 볼 수 없다는
+   * 헌법 제9조 제약의 귀결. QR 스캔은 위치 증명이 아니라 spotId 취득 수단일 뿐이다.
+   */
+  claimSpot(spotId: string): Promise<SpotClaimResult> {
+    return this.#request('POST', '/spot/claim', { spotId }, true);
+  }
+
+  /** 스팟 마감 (사업자 서명) — 남은 예치 소각분은 회수되지 않는다(영구 소각). */
+  closeSpot(spotId: string): Promise<{ spotId: string; status: string }> {
+    return this.#request('POST', '/spot/close', { spotId }, true);
   }
 
   // ── 엔젤 디렉토리 ──

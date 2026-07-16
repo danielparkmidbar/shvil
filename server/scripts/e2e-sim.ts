@@ -690,8 +690,99 @@ async function main() {
     !JSON.stringify(cmpMine.json).includes(noa.memberId),
   );
 
-  // 15) 거래 승인 엔드포인트 부재 (헌법 제9조)
-  console.log('\n[15] 무승인 시스템 확인 (헌법 제9조)');
+  // 15) 스팟 보물 (M12) — 사업자 예치(소각) → 서버 선착순 재배포. 무기명 베어러 금지(M10 폐기).
+  //     ★총량 보존: 발행 슬롯 수 = floor(예치총액 / 1인당 양)이므로 발행이 예치를 넘지 못한다.
+  //     서버 역할은 예치 검증 + 선착순 회계뿐 — 거래 승인이 아니다(헌법 제9조 정합).
+  console.log('\n[15] 스팟 보물 — 예치→맵→선착순 지급→소진→초과·이중 거부 (M12)');
+  // 전화번호는 정규화 시 [^0-9+]가 제거되므로(server phoneHash), 위 지갑들과 충돌하지
+  // 않도록 순수 숫자 접미어로 구분한다 (e2e-g1 같은 접미어는 lior와 해시 충돌).
+  const merchant = await joinWallet('+972-55-9000-101', 'cafe@sim.io', '갈릴리 카페');
+  const guest1 = await joinWallet('+972-55-9000-102', 'g1@sim.io', '손님1');
+  const guest2 = await joinWallet('+972-55-9000-103', 'g2@sim.io', '손님2');
+  const guest3 = await joinWallet('+972-55-9000-104', 'g3@sim.io', '손님3');
+
+  const spotId = `spot-e2e-${Date.now()}`;
+  const create = await signedApi(merchant, 'POST', '/spot', {
+    spotId,
+    regionId: 'israel-national',
+    displayName: '갈릴리 카페',
+    location: { lat: 33.231, lon: 35.651 },
+    perClaimDshv: 50,
+    validFrom: Date.now() - 1000,
+    validUntil: Date.now() + DAY,
+  });
+  check('사업자가 스팟을 생성한다 (예치 전)', create.status === 200 && typeof create.json.reservePublicKey === 'string');
+  const reservePublicKey = create.json.reservePublicKey as string;
+
+  // 예치 전에는 맵에 뜨지 않는다 — 다니엘 쌤 결정 2번: 코인 없으면(잔여 0) 미표시.
+  const beforeDeposit = await api('GET', '/spot?region=israel-national');
+  check(
+    '예치 전 스팟은 맵에 표시되지 않는다 (코인 없음)',
+    !(beforeDeposit.json.spots as { spotId: string }[]).some((s) => s.spotId === spotId),
+  );
+
+  // 사업자가 자기 코인 100 dSHV(10 SHV)를 리저브로 소각(미완결 이전) → 예치.
+  const depositCoin = walkMint(merchant, 100, T0 + 5 * DAY);
+  const burn = createTransfer(depositCoin, merchant.signer, reservePublicKey, Date.now());
+  const deposit = await signedApi(merchant, 'POST', '/spot/deposit', { spotId, coins: [burn] });
+  check(
+    '예치(소각) 검증 통과 → 슬롯 2개 (예치 100 / 1인당 50)',
+    deposit.status === 200 && deposit.json.depositTotalDshv === 100 && deposit.json.totalSlots === 2 && deposit.json.remainingSlots === 2,
+  );
+
+  // 이중 예치 거부 — 같은 소각 코인은 두 번 예치할 수 없다 (coin_id UNIQUE).
+  const dupDeposit = await signedApi(merchant, 'POST', '/spot/deposit', { spotId, coins: [burn] });
+  check('같은 코인 이중 예치 거부 (COIN_ALREADY_DEPOSITED)', dupDeposit.status === 409 && dupDeposit.json.error === 'COIN_ALREADY_DEPOSITED');
+
+  // 타인 소유 코인 예치 거부 — 사업자 소유가 아니면 인정 불가 (발행 주체 위장 차단).
+  const notMine = createTransfer(walkMint(lior, 50, T0 + 6 * DAY), lior.signer, reservePublicKey, Date.now());
+  const notMineDeposit = await signedApi(merchant, 'POST', '/spot/deposit', { spotId, coins: [notMine] });
+  check('타인 소유 코인 예치 거부 (INVALID_DEPOSIT_COIN)', notMineDeposit.status === 400 && notMineDeposit.json.error === 'INVALID_DEPOSIT_COIN');
+
+  // 맵 배포 — 잔여 > 0이므로 이제 표시된다. 위치·1인당 양·잔여·총 슬롯 공개 (배포 서명).
+  const spotMap = await api('GET', '/spot?region=israel-national');
+  const spotOnMap = (spotMap.json.spots as { spotId: string; perClaimDshv: number; remainingSlots: number; totalSlots: number; location: { lat: number } }[]).find(
+    (s) => s.spotId === spotId,
+  );
+  check(
+    '예치 후 스팟이 맵에 표시된다 (위치·1인당 양·잔여) + 배포 서명 유효',
+    verifyDistribution(spotMap.json).valid && spotOnMap?.perClaimDshv === 50 && spotOnMap.remainingSlots === 2 && spotOnMap.totalSlots === 2,
+  );
+
+  // 선착순 지급 — 손님1 스캔(존 도착) 후 청구 → TREASURE 그랜트(민팅은 폰, BONUS 계보).
+  const spotClaim1 = await signedApi(guest1, 'POST', '/spot/claim', { spotId });
+  const spotGrant1 = spotClaim1.json.grant as SignedGrant;
+  const spotCoin1 = mintGrantCoin(spotGrant1);
+  check(
+    '손님1 스캔 지급 → TREASURE 그랜트 5 SHV, 폰 민팅 검증 통과',
+    spotClaim1.status === 200 && spotGrant1?.kind === 'TREASURE' && spotGrant1.amountDshv === 50 && verifyCoin(spotCoin1, { trustedIssuerKeys: trustedKeys }).valid,
+  );
+
+  // 1인 1회 — 손님1 재청구 거부.
+  const spotClaim1dup = await signedApi(guest1, 'POST', '/spot/claim', { spotId });
+  check('1인 1회 — 손님1 재청구 거부 (SPOT_ALREADY_CLAIMED)', spotClaim1dup.status === 409 && spotClaim1dup.json.error === 'SPOT_ALREADY_CLAIMED');
+
+  // 손님2 청구 → 마지막 슬롯 소진.
+  const spotClaim2 = await signedApi(guest2, 'POST', '/spot/claim', { spotId });
+  check('손님2 청구 → 마지막 슬롯 지급', spotClaim2.status === 200 && (spotClaim2.json.grant as SignedGrant)?.amountDshv === 50);
+
+  // 초과 지급 거부 — 손님3 청구 시 잔여 0 → 소진 에러 (발행이 예치를 넘지 못한다).
+  const spotClaim3 = await signedApi(guest3, 'POST', '/spot/claim', { spotId });
+  check('초과 지급 거부 — 소진된 스팟 (SPOT_EXHAUSTED)', spotClaim3.status === 409 && spotClaim3.json.error === 'SPOT_EXHAUSTED');
+
+  // 소진 후 맵에서 사라진다 (잔여 0 — 코인 없으면 미표시).
+  const spotMapAfter = await api('GET', '/spot?region=israel-national');
+  check('소진된 스팟은 맵에서 사라진다 (잔여 0)', !(spotMapAfter.json.spots as { spotId: string }[]).some((s) => s.spotId === spotId));
+
+  // ★총량 보존 공시 — 발행 총액(2×50=100) ≤ 예치 총액(100). 공시로 검증 가능(T-3).
+  const spotPromo = await api('GET', '/transparency/promo');
+  check(
+    '총량 보존 공시: 발행 ≤ 예치 (스팟 발행 100 ≤ 예치 100)',
+    spotPromo.json.spotIssuedDshv <= spotPromo.json.spotDepositedDshv && spotPromo.json.spotIssuedDshv >= 100 && spotPromo.json.spotDepositedDshv === 100,
+  );
+
+  // 16) 거래 승인 엔드포인트 부재 (헌법 제9조)
+  console.log('\n[16] 무승인 시스템 확인 (헌법 제9조)');
   const approveTx = await api('POST', '/approve', {});
   const payments = await api('POST', '/payments', {});
   check('거래 승인/지불 엔드포인트가 존재하지 않는다', approveTx.status === 404 && payments.status === 404);

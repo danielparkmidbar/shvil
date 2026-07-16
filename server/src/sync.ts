@@ -14,13 +14,8 @@
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
-import {
-  addressFromPublicKey,
-  isOverproductionCode,
-  type CoinFingerprint,
-  type FlagReason,
-  type FlagReasonCode,
-} from '@shvil/shared';
+import { isOverproductionCode, type CoinFingerprint, type FlagReasonCode } from '@shvil/shared';
+import { checkFork, checkOverproduction } from './anomaly';
 
 export interface SyncMemberRow {
   member_id: string;
@@ -35,116 +30,9 @@ export interface SyncContext {
   weeklyMaxDshv: number;
 }
 
-interface SightingRow {
-  chain_len: number;
-  owner_address: string;
-  last_from_address: string | null;
-}
-
-function dateToEpochDay(date: string): number {
-  return Math.floor(Date.parse(`${date}T00:00:00Z`) / 86_400_000);
-}
-
 export function registerSync(app: FastifyInstance, ctx: SyncContext): void {
   const { db, authenticate } = ctx;
-
-  /** 사유는 코드 + 파라미터로만 기록한다 — 화면 문장은 클라이언트 사전이 조립한다. */
-  function flagMember(memberId: string, reason: FlagReason, now: number): void {
-    // 이미 PENDING이면 유지 (사유 덮어쓰지 않음 — 최초 포착 기록 보존)
-    const existing = db.prepare('SELECT status FROM flagged_members WHERE member_id = ?').get(memberId) as
-      | { status: string }
-      | undefined;
-    if (existing?.status === 'PENDING') return;
-    db.prepare(
-      "INSERT OR REPLACE INTO flagged_members (member_id, reason_code, params_json, status, flagged_at) VALUES (?, ?, ?, 'PENDING', ?)",
-    ).run(memberId, reason.reasonCode, JSON.stringify(reason.params), now);
-  }
-
-  /** 주소 → 회원 번호 (기기 공개키에서 주소 계산). 없으면 null. */
-  function memberByAddress(address: string): string | null {
-    const rows = db.prepare('SELECT member_id, device_public_key FROM members').all() as unknown as SyncMemberRow[];
-    for (const r of rows) {
-      if (addressFromPublicKey(r.device_public_key) === address) return r.member_id;
-    }
-    return null;
-  }
-
-  /** ① 이중 사용 검사: 같은 (coinId, chainLen)의 기존 목격과 소유자 분기 대조. */
-  function checkFork(fp: CoinFingerprint, now: number): string | null {
-    const rows = db
-      .prepare('SELECT chain_len, owner_address, last_from_address FROM coin_sightings WHERE coin_id = ? AND chain_len = ?')
-      .all(fp.coinId, fp.chainLen) as unknown as SightingRow[];
-    for (const row of rows) {
-      if (row.owner_address !== fp.ownerAddress && fp.chainLen > 0 && row.last_from_address === fp.lastFromAddress && fp.lastFromAddress) {
-        // 분기 확정: 같은 지불자가 같은 코인을 두 수령자에게 — 이중 지불자 등재
-        const suspect = memberByAddress(fp.lastFromAddress);
-        if (suspect) {
-          flagMember(
-            suspect,
-            { reasonCode: 'DOUBLE_SPEND_SUSPECT', params: { coinId: fp.coinId, chainLen: fp.chainLen } },
-            now,
-          );
-          return suspect;
-        }
-      }
-    }
-    return null;
-  }
-
-  /** ② 초과 생성 검사: 걷기 증명 합산이 인간 한계 초과 → 생산자 등재. */
-  function checkOverproduction(fp: CoinFingerprint, now: number): string | null {
-    if (fp.rootKind !== 'WALK' || !fp.proofHash || !fp.dailyBreakdown) return null;
-    // proofHash당 1회만 저장 (분할 형제·중복 보고 dedup)
-    const exists = db.prepare('SELECT 1 FROM walk_proof_stats WHERE proof_hash = ?').get(fp.proofHash);
-    if (!exists) {
-      const total = fp.dailyBreakdown.reduce((s, d) => s + d.amountDshv, 0);
-      db.prepare(
-        'INSERT INTO walk_proof_stats (proof_hash, producer_member, breakdown_json, total_dshv, first_seen) VALUES (?, ?, ?, ?, ?)',
-      ).run(fp.proofHash, fp.producerMemberId, JSON.stringify(fp.dailyBreakdown), total, now);
-    }
-
-    // 회원 전체 증명 합산 → 일/주 한계 검사
-    const rows = db
-      .prepare('SELECT breakdown_json FROM walk_proof_stats WHERE producer_member = ?')
-      .all(fp.producerMemberId) as unknown as { breakdown_json: string }[];
-    const perDay = new Map<number, number>();
-    for (const r of rows) {
-      for (const d of JSON.parse(r.breakdown_json) as { date: string; amountDshv: number }[]) {
-        const day = dateToEpochDay(d.date);
-        perDay.set(day, (perDay.get(day) ?? 0) + d.amountDshv);
-      }
-    }
-    const days = [...perDay.keys()].sort((a, b) => a - b);
-    for (const day of days) {
-      if (perDay.get(day)! > ctx.dailyMaxDshv) {
-        const date = new Date(day * 86_400_000).toISOString().slice(0, 10);
-        flagMember(
-          fp.producerMemberId,
-          {
-            reasonCode: 'OVERPRODUCTION_DAILY',
-            params: { date, totalDshv: perDay.get(day)!, limitDshv: ctx.dailyMaxDshv },
-          },
-          now,
-        );
-        return fp.producerMemberId;
-      }
-      let week = 0;
-      for (let d = day - 6; d <= day; d++) week += perDay.get(d) ?? 0;
-      if (week > ctx.weeklyMaxDshv) {
-        const date = new Date(day * 86_400_000).toISOString().slice(0, 10);
-        flagMember(
-          fp.producerMemberId,
-          {
-            reasonCode: 'OVERPRODUCTION_WEEKLY',
-            params: { date, totalDshv: week, limitDshv: ctx.weeklyMaxDshv },
-          },
-          now,
-        );
-        return fp.producerMemberId;
-      }
-    }
-    return null;
-  }
+  const limits = { dailyMaxDshv: ctx.dailyMaxDshv, weeklyMaxDshv: ctx.weeklyMaxDshv };
 
   /**
    * 지문 제출 (서명 인증). 여러 지문 일괄. 대조 결과로 자동 등재가 일어날 수 있으나
@@ -166,8 +54,8 @@ export function registerSync(app: FastifyInstance, ctx: SyncContext): void {
         continue; // 형식 불량 지문은 무시 (일괄 제출 관용)
       }
       // 대조는 저장 전에 — 기존 목격과 새 지문을 비교해야 분기가 보인다.
-      checkFork(fp, now);
-      checkOverproduction(fp, now);
+      checkFork(db, fp, now);
+      checkOverproduction(db, fp, limits, now);
       db.prepare(
         `INSERT OR REPLACE INTO coin_sightings
           (coin_id, chain_len, owner_address, last_from_address, producer_member, amount_dshv, root_kind, reporter_member, reported_at)

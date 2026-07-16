@@ -27,6 +27,8 @@ import { RatingScreen } from './src/screens/RatingScreen';
 import { MyRatingsScreen } from './src/screens/MyRatingsScreen';
 import { CompanionsScreen } from './src/screens/CompanionsScreen';
 import { CompanionPostScreen } from './src/screens/CompanionPostScreen';
+import { SpotScreen } from './src/screens/SpotScreen';
+import { SpotSponsorScreen } from './src/screens/SpotSponsorScreen';
 import { GuestsScreen } from './src/screens/GuestsScreen';
 import { GuestbookScreen } from './src/screens/GuestbookScreen';
 import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
@@ -78,6 +80,8 @@ function MoreStackScreen() {
       <MoreStack.Screen name="내 별점" component={MyRatingsScreen} options={{ headerTitle: '내 별점 (받은 평가)' }} />
       <MoreStack.Screen name="동행 찾기" component={CompanionsScreen} options={{ headerTitle: '동행 찾기 — 함께 걸을 사람' }} />
       <MoreStack.Screen name="동행 글쓰기" component={CompanionPostScreen} options={{ headerTitle: '동행 글쓰기' }} />
+      <MoreStack.Screen name="스팟 보물" component={SpotScreen} options={{ headerTitle: '스팟 보물 받기' }} />
+      <MoreStack.Screen name="스팟 운영" component={SpotSponsorScreen} options={{ headerTitle: '스팟 보물 운영 (사업자)' }} />
       <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
       <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
       <MoreStack.Screen name="커뮤니티" component={CommunityScreen} options={{ headerTitle: '커뮤니티' }} />

@@ -25,6 +25,7 @@ export interface Strings {
     nav: {
       angels: string;
       companions: string;
+      spots: string;
       courses: string;
       claims: string;
       certificates: string;
@@ -148,6 +149,38 @@ export interface Strings {
     contactNote: string;
     /** "지갑 앱에서 동행 글을 올리세요" 안내 (웹 작성 불가). */
     postInApp: string;
+    empty: string;
+  };
+
+  /**
+   * 스팟 보물 (M12 — 사업자 참여 계층, 몸인증_보물마이닝_설계 4장).
+   * 트레일 근처 사업장이 숨긴 코인을 걷는 사람이 스캔해 선착순으로 받는다. 웹은
+   * 위치·잔여·1인당 양을 지도·목록으로 보여줘 "걸으며 갈지"를 정하게 한다 — 받기는
+   * 지갑 앱에서 스캔·서명(R-7). 잔여 0이 되면 서버가 목록에서 빼므로, 여기 뜨는 것은
+   * 전부 지금 받을 수 있는 스팟이다.
+   */
+  spots: {
+    title: string;
+    intro: string;
+    /** 웹은 열람만 — 받기는 지갑 앱에서 (R-7). */
+    readOnlyNote: string;
+    filterTitle: string;
+    filterAllRegions: string;
+    /** "N개 스팟" — 목록 개수. */
+    count: (n: number) => string;
+    /** "1인당 {shv}" 지급액. */
+    perClaim: (shv: string) => string;
+    /** "남은 {remaining} / {total}명" 선착순 잔여. */
+    remaining: (remaining: number, total: number) => string;
+    /** "규모 {shv}" 예치 총액. */
+    scale: (shv: string) => string;
+    /** "~{date}까지" 유효 기간. */
+    until: (date: string) => string;
+    /** 지도 마커 선택 안내. */
+    selectHint: string;
+    /** 딥링크 버튼 — "지갑 앱에서 받기" (웹 수령 불허, R-7). */
+    getInApp: string;
+    getNote: string;
     empty: string;
   };
 

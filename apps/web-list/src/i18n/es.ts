@@ -9,6 +9,7 @@ export const es: Strings = {
     nav: {
       angels: 'Buscar un ángel',
       companions: 'Buscar compañeros',
+      spots: 'Tesoros de sitio',
       courses: 'Registro de rutas',
       claims: 'Tablón de reclamos',
       certificates: 'Galería de finalizadores',
@@ -130,6 +131,29 @@ export const es: Strings = {
       'Se abre en un dispositivo con la billetera Shvil instalada. El interés y el contacto ocurren solo en la billetera — un mensaje cifrado de extremo a extremo al autor.',
     postInApp: 'Publica un aviso de compañía desde la aplicación de billetera (Más → Buscar compañeros → Nueva publicación).',
     empty: 'Aún no hay publicaciones de compañía reclutando. Publica la primera desde la billetera.',
+  },
+
+  spots: {
+    title: 'Tesoros de sitio',
+    intro:
+      'Negocios junto al sendero — cafés, hospedajes, gasolineras — esconden monedas en su puerta para ' +
+      'recibir a quienes caminan. Un negocio no puede emitir: solo redistribuye monedas que compró o ganó, ' +
+      'depositándolas (quemándolas) para que el servidor las reparta por orden de llegada. Aquí solo ' +
+      'aparecen los sitios que aún tienen monedas — decide sobre la marcha si vale la pena el desvío.',
+    readOnlyNote:
+      'Este sitio es para consultar y planificar. La recogida se hace en la aplicación de billetera, que escanea el QR del sitio y firma — las monedas se entregan solo a miembros verificados (sin vale al portador).',
+    filterTitle: 'Región',
+    filterAllRegions: 'Todas las regiones',
+    count: (n) => `${n} sitio${n === 1 ? '' : 's'}`,
+    perClaim: (shv) => `${shv} por persona`,
+    remaining: (remaining, total) => `Quedan ${remaining} de ${total}`,
+    scale: (shv) => `Fondo ${shv}`,
+    until: (date) => `Hasta ${date}`,
+    selectHint: 'Toca un marcador del mapa para ver el sitio.',
+    getInApp: 'Recoger en la aplicación de billetera',
+    getNote:
+      'Se abre en un dispositivo con la billetera Shvil instalada. La recogida es por orden de llegada, una por persona — el servidor cuenta los cupos, así que las monedas nunca superan lo que el negocio depositó.',
+    empty: 'No hay sitios con fondos ahora mismo. Los sitios sin monedas no aparecen en el mapa.',
   },
 
   courses: {
