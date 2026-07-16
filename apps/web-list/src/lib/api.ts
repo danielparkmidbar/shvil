@@ -122,6 +122,41 @@ export interface RatingSummary {
   ratings: PublicRating[];
 }
 
+/**
+ * 동행 게시글 (M8 — 여정 공유·팀 모집, 재조정 §4-6).
+ *
+ * 게스트북·별점과 같은 자발 공개 모델: 게시자가 자기 여정(구간·대략 날짜·팀 규모)을
+ * 공개 모집한다. 화면 표시 신원은 displayName(닉네임)이며, authorMemberId는 지갑 앱
+ * 딥링크(shvil://chat/{memberId})를 위한 연락 라우팅 핸들이다 — 엔젤 디렉토리가
+ * memberId를 공개해 접촉을 가능케 하는 것과 동일한 성격이다(가명 ID, 실명 아님).
+ * 웹은 열람·계획까지다 — 관심 표명(글 작성·연락)은 지갑 앱에서 한다 (R-7).
+ * note는 사용자 원문 데이터로 번역 대상이 아니다.
+ */
+export type CompanionMode = 'WALK' | 'BIKE';
+export type CompanionStatus = 'OPEN' | 'CLOSED';
+
+export interface CompanionListing {
+  postId: string;
+  displayName: string;
+  authorMemberId: string;
+  messagingPublicKey: string;
+  regionId: string;
+  courseId: string | null;
+  fromDate: string;
+  toDate: string;
+  partySizeCurrent: number;
+  partySizeTarget: number;
+  mode: CompanionMode;
+  note: string | null;
+  status: CompanionStatus;
+  createdAt: number;
+}
+
+export interface CompanionFilter {
+  region?: string;
+  status?: CompanionStatus;
+}
+
 export interface CourseSegmentMeta {
   fromIdx: number;
   toIdx: number;
@@ -264,6 +299,21 @@ export async function fetchGuestbook(memberId: string): Promise<{ total: number;
  */
 export async function fetchRatings(memberId: string): Promise<RatingSummary> {
   return getJson<RatingSummary>(`/ratings?member=${encodeURIComponent(memberId)}`);
+}
+
+/**
+ * 동행 게시판 (M8) — 공개 열람. 지역·상태 필터. 게시자 닉네임 + 여정 + 연락 핸들.
+ * 웹은 열람만 — 글 작성·관심 보내기는 지갑 앱 딥링크로 넘긴다 (R-7).
+ */
+export async function fetchCompanions(filter: CompanionFilter = {}): Promise<CompanionListing[]> {
+  const params = new URLSearchParams();
+  if (filter.region) params.set('region', filter.region);
+  if (filter.status) params.set('status', filter.status);
+  const qs = params.toString();
+  const { companions } = await getJson<{ companions: CompanionListing[] }>(
+    qs ? `/companions?${qs}` : '/companions',
+  );
+  return companions;
 }
 
 export async function fetchProposals(): Promise<CourseProposal[]> {

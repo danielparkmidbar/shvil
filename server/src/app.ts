@@ -43,6 +43,7 @@ import { registerMarket } from './market';
 import { officialCourses, registerCommunity } from './community';
 import { registerGuestbook } from './guestbook';
 import { registerRatings } from './ratings';
+import { registerCompanions } from './companions';
 import { registerTreasures, treasureTransparency } from './treasure';
 import { registerSync } from './sync';
 import { registerBackup } from './backup';
@@ -646,6 +647,12 @@ export function buildApp(
   // 어디에도 "평가자↔피평가자 관계"를 저장하는 필드가 없다 — 서버는 투숙 관계를
   // 모른다 (평가자는 닉네임만, 관계 증명은 게시 본문에 받지 않는다). ratings.ts 주석.
   registerRatings(app, { db, authenticate });
+
+  // ── 동행 찾기 게시판 (M8): 여정 공유 + 팀 모집 ────────────────────
+  // 게스트북·별점과 같은 자발 공개 모델 + 엔젤 디렉토리와 같은 연락 핸들 공개.
+  // ★서버는 게시글까지만 안다 — "누가 누구와 팀"이라는 확정 팀 관계를 저장하는
+  // 필드가 없다. 관심 표명·팀 조율은 전부 E2E 메시지다 (companions.ts 신뢰 모델).
+  registerCompanions(app, { db, authenticate });
 
   // ── 보물 마이닝 (M9): 명세 배포 + 수량 한정 발행 회계 ─────────────
   // 이동 검증은 100% 폰 로컬 — 서버는 걸음·방향·좌표를 받지 않는다.

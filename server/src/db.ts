@@ -267,6 +267,34 @@ export function createDb(path: string): DatabaseSync {
       received_count INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    -- 동행 찾기 게시판 (M8, 재조정 §4-6) — 여정 공유 + 팀 모집.
+    -- 게스트북·별점과 같은 자발 공개 모델: 게시자(author_member_id)가 자기 여정을
+    -- 공개 모집한다. 화면 표시 신원은 display_name(닉네임)이며, author_member_id는
+    -- E2E 1:1 접촉·웹 딥링크를 위한 연락 라우팅 핸들이다 (엔젤 디렉토리 GET /angels가
+    -- memberId를 공개하는 것과 동일 — 실명·전화·이메일 같은 개인정보가 아니다).
+    -- ★프라이버시 핵심: 이 테이블 어디에도 "누가 누구와 팀"이라는 확정 팀 관계를
+    --  저장하는 필드가 없다 (팀원·수락된 관심 컬럼 없음). 서버가 아는 것은 게시자
+    --  본인의 공개 게시글까지다 — 관심 표명·팀 조율은 전부 E2E 메시지로만 오간다.
+    --  note·display_name은 사용자 원문(번역 대상 아님, noUiStrings 예외 — 이 GET은
+    --  guestbook message처럼 검사 대상 엔드포인트가 아니다).
+    CREATE TABLE IF NOT EXISTS companions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id TEXT UNIQUE NOT NULL,
+      author_member_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      region_id TEXT NOT NULL,
+      course_id TEXT,
+      from_date TEXT NOT NULL,
+      to_date TEXT NOT NULL,
+      party_size_current INTEGER NOT NULL,
+      party_size_target INTEGER NOT NULL,
+      mode TEXT NOT NULL, -- WALK | BIKE
+      note TEXT,
+      status TEXT NOT NULL, -- OPEN | CLOSED
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_companions_region ON companions(region_id, status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_companions_author ON companions(author_member_id, created_at);
   `);
   migrateFlaggedMembers(db);
   migrateAngelsAvailability(db);

@@ -15,6 +15,10 @@ import {
   buildAuthHeaders,
   stableStringify,
   type CoinFingerprint,
+  type CompanionMode,
+  type CompanionPostInput,
+  type CompanionStatus,
+  type CompanionUpdateInput,
   type CourseData,
   type Coin,
   type FlaggedMemberEntry,
@@ -193,6 +197,42 @@ export interface RatingSummary {
   /** 자발 신고 받은 총 개수 (>= publicCount) — 공개율 분모. */
   receivedCount: number;
   ratings: PublicRating[];
+}
+
+// ── 동행 찾기 계약 타입 (M8 — server/src/companions.ts와 계약을 공유한다) ──
+// 동행 게시글은 공개 모집이라 서버 저장이지만, 관심 표명은 E2E 메시지다 — 서버는
+// "누가 누구와 팀"이라는 확정 관계를 저장하지 않는다. authorMemberId·messagingPublicKey는
+// 화면 표시용이 아니라 E2E 접촉·딥링크를 위한 연락 라우팅 핸들이다 (엔젤 디렉토리와 동일).
+
+/**
+ * 공개 동행 게시글 (GET /companions) — 서버 JSON 형태.
+ * note·courseId는 미제공 시 null (게스트북 journeyLine과 동일한 null 규약).
+ */
+export interface CompanionListing {
+  postId: string;
+  /** 화면 표시 신원 = 게시자 닉네임 (실명 아님). */
+  displayName: string;
+  /** 연락 라우팅 핸들 (E2E 접촉·딥링크용) — 실명·전화가 아닌 가명 ID. */
+  authorMemberId: string;
+  messagingPublicKey: string;
+  regionId: string;
+  courseId: string | null;
+  fromDate: string;
+  toDate: string;
+  partySizeCurrent: number;
+  partySizeTarget: number;
+  mode: CompanionMode;
+  note: string | null;
+  status: CompanionStatus;
+  createdAt: number;
+}
+
+/** GET /companions 필터 (전부 선택). status 미지정 시 전체. */
+export interface CompanionFilter {
+  region?: string;
+  course?: string;
+  status?: CompanionStatus;
+  author?: string;
 }
 
 // ── 보물 마이닝 계약 타입 (M9 — server/src/treasure.ts와 계약을 공유한다) ──
@@ -705,6 +745,43 @@ export class DirectoryApi {
   /** 공개 별점 열람 (비서명) — 평균·게시 수·자발 신고 받은 수·카드. 회원 번호 없음. */
   getRatings(memberId: string): Promise<RatingSummary> {
     return this.#request('GET', `/ratings?member=${encodeURIComponent(memberId)}`, null, false);
+  }
+
+  // ── 동행 찾기 (M8 — 여정 공유 + 팀 모집) ──
+
+  /** 동행 모집 글 등록 (게시자 서명). 지역·날짜·팀 규모·이동 수단·한마디. */
+  createCompanion(input: CompanionPostInput): Promise<{ posted: boolean; postId: string }> {
+    return this.#request('POST', '/companions', input, true);
+  }
+
+  /** 게시글 상태·인원 갱신 (게시자 서명) — 모집 마감·인원 증감. 자기 글만. */
+  updateCompanion(
+    postId: string,
+    update: CompanionUpdateInput,
+  ): Promise<{ updated: boolean; postId: string; status: CompanionStatus; partySizeCurrent: number; partySizeTarget: number }> {
+    return this.#request('PUT', `/companions/${encodeURIComponent(postId)}`, update, true);
+  }
+
+  /** 게시글 삭제 (게시자 서명) — 자기 글만. */
+  removeCompanion(postId: string): Promise<{ removed: boolean; postId: string }> {
+    return this.#request('DELETE', `/companions/${encodeURIComponent(postId)}`, null, true);
+  }
+
+  /** 동행 게시판 열람 (비서명) — 지역·코스·상태·게시자 필터. 게시자 닉네임 + 연락 핸들. */
+  async getCompanions(filter: CompanionFilter = {}): Promise<CompanionListing[]> {
+    const params = new URLSearchParams();
+    if (filter.region) params.set('region', filter.region);
+    if (filter.course) params.set('course', filter.course);
+    if (filter.status) params.set('status', filter.status);
+    if (filter.author) params.set('author', filter.author);
+    const qs = params.toString();
+    const res = await this.#request<{ companions: CompanionListing[] }>(
+      'GET',
+      qs ? `/companions?${qs}` : '/companions',
+      null,
+      false,
+    );
+    return res.companions;
   }
 
   // ── 코인 마켓 (지시서 0-8, 5장 4절 — 마켓은 온라인 전용 서버 기능) ──

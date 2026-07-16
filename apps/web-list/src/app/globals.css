@@ -701,3 +701,74 @@ h2 {
 .expand-trail .region-badge {
   margin-inline-start: auto;
 }
+
+/* ── 동행 찾기 게시판 (M8 — 여정 공유·팀 모집) ─────────────────── */
+/* 데스크톱 우선 와이드: 넓은 본문으로 편히 읽는 게시판의 글 (재조정 §0-1). */
+.companion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.companion-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.1rem 1.3rem;
+}
+
+.companion-card.is-closed {
+  opacity: 0.72;
+}
+
+.companion-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.companion-who {
+  margin: 0;
+  font-size: 1.08rem;
+  color: var(--green-900);
+}
+
+.companion-mode {
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.companion-journey {
+  margin: 0.5rem 0 0;
+  font-weight: 600;
+}
+
+.companion-meta {
+  margin: 0.35rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.companion-note {
+  margin: 0.7rem 0 0;
+  line-height: 1.5;
+}
+
+.companion-actions {
+  margin-top: auto;
+  padding-top: 0.9rem;
+}
+
+.companion-actions .btn {
+  width: 100%;
+  text-align: center;
+}
+
+.companion-party-rec {
+  color: var(--green-700);
+  font-weight: 600;
+}

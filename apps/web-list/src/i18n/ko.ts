@@ -7,6 +7,7 @@ export const ko: Strings = {
     tagline: '걷는 사람들의 집 — 여행하며 코인을 만드는 순례자. 스스로 기록하고 스스로 인증한다.',
     nav: {
       angels: '엔젤 찾기',
+      companions: '동행 찾기',
       courses: '코스 등록부',
       claims: '클레임 게시판',
       certificates: '완주 갤러리',
@@ -97,6 +98,33 @@ export const ko: Strings = {
     ratingSummary: (avg, count, ratioPercent) => `★ ${avg} (${count}개, 공개율 ${ratioPercent}%)`,
     ratingNone: '아직 받은 별점이 없습니다',
     ratingDisclaimer: '참고 지표 — 검증된 값이 아닙니다 (프로필 주인이 게시).',
+  },
+
+  companions: {
+    title: '동행 찾기',
+    intro:
+      '여정을 나누고 함께 걸을 사람을 미리 만나는 공간입니다. 혼자보다 3~4팀이 ' +
+      '길에서 서로 의지가 되고, 투숙도 한결 수월해집니다 — 코인보다 사람이 먼저입니다. ' +
+      '구간·대략 날짜·팀 규모를 보고 마음이 맞는 여정을 찾아보세요.',
+    readOnlyNote:
+      '이 사이트는 열람과 계획까지입니다. 동행 글 작성과 "관심 보내기"는 서명 주체인 지갑 앱에서 합니다.',
+    teamNote: '3~4인 팀 권장 — 함께 걷는 사람이 있으면 신뢰도가 높아지고 투숙도 수월합니다 (다니엘 쌤 경험).',
+    filterTitle: '지역',
+    filterAllRegions: '전체 지역',
+    filterOpen: '모집 중',
+    filterAll: '전체',
+    count: (n) => `모집 중 ${n}개`,
+    modeWalk: '🚶 도보',
+    modeBike: '🚲 자전거',
+    dateRange: (from, to) => `🗓 ${from} ~ ${to}`,
+    partyValue: (current, target) => `👥 ${current} / ${target}명`,
+    recommendedBadge: '권장 팀 규모',
+    closedBadge: '모집 마감',
+    contactCta: '지갑 앱에서 관심 보내기',
+    contactNote:
+      '쉬빌 지갑 앱이 설치된 기기에서 열립니다. 관심 보내기·연락은 지갑에서만 — 게시자와 종단간 암호화 메시지로 이어집니다.',
+    postInApp: '동행 글은 지갑 앱에서 올립니다 (더보기 → 동행 찾기 → 동행 글 올리기).',
+    empty: '아직 모집 중인 동행 글이 없습니다. 지갑 앱에서 첫 글을 올려 보세요.',
   },
 
   courses: {

@@ -15,6 +15,7 @@ const MENU: { screen: keyof MoreStackParamList; icon: string; title: string; des
   { screen: '메시지', icon: '💬', title: '메시지', desc: '엔젤과 채팅 · 종단간 암호화 · 도착 예정 시각 공유 · 감사 카드' },
   { screen: '게스트북', icon: '📖', title: '게스트북 (엔젤)', desc: '받은 감사 카드를 방명록에 공개·철회 (빈집 방명록의 디지털판)' },
   { screen: '내 별점', icon: '⭐', title: '내 별점 (받은 평가)', desc: '받은 별점을 프로필에 공개·철회 · 공개율 표시 (상호 별점)' },
+  { screen: '동행 찾기', icon: '🥾', title: '동행 찾기', desc: '여정을 나누고 함께 걸을 팀 모집 · 관심은 E2E 메시지로 (3~4인 권장)' },
   { screen: '내 포인트', icon: '🏠', title: '내 포인트 (엔젤)', desc: '엔젤 모드 전환 · 위치·서비스 등록 · 등록 보너스' },
   { screen: '마켓', icon: '🪙', title: '코인 마켓', desc: '무정가 리스팅 · 가격 제시 · 에스크로 USDC 정산 (온라인 전용)' },
   { screen: '커뮤니티', icon: '🤝', title: '커뮤니티', desc: '클레임 구제 · 완주 인증 격려 코인 · 인정 투표 (온라인 전용)' },

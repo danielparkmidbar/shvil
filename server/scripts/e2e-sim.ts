@@ -31,10 +31,12 @@ import {
   newThanksCardId,
   openMessage,
   parseBookingPayload,
+  parseCompanionInterest,
   parseRatingPayload,
   parseThanksCardPayload,
   sealMessage,
   serializeBookingPayload,
+  serializeCompanionInterest,
   serializeRatingPayload,
   serializeThanksCardPayload,
   signerFromKeyPair,
@@ -47,6 +49,7 @@ import {
   verifyMembershipCertificate,
   type BookingReplyPayload,
   type BookingRequestPayload,
+  type CompanionInterestPayload,
   type RatingCardPayload,
   type ThanksCardPayload,
   type Coin,
@@ -610,8 +613,85 @@ async function main() {
   const ratingAfter = await api('GET', `/ratings?member=${aviva.memberId}`);
   check('엔젤이 게시를 철회하면 프로필에서 사라진다', delRating.status === 200 && ratingAfter.json.publicCount === 0);
 
-  // 14) 거래 승인 엔드포인트 부재 (헌법 제9조)
-  console.log('\n[14] 무승인 시스템 확인 (헌법 제9조)');
+  // 14) 동행 찾기 (M8) — 게시 → 조회 → 관심 표명(E2E) → 마감.
+  //     게시글은 서버 저장(공개 모집)이지만, 관심 표명은 E2E 메시지다 — 서버는
+  //     암호문만 중계하고 "누가 누구와 팀"이라는 확정 관계를 저장하지 않는다.
+  console.log('\n[14] 동행 찾기 — 게시 → 조회 → 관심 E2E → 마감 (M8)');
+  const cmpPost = await signedApi(lior, 'POST', '/companions', {
+    regionId: 'israel-national',
+    courseId: 'shvil-israel',
+    fromDate: '2026-08-01',
+    toDate: '2026-08-05',
+    partySizeCurrent: 1,
+    partySizeTarget: 4,
+    mode: 'WALK',
+    displayName: '리오르',
+    note: '북부 구간을 함께 걸을 3~4인 팀을 찾습니다.',
+  });
+  check('동행 모집 글 등록 (게시자 서명)', cmpPost.status === 200 && /^cmp-[0-9a-f]{16}$/.test(cmpPost.json.postId));
+  const cmpPostId = cmpPost.json.postId as string;
+  const cmpList = await api('GET', '/companions?region=israel-national&status=OPEN');
+  const cmpEntry = (cmpList.json.companions as { postId: string; displayName: string; authorMemberId: string; messagingPublicKey: string }[]).find(
+    (c) => c.postId === cmpPostId,
+  )!;
+  check(
+    '공개 게시판에 닉네임·연락 핸들로 열람된다 (엔젤 디렉토리와 동일)',
+    cmpEntry?.displayName === '리오르' && cmpEntry.authorMemberId === lior.memberId && cmpEntry.messagingPublicKey === lior.msg.publicKeyHex,
+  );
+
+  // 관심 표명 — 노아가 게시글의 연락 핸들로 E2E COMPANION_INTEREST를 봉인해 보낸다.
+  const interest: CompanionInterestPayload = {
+    kind: 'COMPANION_INTEREST',
+    postId: cmpPostId,
+    fromDisplayName: '노아',
+    note: '저도 같은 날짜에 북부를 걷습니다. 함께 걸어요!',
+  };
+  const interestEnvelope = sealMessage({
+    plaintext: serializeCompanionInterest(interest),
+    fromMemberId: noa.memberId,
+    toMemberId: cmpEntry.authorMemberId,
+    senderMsgKeyPair: noa.msg,
+    recipientMsgPublicKey: cmpEntry.messagingPublicKey,
+    deviceSigner: noa.signer,
+    now: Date.now(),
+  });
+  check(
+    '관심 표명 봉투(서버가 보는 전부)에 관심 내용·게시글 id가 없다',
+    !JSON.stringify(interestEnvelope).includes('COMPANION_INTEREST') && !JSON.stringify(interestEnvelope).includes(cmpPostId),
+  );
+  await signedApi(noa, 'POST', '/messages', { envelope: interestEnvelope });
+
+  // 게시자(리오르)가 관심 표명을 복호화·파싱한다 — 실제 조율은 이 E2E 채널에서.
+  const cmpInbox = await signedApi(lior, 'GET', '/messages?sinceId=0');
+  const interestEnv = (cmpInbox.json.messages as { envelope: MessageEnvelope }[])
+    .map((m) => m.envelope)
+    .filter((e) => e.fromMemberId === noa.memberId)
+    .pop()!;
+  const parsedInterest = parseCompanionInterest(openMessage(interestEnv, lior.msg).plaintext);
+  check(
+    '게시자가 관심 표명을 복호화·파싱한다 (게시글 id·닉네임)',
+    parsedInterest?.kind === 'COMPANION_INTEREST' && parsedInterest.postId === cmpPostId && parsedInterest.fromDisplayName === '노아',
+  );
+
+  // 팀이 꾸려지면 게시자가 인원을 갱신하고 모집을 마감한다.
+  await signedApi(lior, 'PUT', `/companions/${cmpPostId}`, { partySizeCurrent: 2 });
+  const cmpClose = await signedApi(lior, 'PUT', `/companions/${cmpPostId}`, { status: 'CLOSED' });
+  check('게시자가 인원 갱신 후 모집 마감', cmpClose.status === 200 && cmpClose.json.status === 'CLOSED');
+  const cmpAfter = await api('GET', '/companions?status=OPEN');
+  check(
+    '마감된 글은 공개 모집 목록에서 사라진다',
+    !(cmpAfter.json.companions as { postId: string }[]).some((c) => c.postId === cmpPostId),
+  );
+  // ★프라이버시: 게시판 응답 어디에도 관심을 표명한 노아의 회원 번호가 없다 —
+  //   확정 팀 관계는 서버에 저장되지 않는다 (관계는 E2E에만).
+  const cmpMine = await api('GET', `/companions?author=${lior.memberId}`);
+  check(
+    '서버는 확정 팀 관계를 저장하지 않는다 (관심자 회원 번호가 게시글에 없다)',
+    !JSON.stringify(cmpMine.json).includes(noa.memberId),
+  );
+
+  // 15) 거래 승인 엔드포인트 부재 (헌법 제9조)
+  console.log('\n[15] 무승인 시스템 확인 (헌법 제9조)');
   const approveTx = await api('POST', '/approve', {});
   const payments = await api('POST', '/payments', {});
   check('거래 승인/지불 엔드포인트가 존재하지 않는다', approveTx.status === 404 && payments.status === 404);

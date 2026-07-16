@@ -25,6 +25,10 @@ export type MoreStackParamList = {
   };
   /** M7-B: 내 별점 관리 (받은 별점 공개·철회, 공개율 표시). */
   '내 별점': undefined;
+  /** M8: 동행 찾기 게시판 + 내 글 관리 (여정 공유·팀 모집). */
+  '동행 찾기': undefined;
+  /** M8: 동행 글쓰기 (지역·날짜·팀 규모·도보/자전거·한마디). */
+  '동행 글쓰기': undefined;
   '내 포인트': undefined;
   마켓: undefined;
   커뮤니티: undefined;

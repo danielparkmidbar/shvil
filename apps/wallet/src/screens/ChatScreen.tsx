@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { parseCompanionInterest } from '@shvil/shared';
 import { chatService, useChat } from '../core/chatService';
 import { buildEtaMessage, SENDER_UNVERIFIED_PREFIX } from '../core/chatFormat';
 import { parseChatBooking } from '../core/bookingFormat';
@@ -110,7 +111,10 @@ export function ChatScreen({ route, navigation }: Props) {
           const thanks = booking === null ? parseChatThanksCard(item.text) : null;
           // M7-B: 별점도 카드로 (예약·감사 카드와 형제 — kind로 분기, 하위 호환 폴백).
           const rating = booking === null && thanks === null ? parseChatRating(item.text) : null;
-          const structured = booking !== null || thanks !== null || rating !== null;
+          // M8: 동행 관심 표명도 카드로 (형제 타입 — kind로 분기, 하위 호환 폴백).
+          const interest =
+            booking === null && thanks === null && rating === null ? parseCompanionInterest(item.text) : null;
+          const structured = booking !== null || thanks !== null || rating !== null || interest !== null;
           const canPublish =
             thanks !== null && item.direction === 'IN' && thanks.makePublic;
           const published = thanks !== null && publishedCardIds.has(thanks.cardId);
@@ -148,6 +152,12 @@ export function ChatScreen({ route, navigation }: Props) {
                 </>
               ) : rating !== null ? (
                 <RatingMessageCard payload={rating} />
+              ) : interest !== null ? (
+                <View>
+                  <Text style={styles.interestHead}>🤝 동행 관심 — {interest.fromDisplayName}</Text>
+                  {interest.note ? <Text style={styles.interestNote}>{interest.note}</Text> : null}
+                  <Text style={styles.interestMeta}>동행 모집 글에 관심을 보냈습니다. 함께 조율해 보세요.</Text>
+                </View>
               ) : (
                 <Text style={item.direction === 'OUT' ? styles.outText : styles.inText}>
                   {unverified ? item.text.slice(SENDER_UNVERIFIED_PREFIX.length) : item.text}
@@ -222,6 +232,9 @@ const styles = StyleSheet.create({
   unverified: { color: colors.danger, fontSize: 11, fontWeight: '700', marginBottom: 2 },
   publishBtn: { marginTop: 8 },
   publishedTag: { marginTop: 8, fontSize: 12, fontWeight: '700', color: colors.primary },
+  interestHead: { fontSize: 15, fontWeight: '700', color: '#1A1F1A' },
+  interestNote: { fontSize: 14, color: '#1A1F1A', marginTop: 4 },
+  interestMeta: { fontSize: 12, color: colors.muted, marginTop: 4 },
   time: { fontSize: 10, color: '#9AA79A', marginTop: 4, alignSelf: 'flex-end' },
   etaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4, flexWrap: 'wrap' },
   etaBtn: { marginLeft: 4 },

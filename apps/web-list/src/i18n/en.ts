@@ -8,6 +8,7 @@ export const en: Strings = {
       'The home of the shvilists — walkers who mint coins as they journey. You record it yourself, you attest it yourself.',
     nav: {
       angels: 'Find an Angel',
+      companions: 'Find Companions',
       courses: 'Course Registry',
       claims: 'Claims Board',
       certificates: 'Completion Gallery',
@@ -99,6 +100,34 @@ export const en: Strings = {
       `★ ${avg} (${count} rating${count === 1 ? '' : 's'}, ${ratioPercent}% public)`,
     ratingNone: 'No ratings received yet',
     ratingDisclaimer: 'For reference only — not a verified score (posted by the profile owner).',
+  },
+
+  companions: {
+    title: 'Find Companions',
+    intro:
+      'A place to share your journey and meet the people you will walk with — before you set out. ' +
+      'Rather than walking alone, a team of three or four supports one another on the trail and finds ' +
+      'hosting more easily; people come before coins. Browse the sections, dates and team sizes to find ' +
+      'a journey that matches yours.',
+    readOnlyNote:
+      'This site is for browsing and planning. Posting a companion notice and sending interest happen in the wallet app, which holds your signing key.',
+    teamNote: 'Teams of 3–4 recommended — walking together builds trust and makes hosting easier (from Daniel’s experience).',
+    filterTitle: 'Region',
+    filterAllRegions: 'All regions',
+    filterOpen: 'Recruiting',
+    filterAll: 'All',
+    count: (n) => `${n} recruiting`,
+    modeWalk: '🚶 On foot',
+    modeBike: '🚲 By bike',
+    dateRange: (from, to) => `🗓 ${from} – ${to}`,
+    partyValue: (current, target) => `👥 ${current} / ${target}`,
+    recommendedBadge: 'Recommended size',
+    closedBadge: 'Closed',
+    contactCta: 'Send interest in the wallet app',
+    contactNote:
+      'Opens on a device with the Shvil wallet installed. Interest and contact happen only in the wallet — an end-to-end encrypted message to the poster.',
+    postInApp: 'Post a companion notice from the wallet app (More → Find Companions → New post).',
+    empty: 'No companion posts are recruiting yet. Post the first one from the wallet app.',
   },
 
   courses: {

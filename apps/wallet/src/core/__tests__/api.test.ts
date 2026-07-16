@@ -239,4 +239,77 @@ describe('DirectoryApi', () => {
     expect(seenHeaders[AUTH_HEADER_SIG]).toBeTruthy();
     expect(res.claimId).toBe(11);
   });
+
+  // ── 동행 찾기 (M8) — 게시·갱신·삭제는 게시자 서명, 열람은 공개 ──
+
+  it('GET /companions는 공개(비서명) — 필터 쿼리 구성과 응답 언랩', async () => {
+    let seenUrl = '';
+    let seenHeaders: Record<string, string> = {};
+    const api = makeApi(
+      fakeFetch({
+        url: (u) => (seenUrl = u),
+        headers: (h) => (seenHeaders = h),
+        responseBody: {
+          companions: [
+            { postId: 'cmp-0011223344556677', displayName: '리오르', authorMemberId: 'SHV-000001', status: 'OPEN' },
+          ],
+        },
+      }),
+    );
+    const list = await api.getCompanions({ region: 'israel-national', status: 'OPEN' });
+    expect(seenUrl).toBe('http://localhost:8787/companions?region=israel-national&status=OPEN');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBeUndefined(); // 공개 열람 — 회원 번호는 화면에 안 쓰인다
+    expect(list[0]!.displayName).toBe('리오르');
+    expect(list[0]!.authorMemberId).toBe('SHV-000001'); // E2E 접촉·딥링크용 연락 핸들
+  });
+
+  it('POST /companions는 게시자 서명 제출 — 경로·인증 헤더·응답 언랩', async () => {
+    let seenUrl = '';
+    let seenHeaders: Record<string, string> = {};
+    const api = makeApi(
+      fakeFetch({
+        url: (u) => (seenUrl = u),
+        headers: (h) => (seenHeaders = h),
+        responseBody: { posted: true, postId: 'cmp-0011223344556677' },
+      }),
+    );
+    const res = await api.createCompanion({
+      regionId: 'israel-national',
+      fromDate: '2026-08-01',
+      toDate: '2026-08-05',
+      partySizeCurrent: 1,
+      partySizeTarget: 4,
+      mode: 'WALK',
+      displayName: '리오르',
+    });
+    expect(seenUrl).toBe('http://localhost:8787/companions');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 게시자 서명
+    expect(seenHeaders[AUTH_HEADER_SIG]).toBeTruthy();
+    expect(res.postId).toBe('cmp-0011223344556677');
+  });
+
+  it('PUT/DELETE /companions/:id는 게시자 서명 — 마감·삭제 경로', async () => {
+    let putUrl = '';
+    let seenHeaders: Record<string, string> = {};
+    const putApi = makeApi(
+      fakeFetch({
+        url: (u) => (putUrl = u),
+        headers: (h) => (seenHeaders = h),
+        responseBody: { updated: true, postId: 'cmp-0011223344556677', status: 'CLOSED', partySizeCurrent: 2, partySizeTarget: 4 },
+      }),
+    );
+    const upd = await putApi.updateCompanion('cmp-0011223344556677', { status: 'CLOSED' });
+    expect(putUrl).toBe('http://localhost:8787/companions/cmp-0011223344556677');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456');
+    expect(upd.status).toBe('CLOSED');
+
+    let delUrl = '';
+    const delApi = makeApi(
+      fakeFetch({ url: (u) => (delUrl = u), headers: (h) => (seenHeaders = h), responseBody: { removed: true, postId: 'cmp-0011223344556677' } }),
+    );
+    const del = await delApi.removeCompanion('cmp-0011223344556677');
+    expect(delUrl).toBe('http://localhost:8787/companions/cmp-0011223344556677');
+    expect(seenHeaders[AUTH_HEADER_MEMBER]).toBe('SHV-123456'); // 삭제도 게시자 서명
+    expect(del.removed).toBe(true);
+  });
 });

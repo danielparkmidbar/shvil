@@ -24,6 +24,7 @@ export interface Strings {
     tagline: string;
     nav: {
       angels: string;
+      companions: string;
       courses: string;
       claims: string;
       certificates: string;
@@ -112,6 +113,42 @@ export interface Strings {
      * 겸손히 밝힌다 (별점_프라이버시_결정.md R-1d).
      */
     ratingDisclaimer: string;
+  };
+
+  /**
+   * 동행 찾기 게시판 (M8 — 서비스 재조정 §4-6, R-6).
+   * 여정을 나누고 함께 걸을 팀을 미리 만드는 공간. 웹은 열람·계획까지 —
+   * 글 작성·관심 보내기는 지갑 앱에서 한다 (R-7). 3~4인 팀 권장을 부드럽게 표기한다.
+   */
+  companions: {
+    title: string;
+    intro: string;
+    /** 웹은 열람만 — 글 작성·관심 보내기는 지갑 앱에서 (R-7). */
+    readOnlyNote: string;
+    /** 3~4인 팀이 투숙·신뢰에 유리하다는 안내 (다니엘 쌤 경험). */
+    teamNote: string;
+    filterTitle: string;
+    filterAllRegions: string;
+    filterOpen: string;
+    filterAll: string;
+    /** "N개 모집 중" — 목록 개수. */
+    count: (n: number) => string;
+    modeWalk: string;
+    modeBike: string;
+    /** "🗓 {from} ~ {to}" 여정 기간. */
+    dateRange: (from: string, to: string) => string;
+    /** "👥 {current} / {target}명" 팀 규모. */
+    partyValue: (current: number, target: number) => string;
+    /** 권장 팀 규모 배지 (3~4인). */
+    recommendedBadge: string;
+    /** 마감 배지. */
+    closedBadge: string;
+    /** 딥링크 버튼 — "지갑 앱에서 관심 보내기" (웹 신청 불허, R-7). */
+    contactCta: string;
+    contactNote: string;
+    /** "지갑 앱에서 동행 글을 올리세요" 안내 (웹 작성 불가). */
+    postInApp: string;
+    empty: string;
   };
 
   courses: {

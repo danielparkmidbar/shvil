@@ -8,6 +8,7 @@ export const es: Strings = {
       'El hogar de los shvilists — caminantes que acuñan monedas mientras viajan. Tú lo registras, tú lo acreditas.',
     nav: {
       angels: 'Buscar un ángel',
+      companions: 'Buscar compañeros',
       courses: 'Registro de rutas',
       claims: 'Tablón de reclamos',
       certificates: 'Galería de finalizadores',
@@ -101,6 +102,34 @@ export const es: Strings = {
       `★ ${avg} (${count} valoración${count === 1 ? '' : 'es'}, ${ratioPercent}% públicas)`,
     ratingNone: 'Aún no ha recibido valoraciones',
     ratingDisclaimer: 'Solo de referencia — no es una puntuación verificada (la publica el titular del perfil).',
+  },
+
+  companions: {
+    title: 'Buscar compañeros',
+    intro:
+      'Un espacio para compartir tu viaje y conocer, antes de partir, a las personas con quienes ' +
+      'caminarás. En lugar de caminar en solitario, un equipo de tres o cuatro se apoya en el sendero ' +
+      'y encuentra alojamiento con más facilidad; las personas están antes que las monedas. Revisa los ' +
+      'tramos, las fechas y los tamaños de equipo para encontrar un viaje afín al tuyo.',
+    readOnlyNote:
+      'Este sitio es para consultar y planificar. Publicar un aviso de compañía y enviar interés se hacen en la aplicación de billetera, que guarda tu clave de firma.',
+    teamNote: 'Se recomiendan equipos de 3–4 — caminar juntos genera confianza y facilita el alojamiento (por la experiencia de Daniel).',
+    filterTitle: 'Región',
+    filterAllRegions: 'Todas las regiones',
+    filterOpen: 'Reclutando',
+    filterAll: 'Todos',
+    count: (n) => `${n} reclutando`,
+    modeWalk: '🚶 A pie',
+    modeBike: '🚲 En bici',
+    dateRange: (from, to) => `🗓 ${from} – ${to}`,
+    partyValue: (current, target) => `👥 ${current} / ${target}`,
+    recommendedBadge: 'Tamaño recomendado',
+    closedBadge: 'Cerrado',
+    contactCta: 'Enviar interés desde la billetera',
+    contactNote:
+      'Se abre en un dispositivo con la billetera Shvil instalada. El interés y el contacto ocurren solo en la billetera — un mensaje cifrado de extremo a extremo al autor.',
+    postInApp: 'Publica un aviso de compañía desde la aplicación de billetera (Más → Buscar compañeros → Nueva publicación).',
+    empty: 'Aún no hay publicaciones de compañía reclutando. Publica la primera desde la billetera.',
   },
 
   courses: {
