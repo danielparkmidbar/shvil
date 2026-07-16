@@ -94,6 +94,14 @@ export const he: Strings = {
     // 히브리어 단복수 분기 — n=1일 때 '1 כרטיסים'(= "1 cards") 같은 비문을 막는다.
     guestbookCount: (n) => (n === 1 ? 'ספר אורחים · כרטיס אחד' : `ספר אורחים · ${n} כרטיסים`),
     guestbookEmpty: 'עדיין לא הושארו כאן כרטיסי תודה.',
+    ratingTitle: 'דירוג',
+    // 히브리어 단복수 분기 — n=1일 때 '1 דירוגים'(= "1 ratings") 같은 비문을 막는다.
+    ratingSummary: (avg, count, ratioPercent) =>
+      count === 1
+        ? `★ ${avg} (דירוג אחד, ${ratioPercent}% פומביים)`
+        : `★ ${avg} (${count} דירוגים, ${ratioPercent}% פומביים)`,
+    ratingNone: 'עדיין לא התקבלו דירוגים',
+    ratingDisclaimer: 'לעיון בלבד — לא ציון מאומת (מתפרסם על ידי בעל הפרופיל).',
   },
 
   courses: {

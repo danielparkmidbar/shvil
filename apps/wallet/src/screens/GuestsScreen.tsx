@@ -11,17 +11,21 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { chatService, useChat } from '../core/chatService';
 import { buildGuestInbox, fmtBookingDates, replyStatusLabel, type GuestInboxItem } from '../core/bookingFormat';
 import { approveBooking, declineBooking, suggestBookingDates } from '../core/bookingService';
 import { loadAllChatMessages } from '../core/db';
 import { BookingReplyCard } from '../ui/BookingCards';
 import { Card, Muted, Title, colors } from '../ui/common';
+import type { RootTabParamList } from './navTypes';
 
 type PanelKind = 'APPROVE' | 'DECLINE' | 'SUGGEST';
 
 export function GuestsScreen() {
   const chat = useChat(); // 새 메시지 폴링 반영 트리거
+  const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const [inbox, setInbox] = useState<GuestInboxItem[]>([]);
   const [openPanel, setOpenPanel] = useState<{ requestId: string; kind: PanelKind } | null>(null);
   const [addressText, setAddressText] = useState('');
@@ -101,6 +105,27 @@ export function GuestsScreen() {
         </View>
 
         {item.reply !== null && <BookingReplyCard payload={item.reply} />}
+
+        {/* M7-B: 승인한 손님에게 별점 남기기 (엔젤 → 손님). 관계 증명 = 이 승인. */}
+        {item.reply?.decision === 'APPROVED' && (
+          <View style={styles.rateRow}>
+            <Button
+              title="⭐ 별점 남기기"
+              color={colors.primary}
+              onPress={() =>
+                navigation.navigate('더보기', {
+                  screen: '별점 남기기',
+                  params: {
+                    peerMemberId: item.peerMemberId,
+                    peerName: nameOf(item),
+                    relationProof: { kind: 'BOOKING_APPROVAL', requestId: item.requestId },
+                    direction: 'ANGEL_TO_GUEST',
+                  },
+                })
+              }
+            />
+          </View>
+        )}
 
         {item.reply === null && panel === null && (
           <View style={styles.btnRow}>
@@ -206,6 +231,7 @@ const styles = StyleSheet.create({
   line: { fontSize: 14 },
   profileBox: { backgroundColor: 'rgba(46,125,50,0.08)', borderRadius: 8, padding: 8, gap: 1 },
   btnRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  rateRow: { marginTop: 6 },
   btn: { flex: 1 },
   panel: { marginTop: 8, gap: 4 },
   panelTitle: { fontSize: 14, fontWeight: '700' },

@@ -238,6 +238,35 @@ export function createDb(path: string): DatabaseSync {
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_guestbook_angel ON guestbook(angel_member_id, created_at);
+    -- 상호 별점 (M7-B, 별점_프라이버시_결정 안 B) — 게스트북과 같은 신뢰 모델.
+    -- 별점은 E2E 서명 카드로 피평가자 지갑에 도착한다 (서버는 원본을 못 본다).
+    -- 피평가자가 받은 별점 중 하나를 자발 게시하면 서버가 그 내용만 보관한다.
+    -- ★프라이버시 핵심: subject_member_id(피평가자)만 저장하고, "평가자↔피평가자
+    --  관계"를 저장하는 필드는 어디에도 없다 — 평가자는 닉네임(from_display_name)만
+    --  남는다(게스트북과 동일). 서버는 "누가 누구 집에 묵었나"를 알 수 없다.
+    --  from_display_name·review는 사용자 원문(번역 대상 아님, noUiStrings 예외).
+    --  rating_id UNIQUE로 같은 별점 이중 게시 차단.
+    CREATE TABLE IF NOT EXISTS ratings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject_member_id TEXT NOT NULL,
+      rating_id TEXT UNIQUE NOT NULL,
+      stars INTEGER NOT NULL,
+      review TEXT,
+      from_display_name TEXT NOT NULL,
+      direction TEXT NOT NULL, -- GUEST_TO_ANGEL | ANGEL_TO_GUEST
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ratings_subject ON ratings(subject_member_id, created_at);
+    -- 자발 신고 "받은 총 개수" — 공개율("N개 받음 / M개 공개") 분모.
+    -- ★서버가 별점 이벤트를 카운트하면 관계망이 남으므로(안 B 위배) 카운트하지
+    --  않는다. 대신 피평가자가 게시할 때 자기 로컬 수신 총수를 자발 신고한다 —
+    --  이것은 "누가 평가했나"를 담지 않는 단일 숫자라 관계를 유출하지 않는다.
+    --  (은폐 방어의 한계: 자발 신고라 축소 신고로 공개율을 부풀릴 여지 — 남는 위험.)
+    CREATE TABLE IF NOT EXISTS rating_disclosures (
+      subject_member_id TEXT PRIMARY KEY,
+      received_count INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
   migrateFlaggedMembers(db);
   migrateAngelsAvailability(db);

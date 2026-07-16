@@ -42,6 +42,7 @@ import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
 import { officialCourses, registerCommunity } from './community';
 import { registerGuestbook } from './guestbook';
+import { registerRatings } from './ratings';
 import { registerTreasures, treasureTransparency } from './treasure';
 import { registerSync } from './sync';
 import { registerBackup } from './backup';
@@ -638,6 +639,13 @@ export function buildApp(
   // 서버는 E2E 원본 카드를 못 본다 — 엔젤 서명으로 인증된 자발 게시만 신뢰한다
   // (신뢰 모델 상세는 guestbook.ts 주석). 공개 조회는 닉네임만, 회원 번호 비노출.
   registerGuestbook(app, { db, authenticate });
+
+  // ── 상호 별점 (M7-B): 피평가자가 받은 별점을 자발 공개 게시 ─────────
+  // 게스트북과 같은 신뢰 모델 (안 B). 서버는 E2E 서명 별점 원본을 못 본다 —
+  // 피평가자 서명으로 인증된 자발 게시만 신뢰한다. ★프라이버시 핵심: 이 라우트
+  // 어디에도 "평가자↔피평가자 관계"를 저장하는 필드가 없다 — 서버는 투숙 관계를
+  // 모른다 (평가자는 닉네임만, 관계 증명은 게시 본문에 받지 않는다). ratings.ts 주석.
+  registerRatings(app, { db, authenticate });
 
   // ── 보물 마이닝 (M9): 명세 배포 + 수량 한정 발행 회계 ─────────────
   // 이동 검증은 100% 폰 로컬 — 서버는 걸음·방향·좌표를 받지 않는다.

@@ -54,6 +54,16 @@ export async function openDb(): Promise<SQLite.SQLiteDatabase> {
       sent_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_chat_peer ON chat_messages (peer_member_id, sent_at);
+    -- 준 별점 사본 (M7-B, 별점_프라이버시_결정 안 B의 은폐 방어 (b)) — 내가 준 별점의
+    -- 서명 사본을 보관한다. 피평가자가 불리한 별점을 프로필에서 숨겨도, 평가자가
+    -- "나는 별 N개를 줬다"를 증명할 수 있게 하는 분쟁 대비 기록이다 (커뮤니티 감시).
+    -- 이 사본은 이 기기 안에만 있다 — 서버로 가지 않는다.
+    CREATE TABLE IF NOT EXISTS given_ratings (
+      rating_id TEXT PRIMARY KEY,
+      peer_member_id TEXT NOT NULL,
+      json TEXT NOT NULL,
+      sent_at INTEGER NOT NULL
+    );
   `);
   return db;
 }
@@ -246,6 +256,50 @@ export async function loadChatSummaries(): Promise<ChatMessageRow[]> {
     peerMemberId: r.peer_member_id,
     direction: r.direction as ChatDirection,
     text: r.text,
+    sentAt: r.sent_at,
+  }));
+}
+
+// ── 준 별점 사본 (M7-B — 분쟁 대비 은폐 방어) ──────────────────────
+
+export interface GivenRatingRow {
+  ratingId: string;
+  peerMemberId: string;
+  /** RatingCardPayload JSON (서명 대상 원문) — 분쟁 시 증거. */
+  json: string;
+  sentAt: number;
+}
+
+/** 내가 준 별점의 사본을 보관한다 (같은 ratingId 재저장은 무시). */
+export async function saveGivenRating(
+  ratingId: string,
+  peerMemberId: string,
+  json: string,
+  sentAt: number,
+): Promise<void> {
+  const d = await openDb();
+  await d.runAsync(
+    'INSERT OR IGNORE INTO given_ratings (rating_id, peer_member_id, json, sent_at) VALUES (?, ?, ?, ?)',
+    ratingId,
+    peerMemberId,
+    json,
+    sentAt,
+  );
+}
+
+/** 내가 준 별점 사본 전체 (최신순) — 분쟁 대비 확인용. */
+export async function loadGivenRatings(): Promise<GivenRatingRow[]> {
+  const d = await openDb();
+  const rows = await d.getAllAsync<{
+    rating_id: string;
+    peer_member_id: string;
+    json: string;
+    sent_at: number;
+  }>('SELECT * FROM given_ratings ORDER BY sent_at DESC');
+  return rows.map((r) => ({
+    ratingId: r.rating_id,
+    peerMemberId: r.peer_member_id,
+    json: r.json,
     sentAt: r.sent_at,
   }));
 }

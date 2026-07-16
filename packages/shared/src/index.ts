@@ -20,6 +20,7 @@ export * from './courses';
 export * from './messaging';
 export * from './booking';
 export * from './thanksCard';
+export * from './rating';
 export * from './apiAuth';
 export * from './sealing';
 export * from './distribution';

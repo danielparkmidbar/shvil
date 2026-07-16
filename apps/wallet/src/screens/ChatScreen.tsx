@@ -3,7 +3,7 @@
  * 도착 예정 시각 공유 버튼: 현재 시각 + N시간을 정형 문구로 전송.
  * 발신자 서명이 무효한 수신 메시지에는 "[발신자 확인 불가]" 표식이 붙는다.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -20,9 +20,12 @@ import { chatService, useChat } from '../core/chatService';
 import { buildEtaMessage, SENDER_UNVERIFIED_PREFIX } from '../core/chatFormat';
 import { parseChatBooking } from '../core/bookingFormat';
 import { parseChatThanksCard } from '../core/thanksCardFormat';
+import { parseChatRating, findBookingRelationProof, inferDirection } from '../core/ratingFormat';
 import { publishToGuestbook } from '../core/thanksCardService';
+import { useWallet } from '../core/walletService';
 import { BookingReplyCard, BookingRequestCard } from '../ui/BookingCards';
 import { ThanksCardMessageCard } from '../ui/ThanksCards';
+import { RatingMessageCard } from '../ui/RatingCards';
 import { Muted, colors } from '../ui/common';
 import type { MoreStackParamList } from './navTypes';
 
@@ -33,6 +36,7 @@ const ETA_HOURS = [1, 2, 4];
 export function ChatScreen({ route, navigation }: Props) {
   const { peerMemberId, peerName } = route.params;
   const chat = useChat();
+  const w = useWallet();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   /** 이 세션에서 게스트북에 공개한 카드 id — 버튼을 "게시함"으로 바꾼다. */
@@ -63,6 +67,13 @@ export function ChatScreen({ route, navigation }: Props) {
     chatService.startPolling();
     return () => chatService.closeConversation();
   }, [peerMemberId]);
+
+  // M7-B: 이 상대와의 관계(예약 승인)를 대화 이력에서 찾는다 — 있으면 별점 진입점을
+  // 노출한다 (관계 없으면 나타나지 않는다 — 제1원칙). 방향은 내 모드로 추론한다.
+  const relationProof = useMemo(
+    () => findBookingRelationProof(chat.activeMessages, peerMemberId),
+    [chat.activeMessages, peerMemberId],
+  );
 
   const send = (text: string) => {
     const body = text.trim();
@@ -97,7 +108,9 @@ export function ChatScreen({ route, navigation }: Props) {
           // M7-A: 감사 카드도 카드로. 받은(IN) 카드이고 작성자가 공개에 동의했으면
           // "게스트북에 공개" 버튼을 붙인다 (동의 확인은 지갑의 몫 — 서버는 원본을 못 봄).
           const thanks = booking === null ? parseChatThanksCard(item.text) : null;
-          const structured = booking !== null || thanks !== null;
+          // M7-B: 별점도 카드로 (예약·감사 카드와 형제 — kind로 분기, 하위 호환 폴백).
+          const rating = booking === null && thanks === null ? parseChatRating(item.text) : null;
+          const structured = booking !== null || thanks !== null || rating !== null;
           const canPublish =
             thanks !== null && item.direction === 'IN' && thanks.makePublic;
           const published = thanks !== null && publishedCardIds.has(thanks.cardId);
@@ -133,6 +146,8 @@ export function ChatScreen({ route, navigation }: Props) {
                       </View>
                     ))}
                 </>
+              ) : rating !== null ? (
+                <RatingMessageCard payload={rating} />
               ) : (
                 <Text style={item.direction === 'OUT' ? styles.outText : styles.inText}>
                   {unverified ? item.text.slice(SENDER_UNVERIFIED_PREFIX.length) : item.text}
@@ -159,6 +174,23 @@ export function ChatScreen({ route, navigation }: Props) {
             onPress={() => navigation.navigate('감사 카드', { peerMemberId, peerName })}
           />
         </View>
+        {/* M7-B: 관계(예약 승인)가 확인될 때만 별점 진입점을 노출한다 (제1원칙). */}
+        {relationProof && (
+          <View style={styles.etaBtn}>
+            <Button
+              title="⭐ 별점"
+              color={colors.primary}
+              onPress={() =>
+                navigation.navigate('별점 남기기', {
+                  peerMemberId,
+                  peerName,
+                  relationProof,
+                  direction: inferDirection(w.mode),
+                })
+              }
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.inputRow}>

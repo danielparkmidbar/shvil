@@ -95,6 +95,33 @@ export interface GuestbookCard {
   createdAt: number;
 }
 
+/**
+ * 상호 별점 (M7-B — 안 B, M7-A 게스트북의 형제 기능, 재조정 §4-5).
+ * 손님↔엔젤이 서로 남긴 별점 중 작성자가 공개에 동의한 것의 집계다.
+ * 회원 번호는 없다 — 닉네임(fromDisplayName)과 리뷰 원문만. review/fromDisplayName은
+ * 번역 대상이 아닌 사용자 원문 데이터다. 공개율(公開率)의 분모는 피평가자가
+ * 자기 신고한 총 수령 수(receivedCount)다.
+ */
+export interface PublicRating {
+  ratingId: string;
+  /** 별 개수 1~5 정수 — 화면의 ★ 글리프는 이 웹이 붙인다 (자연어 아님). */
+  stars: number;
+  review: string | null;
+  fromDisplayName: string;
+  direction: 'GUEST_TO_ANGEL' | 'ANGEL_TO_GUEST';
+  createdAt: number;
+}
+
+export interface RatingSummary {
+  /** 평균 별점 ×10 정수 — 46 = 4.6점. 별점이 없으면 0. */
+  averageTenths: number;
+  /** 공개된 별점 수. */
+  publicCount: number;
+  /** 피평가자가 자기 신고한 총 수령 수 (항상 publicCount 이상) — 공개율 분모. */
+  receivedCount: number;
+  ratings: PublicRating[];
+}
+
 export interface CourseSegmentMeta {
   fromIdx: number;
   toIdx: number;
@@ -231,6 +258,14 @@ export async function fetchGuestbook(memberId: string): Promise<{ total: number;
   return getJson<{ total: number; cards: GuestbookCard[] }>(`/guestbook?member=${encodeURIComponent(memberId)}`);
 }
 
+/**
+ * 특정 엔젤의 공개 별점 집계 (M7-B) — 닉네임 + 리뷰 원문만, 회원 번호 없음.
+ * 프로필 카드의 "별점" 요약에 쓴다. 실패 시 throw (호출부가 조용히 폴백).
+ */
+export async function fetchRatings(memberId: string): Promise<RatingSummary> {
+  return getJson<RatingSummary>(`/ratings?member=${encodeURIComponent(memberId)}`);
+}
+
 export async function fetchProposals(): Promise<CourseProposal[]> {
   const { proposals } = await getJson<{ proposals: CourseProposal[] }>('/courses/proposals');
   return proposals;
@@ -285,6 +320,16 @@ export function fmtUsdcMicro(micro: number): string {
 /** 수수료 bp → "2.5%". */
 export function fmtBps(bps: number): string {
   return `${(bps / 100).toFixed(1).replace(/\.0$/, '')}%`;
+}
+
+/** 평균 별점 ×10 정수 → "4.6" (별 개수 문자열 — ★ 글리프는 사전이 붙인다). */
+export function fmtRatingAverage(averageTenths: number): string {
+  return (averageTenths / 10).toFixed(1);
+}
+
+/** 공개율 % — 분모는 피평가자 자기 신고 총 수령 수. 0 나눗셈 방어. */
+export function publicRatioPercent(publicCount: number, receivedCount: number): number {
+  return receivedCount > 0 ? Math.round((publicCount / receivedCount) * 100) : 0;
 }
 
 /**

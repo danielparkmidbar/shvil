@@ -70,6 +70,11 @@ export const es: Strings = {
     guestbookTitle: 'Libro de visitas',
     guestbookCount: (n) => `Libro de visitas · ${n} tarjeta${n === 1 ? '' : 's'}`,
     guestbookEmpty: 'Aún no hay tarjetas de agradecimiento aquí.',
+    ratingTitle: 'Valoración',
+    ratingSummary: (avg, count, ratioPercent) =>
+      `★ ${avg} (${count} valoración${count === 1 ? '' : 'es'}, ${ratioPercent}% públicas)`,
+    ratingNone: 'Aún no ha recibido valoraciones',
+    ratingDisclaimer: 'Solo de referencia — no es una puntuación verificada (la publica el titular del perfil).',
   },
 
   become: {

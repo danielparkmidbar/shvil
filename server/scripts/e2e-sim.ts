@@ -27,12 +27,15 @@ import {
   mintGrantCoin,
   mintWalkCoin,
   newBookingRequestId,
+  newRatingId,
   newThanksCardId,
   openMessage,
   parseBookingPayload,
+  parseRatingPayload,
   parseThanksCardPayload,
   sealMessage,
   serializeBookingPayload,
+  serializeRatingPayload,
   serializeThanksCardPayload,
   signerFromKeyPair,
   snapToPrivacyGrid,
@@ -44,6 +47,7 @@ import {
   verifyMembershipCertificate,
   type BookingReplyPayload,
   type BookingRequestPayload,
+  type RatingCardPayload,
   type ThanksCardPayload,
   type Coin,
   type MembershipCertificate,
@@ -483,8 +487,131 @@ async function main() {
   const gbAfter = await api('GET', `/guestbook?member=${aviva.memberId}`);
   check('엔젤이 게시를 철회하면 방명록에서 사라진다', del.status === 200 && gbAfter.json.total === 0);
 
-  // 13) 거래 승인 엔드포인트 부재 (헌법 제9조)
-  console.log('\n[13] 무승인 시스템 확인 (헌법 제9조)');
+  // 13) 상호 별점 (M7-B) — E2E 서명 별점 발송 → 자발 게시 → 공개 열람 → 철회.
+  //     별점은 E2E 메시지다 (감사 카드와 같은 신뢰 모델). 서버는 원본(관계 증명 포함)을
+  //     못 본다 — 피평가자가 공개 동의를 확인하고 서명 게시하면 서버는 서명으로만 신뢰한다.
+  //     ★프라이버시: 게시에 관계 증명을 싣지 않는다 — 서버는 투숙 관계를 모른다.
+  console.log('\n[13] 상호 별점 — 발송 → 게시 → 열람 → 철회 (M7-B)');
+  // 리스트 → 엔젤 별점 (자격 = 위 예약 승인). 관계 증명은 그 신청 id를 참조한다.
+  const ratingCard: RatingCardPayload = {
+    kind: 'RATING',
+    ratingId: newRatingId(),
+    stars: 5,
+    review: '따뜻하게 맞아주셔서 북쪽 구간을 잘 이어 걸었습니다. 고맙습니다.',
+    fromDisplayName: '리오르',
+    direction: 'GUEST_TO_ANGEL',
+    relationProof: { kind: 'BOOKING_APPROVAL', requestId: bookingRequest.requestId },
+    makePublic: true,
+  };
+  const ratingEnvelope = sealMessage({
+    plaintext: serializeRatingPayload(ratingCard),
+    fromMemberId: lior.memberId,
+    toMemberId: aviva.memberId,
+    senderMsgKeyPair: lior.msg,
+    recipientMsgPublicKey: angelOn.messagingPublicKey,
+    deviceSigner: lior.signer,
+    now: Date.now(),
+  });
+  check(
+    '별점 봉투(서버가 보는 전부)에 별점 내용·관계 증명이 없다',
+    !JSON.stringify(ratingEnvelope).includes('RATING') &&
+      !JSON.stringify(ratingEnvelope).includes(bookingRequest.requestId),
+  );
+  await signedApi(lior, 'POST', '/messages', { envelope: ratingEnvelope });
+
+  // 엔젤이 별점을 복호화·파싱하고, 관계 증명·공개 동의를 확인한 뒤 프로필에 자발 게시.
+  const ratingInbox = await signedApi(aviva, 'GET', '/messages?sinceId=0');
+  const ratingEnv = (ratingInbox.json.messages as { envelope: MessageEnvelope }[])
+    .map((m) => m.envelope)
+    .filter((e) => e.fromMemberId === lior.memberId)
+    .pop()!;
+  const parsedRating = parseRatingPayload(openMessage(ratingEnv, aviva.msg).plaintext);
+  check(
+    '엔젤 지갑이 별점을 복호화·파싱하고 관계 증명·공개 동의를 확인한다',
+    parsedRating?.kind === 'RATING' &&
+      parsedRating.stars === 5 &&
+      parsedRating.makePublic === true &&
+      parsedRating.relationProof.kind === 'BOOKING_APPROVAL',
+  );
+  // 게시 — 관계 증명은 보내지 않는다 (프라이버시 핵심). 받은 총 개수는 자발 신고.
+  const pubRating = await signedApi(aviva, 'POST', '/ratings', {
+    ratingId: parsedRating!.ratingId,
+    stars: parsedRating!.stars,
+    review: parsedRating!.review,
+    fromDisplayName: parsedRating!.fromDisplayName,
+    direction: parsedRating!.direction,
+    receivedCount: 1,
+  });
+  check('엔젤이 받은 별점을 프로필에 게시한다 (엔젤 서명)', pubRating.status === 200 && pubRating.json.published === true);
+
+  // 공개 열람 (서명 불필요) — 평균·게시 수·공개율 분모, 회원 번호 노출 금지.
+  const ratingView = await api('GET', `/ratings?member=${aviva.memberId}`);
+  check(
+    '공개 프로필에 별점이 평균·개수로 열람된다 (★5.0, 공개 1)',
+    ratingView.json.averageTenths === 50 &&
+      ratingView.json.publicCount === 1 &&
+      ratingView.json.receivedCount === 1 &&
+      (ratingView.json.ratings as { fromDisplayName: string }[]).some((r) => r.fromDisplayName === '리오르'),
+  );
+  check(
+    '별점 응답에 회원 번호·관계 증명이 노출되지 않는다 (프라이버시 핵심)',
+    !JSON.stringify(ratingView.json).includes(aviva.memberId) &&
+      !JSON.stringify(ratingView.json).includes(lior.memberId) &&
+      !JSON.stringify(ratingView.json).includes(bookingRequest.requestId) &&
+      !JSON.stringify(ratingView.json).includes('relationProof'),
+  );
+
+  // 상호 — 엔젤 → 리스트 별점도 성립한다 (같은 관계 증명, 반대 방향).
+  const ratingBack: RatingCardPayload = {
+    kind: 'RATING',
+    ratingId: newRatingId(),
+    stars: 4,
+    fromDisplayName: '아비바',
+    direction: 'ANGEL_TO_GUEST',
+    relationProof: { kind: 'BOOKING_APPROVAL', requestId: bookingRequest.requestId },
+    makePublic: true,
+  };
+  const backEnv = sealMessage({
+    plaintext: serializeRatingPayload(ratingBack),
+    fromMemberId: aviva.memberId,
+    toMemberId: lior.memberId,
+    senderMsgKeyPair: aviva.msg,
+    recipientMsgPublicKey: lior.msg.publicKeyHex,
+    deviceSigner: aviva.signer,
+    now: Date.now(),
+  });
+  await signedApi(aviva, 'POST', '/messages', { envelope: backEnv });
+  const liorRatingInbox = await signedApi(lior, 'GET', '/messages?sinceId=0');
+  const backParsed = parseRatingPayload(
+    openMessage(
+      (liorRatingInbox.json.messages as { envelope: MessageEnvelope }[])
+        .map((m) => m.envelope)
+        .filter((e) => e.fromMemberId === aviva.memberId)
+        .pop()!,
+      lior.msg,
+    ).plaintext,
+  );
+  await signedApi(lior, 'POST', '/ratings', {
+    ratingId: backParsed!.ratingId,
+    stars: backParsed!.stars,
+    fromDisplayName: backParsed!.fromDisplayName,
+    direction: backParsed!.direction,
+    receivedCount: 1,
+  });
+  const liorView = await api('GET', `/ratings?member=${lior.memberId}`);
+  check('상호 별점 — 엔젤 → 리스트 방향도 게시·열람된다 (★4.0)', liorView.json.averageTenths === 40 && liorView.json.publicCount === 1);
+
+  // 타 회원(노아)은 남의 별점을 지울 수 없다 (자기 별점 아님 → 404).
+  const badRatingDel = await signedApi(noa, 'DELETE', `/ratings/${parsedRating!.ratingId}`);
+  check('타 회원은 남의 별점에 손댈 수 없다 (404)', badRatingDel.status === 404);
+
+  // 피평가자가 게시를 철회한다.
+  const delRating = await signedApi(aviva, 'DELETE', `/ratings/${parsedRating!.ratingId}`);
+  const ratingAfter = await api('GET', `/ratings?member=${aviva.memberId}`);
+  check('엔젤이 게시를 철회하면 프로필에서 사라진다', delRating.status === 200 && ratingAfter.json.publicCount === 0);
+
+  // 14) 거래 승인 엔드포인트 부재 (헌법 제9조)
+  console.log('\n[14] 무승인 시스템 확인 (헌법 제9조)');
   const approveTx = await api('POST', '/approve', {});
   const payments = await api('POST', '/payments', {});
   check('거래 승인/지불 엔드포인트가 존재하지 않는다', approveTx.status === 404 && payments.status === 404);

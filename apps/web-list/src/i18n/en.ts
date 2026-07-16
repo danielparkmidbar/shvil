@@ -94,6 +94,11 @@ export const en: Strings = {
     guestbookTitle: 'Guestbook',
     guestbookCount: (n) => `Guestbook · ${n} card${n === 1 ? '' : 's'}`,
     guestbookEmpty: 'No thank-you cards left here yet.',
+    ratingTitle: 'Rating',
+    ratingSummary: (avg, count, ratioPercent) =>
+      `★ ${avg} (${count} rating${count === 1 ? '' : 's'}, ${ratioPercent}% public)`,
+    ratingNone: 'No ratings received yet',
+    ratingDisclaimer: 'For reference only — not a verified score (posted by the profile owner).',
   },
 
   courses: {

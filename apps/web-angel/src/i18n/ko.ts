@@ -69,6 +69,10 @@ export const ko: Strings = {
     guestbookTitle: '방명록',
     guestbookCount: (n) => `방명록 ${n}장`,
     guestbookEmpty: '아직 남겨진 감사 카드가 없습니다.',
+    ratingTitle: '별점',
+    ratingSummary: (avg, count, ratioPercent) => `★ ${avg} (${count}개, 공개율 ${ratioPercent}%)`,
+    ratingNone: '아직 받은 별점이 없습니다',
+    ratingDisclaimer: '참고 지표 — 검증된 값이 아닙니다 (프로필 주인이 게시).',
   },
 
   become: {

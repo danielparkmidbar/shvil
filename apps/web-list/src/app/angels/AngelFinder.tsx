@@ -30,10 +30,14 @@ import {
   fetchAngels,
   fetchCourses,
   fetchGuestbook,
+  fetchRatings,
+  fmtRatingAverage,
+  publicRatioPercent,
   type AngelEntry,
   type AngelServices,
   type CourseData,
   type GuestbookCard,
+  type RatingSummary,
 } from '@/lib/api';
 import {
   fallbackRasterStyle,
@@ -152,6 +156,8 @@ export default function AngelFinder() {
   const [selected, setSelected] = useState<AngelEntry | null>(null);
   // M7-A: 선택한 엔젤의 공개 방명록 (감사 카드) 미리보기. null = 아직 안 불러옴.
   const [guestbook, setGuestbook] = useState<{ total: number; cards: GuestbookCard[] } | null>(null);
+  // M7-B: 선택한 엔젤의 공개 별점 집계. null = 아직 안 불러옴.
+  const [ratings, setRatings] = useState<RatingSummary | null>(null);
   const [filters, setFilters] = useState<Record<FilterKey, boolean>>({
     bedRoom: false,
     bedSofa: false,
@@ -243,21 +249,31 @@ export default function AngelFinder() {
     [angels, filters],
   );
 
-  // ── 선택한 엔젤의 공개 방명록 (감사 카드) — 선택 변경 시마다 ────
-  //    공개 GET /guestbook?member= 만 소비한다 (회원 번호 없음, 닉네임뿐).
+  // ── 선택한 엔젤의 공개 방명록 (M7-A) + 별점 집계 (M7-B) — 선택 변경 시마다 ──
+  //    공개 GET /guestbook?member= · /ratings?member= 만 소비한다 (회원 번호 없음, 닉네임뿐).
   useEffect(() => {
     if (!selected) {
       setGuestbook(null);
+      setRatings(null);
       return;
     }
     let cancelled = false;
     setGuestbook(null);
+    setRatings(null);
     (async () => {
       try {
         const gb = await fetchGuestbook(selected.memberId);
         if (!cancelled) setGuestbook(gb);
       } catch {
         if (!cancelled) setGuestbook({ total: 0, cards: [] });
+      }
+    })();
+    (async () => {
+      try {
+        const r = await fetchRatings(selected.memberId);
+        if (!cancelled) setRatings(r);
+      } catch {
+        if (!cancelled) setRatings({ averageTenths: 0, publicCount: 0, receivedCount: 0, ratings: [] });
       }
     })();
     return () => {
@@ -393,6 +409,29 @@ export default function AngelFinder() {
                 {s.requestCta}
               </a>
               <p className="muted">{s.requestNote}</p>
+
+              {/* M7-B: 공개 별점 요약 (게스트북의 형제) — ★와 서식은 사전이 갖는다.
+                  XSS 안전(조건 4): 여기서 렌더하는 값은 사전 문자열과 숫자 서식(평균·개수·
+                  공개율)뿐이며, 사용자 원문(review/fromDisplayName)은 렌더하지 않는다. 렌더가
+                  필요하면 게스트북 카드처럼 JSX 텍스트 자식으로만 넣어 React 기본 이스케이프에
+                  의존한다 — dangerouslySetInnerHTML은 이 경로에 없다.
+                  정직화(조건 1): 공개 별점은 프로필 주인이 게시하는 참고 지표라 ratingDisclaimer로
+                  "검증된 값이 아님"을 밝힌다. */}
+              {ratings !== null && (
+                <div className="rating">
+                  <h4>{s.ratingTitle}</h4>
+                  <p className={ratings.publicCount > 0 ? 'rating-summary' : 'muted'}>
+                    {ratings.publicCount > 0
+                      ? s.ratingSummary(
+                          fmtRatingAverage(ratings.averageTenths),
+                          ratings.publicCount,
+                          publicRatioPercent(ratings.publicCount, ratings.receivedCount),
+                        )
+                      : s.ratingNone}
+                  </p>
+                  {ratings.publicCount > 0 && <p className="muted rating-disclaimer">{s.ratingDisclaimer}</p>}
+                </div>
+              )}
 
               {/* M7-A: 공개 방명록 (빈집 방명록의 디지털판) — 닉네임 + 감사 메시지만 */}
               {guestbook !== null && (

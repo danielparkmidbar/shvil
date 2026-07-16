@@ -98,6 +98,20 @@ export interface Strings {
     /** "방명록 N" — 공개된 감사 카드 수. */
     guestbookCount: (n: number) => string;
     guestbookEmpty: string;
+    /**
+     * M7-B (안 B): 상호 별점 요약 — 게스트북(M7-A)의 형제 기능.
+     * 공개율(公開率)의 분모는 피평가자가 자기 신고한 총 수령 수(receivedCount)다.
+     */
+    ratingTitle: string;
+    /** "★ 4.6 (12개, 공개율 80%)" — ★ 글리프와 서식은 사전이 갖는다. */
+    ratingSummary: (avg: string, count: number, ratioPercent: number) => string;
+    ratingNone: string;
+    /**
+     * 정직화 라벨 (M7-B 조건 1) — 공개 별점은 프로필 주인이 게시하는 값이라 서버가
+     * 진위를 보증하지 못한다("참고 지표 — 검증된 값이 아닙니다"). 자기 날조가 가능함을
+     * 겸손히 밝힌다 (별점_프라이버시_결정.md R-1d).
+     */
+    ratingDisclaimer: string;
   };
 
   courses: {

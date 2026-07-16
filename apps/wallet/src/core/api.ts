@@ -21,6 +21,7 @@ import {
   type GeoPoint,
   type MembershipCertificate,
   type MessageEnvelope,
+  type RatingDirection,
   type Signed,
   type SignedGrant,
   type Signer,
@@ -151,6 +152,47 @@ export interface GuestbookCard {
   message: string;
   journeyLine: string | null;
   createdAt: number;
+}
+
+// ── 별점 계약 타입 (M7-B — server/src/ratings.ts와 계약을 공유한다) ────
+// 별점은 E2E 서명 카드다 (감사 카드와 같은 신뢰 모델). 피평가자가 받은 별점 중
+// 하나를 자발 게시하면 서버가 그 내용만 보관한다. ★프라이버시 핵심: 게시 본문에
+// 관계 증명(relationProof)을 싣지 않는다 — 그것을 서버로 보내면 "누가 누구 집에
+// 묵었나"가 남으므로. 서버는 피평가자 회원 번호만 알고, 평가자는 닉네임만 남는다.
+
+/** 별점 게시 입력 (피평가자) — makePublic 확인·관계 검증은 지갑이 이미 마쳤다. */
+export interface RatingPublishInput {
+  ratingId: string;
+  stars: number;
+  review?: string;
+  fromDisplayName: string;
+  direction: RatingDirection;
+  /**
+   * 자발 신고 "받은 총 개수" — 공개율("N개 받음 / M개 공개")의 분모.
+   * 평가자 정보를 담지 않는 단일 숫자다 (관계 유출 없음). 서버가 강제 집계하지 않는다.
+   */
+  receivedCount?: number;
+}
+
+/** 공개 별점 (GET /ratings) — 회원 번호 없음, 닉네임만. */
+export interface PublicRating {
+  ratingId: string;
+  stars: number;
+  review: string | null;
+  fromDisplayName: string;
+  direction: RatingDirection;
+  createdAt: number;
+}
+
+/** 공개 별점 요약 (GET /ratings) — 평균(×10 정수)·게시 수·자발 신고 받은 수·카드. */
+export interface RatingSummary {
+  /** 평균 별점 ×10 정수 (46 = 4.6). 표시할 때 /10. */
+  averageTenths: number;
+  /** 게시된 별점 수. */
+  publicCount: number;
+  /** 자발 신고 받은 총 개수 (>= publicCount) — 공개율 분모. */
+  receivedCount: number;
+  ratings: PublicRating[];
 }
 
 // ── 보물 마이닝 계약 타입 (M9 — server/src/treasure.ts와 계약을 공유한다) ──
@@ -643,6 +685,26 @@ export class DirectoryApi {
   async getGuestbook(memberId?: string): Promise<{ total: number; cards: GuestbookCard[] }> {
     const q = memberId ? `/guestbook?member=${encodeURIComponent(memberId)}` : '/guestbook';
     return this.#request('GET', q, null, false);
+  }
+
+  // ── 상호 별점 (M7-B — 피평가자가 받은 별점을 자발 공개 게시) ──
+
+  /**
+   * 별점 게시 (피평가자 서명 인증) — makePublic 동의·관계 검증은 호출부(지갑)의 몫.
+   * 관계 증명은 보내지 않는다 (프라이버시 핵심 — 서버는 관계를 몰라야 한다).
+   */
+  publishRating(input: RatingPublishInput): Promise<{ published: boolean; ratingId: string }> {
+    return this.#request('POST', '/ratings', input, true);
+  }
+
+  /** 게시 철회 (피평가자 서명 인증) — 자기 프로필의 별점만 삭제된다. */
+  removeRating(ratingId: string): Promise<{ removed: boolean; ratingId: string }> {
+    return this.#request('DELETE', `/ratings/${encodeURIComponent(ratingId)}`, null, true);
+  }
+
+  /** 공개 별점 열람 (비서명) — 평균·게시 수·자발 신고 받은 수·카드. 회원 번호 없음. */
+  getRatings(memberId: string): Promise<RatingSummary> {
+    return this.#request('GET', `/ratings?member=${encodeURIComponent(memberId)}`, null, false);
   }
 
   // ── 코인 마켓 (지시서 0-8, 5장 4절 — 마켓은 온라인 전용 서버 기능) ──
