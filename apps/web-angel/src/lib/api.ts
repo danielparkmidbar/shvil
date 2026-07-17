@@ -59,6 +59,32 @@ export interface AngelEntry {
   conditions: string | null;
   visible: boolean;
   distanceKm?: number;
+  /** C 신뢰 지표: 엔젤이 자발 공개한 완주·접대 실적 뱃지 (미공개면 null). */
+  trust?: TrustSummary | null;
+}
+
+/**
+ * 검증 가능한 신뢰 지표 (C — 별점 대신 사실, 검증가능신뢰_설계.md).
+ * 별점(주관 점수)이 위조를 못 막으므로, 신뢰의 주 지표를 위조가 어려운 사실로
+ * 옮긴다. 전부 뱃지·숫자·일자뿐 — 자연어는 이 웹 i18n 사전 몫. 정확한 코인 액수는
+ * 나오지 않는다(walkTier 구간만) — 개인 재정 비노출.
+ */
+export type TrustWalkTier = 'NONE' | 'STARTER' | 'EXPERIENCED' | 'VETERAN';
+
+export interface TrustAngel {
+  guestbookCards: number;
+  firstHosting: boolean;
+  angelSinceDay: string;
+}
+
+export interface TrustSummary {
+  claimsApproved: number;
+  certificatesFull: number;
+  certificatesSection: number;
+  walkTier: TrustWalkTier;
+  memberSinceDay: string;
+  angel: TrustAngel | null;
+  leaderboardVerified: boolean;
 }
 
 export interface CourseData {

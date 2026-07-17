@@ -77,6 +77,24 @@ export const es: Strings = {
     ratingDisclaimer: 'Solo de referencia — no es una puntuación verificada (la publica el titular del perfil).',
   },
 
+  trust: {
+    title: 'Historial verificado',
+    walkTier: (tier) =>
+      tier === 'VETERAN'
+        ? 'Caminante veterano'
+        : tier === 'EXPERIENCED'
+          ? 'Caminante experimentado'
+          : 'Empezó a caminar',
+    claimsApproved: (n) => `${n} recorrido${n === 1 ? '' : 's'} verificado${n === 1 ? '' : 's'} por la comunidad`,
+    certificatesFull: (n) => `${n} certificado${n === 1 ? '' : 's'} de sendero completo`,
+    certificatesSection: (n) => `${n} certificado${n === 1 ? '' : 's'} de tramo`,
+    memberSince: (day) => `Activo desde ${day}`,
+    guestbookCards: (n) => `${n} tarjeta${n === 1 ? '' : 's'} de agradecimiento`,
+    firstHosting: 'Ha alojado',
+    verified: 'Verificado por revisores',
+    none: 'Aún no hay historial público.',
+  },
+
   become: {
     title: 'Ser ángel',
     intro:

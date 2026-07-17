@@ -32,7 +32,9 @@ import {
   validateCompanionUpdate,
   type CompanionMode,
   type CompanionStatus,
+  type TrustSummary,
 } from '@shvil/shared';
+import { trustSummariesFor } from './trust';
 
 export interface CompanionsMemberRow {
   member_id: string;
@@ -64,7 +66,7 @@ interface CompanionRow {
   messaging_public_key: string;
 }
 
-function projectListing(r: CompanionRow) {
+function projectListing(r: CompanionRow, trust: TrustSummary | null) {
   return {
     postId: r.post_id,
     // 화면 표시 신원은 닉네임. authorMemberId·messagingPublicKey는 E2E 접촉·딥링크용
@@ -82,6 +84,9 @@ function projectListing(r: CompanionRow) {
     note: r.note,
     status: r.status,
     createdAt: r.created_at,
+    // C 신뢰 지표: 게시자가 자발 공개한 완주·검증실적 뱃지 (미공개면 null).
+    // 뱃지·숫자·일자뿐 — 자연어 없음. "마음 맞는 경험자와 팀"을 위조 없이 고른다.
+    trust,
   };
 }
 
@@ -240,6 +245,8 @@ export function registerCompanions(app: FastifyInstance, ctx: CompanionsContext)
          ${where} ORDER BY c.created_at DESC LIMIT ?`,
       )
       .all(...params, COMPANIONS_PAGE) as unknown as CompanionRow[];
-    return { companions: rows.map(projectListing) };
+    // 게시자가 공개한 신뢰 뱃지만 map에 담긴다 (미공개는 키 없음 → null).
+    const trust = trustSummariesFor(db, rows.map((r) => r.author_member_id));
+    return { companions: rows.map((r) => projectListing(r, trust[r.author_member_id] ?? null)) };
   });
 }

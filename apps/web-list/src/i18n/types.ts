@@ -153,6 +153,37 @@ export interface Strings {
   };
 
   /**
+   * 검증 가능한 신뢰 지표 (C — 별점 대신 사실, 검증가능신뢰_설계.md).
+   * 서버는 뱃지 코드·숫자·일자만 보내므로, 그것을 사람 문구로 옮기는 4개 언어
+   * 사전이 유일한 출처다. 위조가 어려운 사실(완주·검증 걷기 실적·활동 기간)을
+   * 뱃지로 보여 "리뷰 많은 경험 트레커"를 위조 없이 고르게 한다(다니엘 쌤 의도).
+   */
+  trust: {
+    /** 섹션·요약 제목 — "검증된 실적". */
+    title: string;
+    /** 걷기 실적 구간 뱃지 라벨 (walkTier 코드 → 문구). NONE은 표시하지 않는다. */
+    walkTier: (tier: 'STARTER' | 'EXPERIENCED' | 'VETERAN') => string;
+    /** "커뮤니티 인정 완주 N" — claimsApproved (견고성 높음). */
+    claimsApproved: (n: number) => string;
+    /** "완주 인증 N" — certificatesFull (보조). */
+    certificatesFull: (n: number) => string;
+    /** "구간 인증 N" — certificatesSection (보조). */
+    certificatesSection: (n: number) => string;
+    /** "{day}부터 활동" — memberSinceDay. */
+    memberSince: (day: string) => string;
+    /** 엔젤 접대 실적: "감사 카드 N". */
+    guestbookCards: (n: number) => string;
+    /** 첫 접대 완료 뱃지. */
+    firstHosting: string;
+    /** 검토단 검증 뱃지 (leaderboardVerified). */
+    verified: string;
+    /** 공개 실적이 하나도 없을 때 안내. */
+    none: string;
+    /** 별점을 "참고 지표"로 격하하는 짧은 라벨 (신뢰 뱃지가 주, 별점은 참고). */
+    ratingIsReference: string;
+  };
+
+  /**
    * 스팟 보물 (M12 — 사업자 참여 계층, 몸인증_보물마이닝_설계 4장).
    * 트레일 근처 사업장이 숨긴 코인을 걷는 사람이 스캔해 선착순으로 받는다. 웹은
    * 위치·잔여·1인당 양을 지도·목록으로 보여줘 "걸으며 갈지"를 정하게 한다 — 받기는

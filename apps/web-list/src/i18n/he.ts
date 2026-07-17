@@ -133,6 +133,21 @@ export const he: Strings = {
     empty: 'אין עדיין מודעות מלווים שמגייסות. פרסמו את הראשונה מאפליקציית הארנק.',
   },
 
+  trust: {
+    title: 'רקורד מאומת',
+    walkTier: (tier) =>
+      tier === 'VETERAN' ? 'הולך ותיק' : tier === 'EXPERIENCED' ? 'הולך מנוסה' : 'התחיל ללכת',
+    claimsApproved: (n) => (n === 1 ? 'סיום מסלול מאומת קהילה' : `${n} סיומי מסלול מאומתי קהילה`),
+    certificatesFull: (n) => (n === 1 ? 'תעודת מסלול מלא' : `${n} תעודות מסלול מלא`),
+    certificatesSection: (n) => (n === 1 ? 'תעודת מקטע' : `${n} תעודות מקטע`),
+    memberSince: (day) => `פעיל מאז ${day}`,
+    guestbookCards: (n) => (n === 1 ? 'כרטיס תודה אחד' : `${n} כרטיסי תודה`),
+    firstHosting: 'אירח בעבר',
+    verified: 'מאומת על ידי צוות בדיקה',
+    none: 'אין עדיין רקורד ציבורי.',
+    ratingIsReference: 'הכוכבים הם לעיון בלבד — האמון נבנה על עובדות שניתנות לאימות.',
+  },
+
   spots: {
     title: 'מטמוני נקודות',
     intro:

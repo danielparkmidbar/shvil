@@ -20,6 +20,7 @@ import {
   type CompanionMode,
 } from '@/lib/api';
 import { useI18n } from '@/i18n';
+import TrustBadges from '@/components/TrustBadges';
 
 const RECOMMENDED_MIN = 3;
 const RECOMMENDED_MAX = 4;
@@ -129,6 +130,9 @@ export default function CompanionBoard() {
                   {recommended && <span className="badge">{s.recommendedBadge}</span>}
                   {closed && <span className="badge badge-warn">{s.closedBadge}</span>}
                 </p>
+                {/* C 신뢰 지표: 게시자가 공개한 완주·검증실적 뱃지 (미공개면 렌더 안 됨).
+                    "마음 맞는 경험 트레커"를 위조 없이 고르는 근거 (다니엘 쌤 의도). */}
+                <TrustBadges trust={c.trust} compact />
                 {c.note && <p className="companion-note">{c.note}</p>}
                 <div className="companion-actions">
                   {/* 딥링크 href만 — 관심·연락은 지갑(서명 주체)에서 (R-7) */}

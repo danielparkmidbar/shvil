@@ -47,6 +47,7 @@ import {
 } from '@/lib/mapStyle';
 import { useI18n, type Strings } from '@/i18n';
 import { useRegion } from '@/region/RegionProvider';
+import TrustBadges from '@/components/TrustBadges';
 
 type FilterKey = 'bedRoom' | 'bedSofa' | 'bedTent' | 'internet' | 'shower' | 'meal';
 
@@ -404,6 +405,14 @@ export default function AngelFinder() {
               )}
               {/* R-4: 대략 위치 안내 — 정확 위치는 승인 후 E2E 지갑 메시지로 */}
               <p className="notice approx-note">{s.approxLocation}</p>
+              {/* C 신뢰 지표: 엔젤이 공개한 접대·완주 실적 뱃지 (미공개면 렌더 안 됨).
+                  신뢰의 주 지표 — 아래 별점은 "참고 지표"로 격하된다(정직화). */}
+              {selected.trust && (
+                <div className="trust">
+                  <h4>{t.trust.title}</h4>
+                  <TrustBadges trust={selected.trust} />
+                </div>
+              )}
               {/* 딥링크 href만 제공 — 신청 자체는 지갑(서명 주체)에서 (R-7) */}
               <a className="btn" href={chatDeepLink(selected.memberId)}>
                 {s.requestCta}

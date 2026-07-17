@@ -75,6 +75,20 @@ export const ko: Strings = {
     ratingDisclaimer: '참고 지표 — 검증된 값이 아닙니다 (프로필 주인이 게시).',
   },
 
+  trust: {
+    title: '검증된 실적',
+    walkTier: (tier) =>
+      tier === 'VETERAN' ? '베테랑 트레커' : tier === 'EXPERIENCED' ? '경험 많은 트레커' : '걷기 시작',
+    claimsApproved: (n) => `커뮤니티 인정 완주 ${n}`,
+    certificatesFull: (n) => `완주 인증 ${n}`,
+    certificatesSection: (n) => `구간 인증 ${n}`,
+    memberSince: (day) => `${day}부터 활동`,
+    guestbookCards: (n) => `감사 카드 ${n}`,
+    firstHosting: '접대 경험 있음',
+    verified: '검토단 검증',
+    none: '아직 공개된 실적이 없습니다.',
+  },
+
   become: {
     title: '엔젤 되기',
     intro:

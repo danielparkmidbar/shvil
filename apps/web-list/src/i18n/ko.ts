@@ -128,6 +128,21 @@ export const ko: Strings = {
     empty: '아직 모집 중인 동행 글이 없습니다. 지갑 앱에서 첫 글을 올려 보세요.',
   },
 
+  trust: {
+    title: '검증된 실적',
+    walkTier: (tier) =>
+      tier === 'VETERAN' ? '베테랑 트레커' : tier === 'EXPERIENCED' ? '경험 많은 트레커' : '걷기 시작',
+    claimsApproved: (n) => `커뮤니티 인정 완주 ${n}`,
+    certificatesFull: (n) => `완주 인증 ${n}`,
+    certificatesSection: (n) => `구간 인증 ${n}`,
+    memberSince: (day) => `${day}부터 활동`,
+    guestbookCards: (n) => `감사 카드 ${n}`,
+    firstHosting: '접대 경험 있음',
+    verified: '검토단 검증',
+    none: '아직 공개된 실적이 없습니다.',
+    ratingIsReference: '별점은 참고 지표입니다 — 신뢰는 검증 가능한 사실로 쌓입니다.',
+  },
+
   spots: {
     title: '스팟 보물',
     intro:

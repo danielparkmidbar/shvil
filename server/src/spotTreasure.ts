@@ -238,7 +238,10 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       //   초과를 포착해 소명 대기 등재한다 — 예치가 fake-walk 방어(sync 기반 탐지)를
       //   우회하는 조용한 세탁 경로가 되지 않게 한다. 목격 저장 **전에** 호출한다.
       checkFork(db, a.fp, now);
-      checkOverproduction(db, a.fp, limits, now);
+      // 예치자(사업자)를 목격자로 넘긴다 — 남의 걷기 코인을 예치하면 그 생산자의
+      // 증명이 교차 목격으로 신뢰 실적 승격(C). 자가 민팅 fake-walk 예치는 생산자=
+      // 예치자라 승격되지 않는다(V-3 세탁 방어와 같은 방향: 자기 코인은 실적 안 됨).
+      checkOverproduction(db, a.fp, limits, now, member.member_id);
 
       db.prepare(
         'INSERT INTO spot_deposits (coin_id, spot_id, sponsor_member, amount_dshv, deposited_at) VALUES (?, ?, ?, ?, ?)',

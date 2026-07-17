@@ -492,6 +492,19 @@ h2 {
   font-size: 0.98rem;
 }
 
+/* C 신뢰 지표 섹션 (엔젤 프로필 카드) — 별점 위에 놓이는 검증된 실적. */
+.trust {
+  margin-block-start: 1rem;
+  padding-block-start: 0.8rem;
+  border-top: 1px solid var(--green-100);
+}
+
+.trust h4 {
+  margin: 0 0 0.5rem;
+  color: var(--green-900);
+  font-size: 0.98rem;
+}
+
 .guestbook-list {
   list-style: none;
   margin: 0;
@@ -756,6 +769,18 @@ h2 {
 .companion-note {
   margin: 0.7rem 0 0;
   line-height: 1.5;
+}
+
+/* C 신뢰 뱃지 — 위조가 어려운 사실(완주·검증실적·활동기간)을 뱃지 줄로. */
+.trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.7rem 0 0;
+}
+
+.trust-badges:empty {
+  margin: 0;
 }
 
 .companion-actions {

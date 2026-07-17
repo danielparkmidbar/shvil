@@ -25,6 +25,7 @@ import { BookingRequestScreen } from './src/screens/BookingRequestScreen';
 import { ThanksCardScreen } from './src/screens/ThanksCardScreen';
 import { RatingScreen } from './src/screens/RatingScreen';
 import { MyRatingsScreen } from './src/screens/MyRatingsScreen';
+import { MyTrustScreen } from './src/screens/MyTrustScreen';
 import { CompanionsScreen } from './src/screens/CompanionsScreen';
 import { CompanionPostScreen } from './src/screens/CompanionPostScreen';
 import { SpotScreen } from './src/screens/SpotScreen';
@@ -78,6 +79,7 @@ function MoreStackScreen() {
         options={({ route }) => ({ headerTitle: `별점 — ${route.params.peerName}` })}
       />
       <MoreStack.Screen name="내 별점" component={MyRatingsScreen} options={{ headerTitle: '내 별점 (받은 평가)' }} />
+      <MoreStack.Screen name="내 신뢰 지표" component={MyTrustScreen} options={{ headerTitle: '내 신뢰 지표 — 검증된 실적' }} />
       <MoreStack.Screen name="동행 찾기" component={CompanionsScreen} options={{ headerTitle: '동행 찾기 — 함께 걸을 사람' }} />
       <MoreStack.Screen name="동행 글쓰기" component={CompanionPostScreen} options={{ headerTitle: '동행 글쓰기' }} />
       <MoreStack.Screen name="스팟 보물" component={SpotScreen} options={{ headerTitle: '스팟 보물 받기' }} />

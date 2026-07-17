@@ -31,6 +31,7 @@ import { loadBookingProfileDraft } from '../core/bookingService';
 import { isProvisionalMemberId } from '../core/identity';
 import { useWallet } from '../core/walletService';
 import { Card, Muted, Title, colors } from '../ui/common';
+import { TrustBadges } from '../ui/TrustBadges';
 import type { MoreStackParamList } from './navTypes';
 
 type Tab = 'BOARD' | 'MINE';
@@ -134,6 +135,9 @@ export function CompanionsScreen() {
         <Text style={rec ? styles.partyRec : styles.party}>
           👥 {item.partySizeCurrent} / {item.partySizeTarget}명{rec ? ' · 권장 팀 규모' : ''}
         </Text>
+        {/* C 신뢰 지표: 게시자가 공개한 완주·검증실적 뱃지 (미공개면 렌더 안 됨) —
+            "마음 맞는 경험 트레커"를 위조 없이 고르는 근거 (다니엘 쌤 의도). */}
+        <TrustBadges trust={item.trust} compact />
         {item.note && <Text style={styles.note}>{item.note}</Text>}
         <View style={styles.btnRow}>
           <Button

@@ -29,6 +29,7 @@ import {
   type RatingSummary,
 } from '@/lib/api';
 import { useI18n, type Strings } from '@/i18n';
+import TrustBadges from '@/components/TrustBadges';
 import {
   applyMapLabelLocale,
   firstSymbolLayerId,
@@ -350,6 +351,15 @@ export default function AngelMap() {
                   </span>
                 ))}
               </div>
+
+              {/* C 신뢰 지표: 엔젤이 공개한 완주·접대 실적 뱃지 (미공개면 렌더 안 됨).
+                  신뢰의 주 지표 — 아래 별점은 "참고 지표"로 격하된다(정직화). */}
+              {selected.trust && (
+                <div className="trust">
+                  <h4>{t.trust.title}</h4>
+                  <TrustBadges trust={selected.trust} />
+                </div>
+              )}
 
               {/* M7-B: 공개 별점 요약 (게스트북의 형제) — ★와 서식은 사전이 갖는다.
                   XSS 안전(조건 4): 여기서 렌더하는 값은 사전 문자열과 숫자 서식(평균·개수·

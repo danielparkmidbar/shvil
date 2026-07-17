@@ -178,13 +178,19 @@ export function createDb(path: string): DatabaseSync {
       PRIMARY KEY (coin_id, chain_len, owner_address)
     );
     CREATE INDEX IF NOT EXISTS idx_sightings_coin ON coin_sightings(coin_id, chain_len);
-    -- 걷기 증명 통계 — 회원별 일자 합산으로 초과 생성 포착 (proofHash당 1회 dedup)
+    -- 걷기 증명 통계 — 회원별 일자 합산으로 초과 생성 포착 (proofHash당 1회 dedup).
+    -- corroborated (C 신뢰 지표): 생산자 본인이 아닌 회원이 이 증명의 코인을
+    -- 목격(sync·예치)했는가. /sync/coins 지문은 서명 검증이 없어 자기 신고만으로
+    -- 실적을 부풀릴 수 있으므로, 신뢰 뱃지 집계는 corroborated=1만 센다 —
+    -- "유통된 코인"만 실적이 된다 (초과 생성 포착은 종전대로 전체를 합산한다:
+    -- 탐지는 넓게, 신뢰는 좁게).
     CREATE TABLE IF NOT EXISTS walk_proof_stats (
       proof_hash TEXT PRIMARY KEY,
       producer_member TEXT NOT NULL,
       breakdown_json TEXT NOT NULL,
       total_dshv INTEGER NOT NULL,
-      first_seen INTEGER NOT NULL
+      first_seen INTEGER NOT NULL,
+      corroborated INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_proof_stats_member ON walk_proof_stats(producer_member);
     -- 보물 마이닝 (M9, 몸인증_보물마이닝_설계) — 서버의 역할은 수량 한정 발행의
@@ -338,9 +344,18 @@ export function createDb(path: string): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS idx_companions_region ON companions(region_id, status, created_at);
     CREATE INDEX IF NOT EXISTS idx_companions_author ON companions(author_member_id, created_at);
+    -- 신뢰 지표 자발 공개 (C — 검증가능신뢰_설계 §3): 완주·검증실적 뱃지는 본인이
+    -- 공개를 선택해야만 노출된다. 행이 없거나 visible=0이면 서버는 집계 자체를
+    -- 내보내지 않는다. 미가입 회원 번호 조회와 응답이 같아 회원 존재 오라클도 안 된다.
+    CREATE TABLE IF NOT EXISTS trust_disclosures (
+      member_id TEXT PRIMARY KEY,
+      visible INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
   `);
   migrateFlaggedMembers(db);
   migrateAngelsAvailability(db);
+  migrateWalkProofCorroboration(db);
   return db;
 }
 
@@ -355,6 +370,17 @@ function migrateAngelsAvailability(db: DatabaseSync): void {
     ALTER TABLE angels ADD COLUMN available INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE angels ADD COLUMN availability_updated_at INTEGER;
   `);
+}
+
+/**
+ * 구 스키마 이행 (C 신뢰 지표): walk_proof_stats에 교차 목격 컬럼 추가.
+ * 기존 증명은 corroborated=0으로 시작한다 — 목격이 다시 쌓이면(동기화는 반복
+ * 제출된다) 교차 목격이 자연 재포착된다. 보수적 기본값이라 부풀림 위험이 없다.
+ */
+function migrateWalkProofCorroboration(db: DatabaseSync): void {
+  const cols = db.prepare('PRAGMA table_info(walk_proof_stats)').all() as unknown as { name: string }[];
+  if (cols.length === 0 || cols.some((c) => c.name === 'corroborated')) return;
+  db.exec('ALTER TABLE walk_proof_stats ADD COLUMN corroborated INTEGER NOT NULL DEFAULT 0;');
 }
 
 /**

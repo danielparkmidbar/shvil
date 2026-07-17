@@ -320,6 +320,39 @@ h2 {
   font-size: 0.85rem;
 }
 
+/* ── C 신뢰 뱃지 (별점 대신 사실 — 완주·검증실적·활동기간) ────── */
+.trust {
+  margin-block-start: 1rem;
+  padding-block-start: 0.8rem;
+  border-top: 1px solid var(--green-100);
+}
+
+.trust h4 {
+  margin: 0 0 0.5rem;
+  color: var(--green-900);
+  font-size: 0.98rem;
+}
+
+.trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.trust-badge {
+  background: var(--green-100);
+  color: var(--green-900);
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.trust-badge-strong {
+  background: var(--green-700);
+  color: #fff;
+}
+
 /* ── 게스트북 미리보기 (M7-A — 빈집 방명록의 디지털판) ───────── */
 .guestbook {
   margin-block-start: 1rem;

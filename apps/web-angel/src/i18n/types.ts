@@ -90,6 +90,25 @@ export interface Strings {
   };
 
   /**
+   * 검증 가능한 신뢰 지표 (C — 별점 대신 사실, 검증가능신뢰_설계.md).
+   * 서버는 뱃지 코드·숫자·일자만 보내므로 그것을 사람 문구로 옮기는 4개 언어 사전이
+   * 유일한 출처다. 위조가 어려운 사실(완주·검증 걷기 실적·활동 기간)을 뱃지로 보여
+   * "검증된 실적 있는 엔젤"을 위조 없이 고르게 한다(다니엘 쌤 의도). 별점은 참고 지표.
+   */
+  trust: {
+    title: string;
+    walkTier: (tier: 'STARTER' | 'EXPERIENCED' | 'VETERAN') => string;
+    claimsApproved: (n: number) => string;
+    certificatesFull: (n: number) => string;
+    certificatesSection: (n: number) => string;
+    memberSince: (day: string) => string;
+    guestbookCards: (n: number) => string;
+    firstHosting: string;
+    verified: string;
+    none: string;
+  };
+
+  /**
    * "엔젤 되기" (M5 신규 — 서비스 재조정 설계 §4-1).
    * 사이트는 문이다: 미리보기까지만, 어떤 것도 서버로 제출하지 않는다.
    * 등록 서명은 지갑만 할 수 있다.

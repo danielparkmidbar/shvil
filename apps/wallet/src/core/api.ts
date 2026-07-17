@@ -30,6 +30,7 @@ import {
   type SignedGrant,
   type Signer,
   type TreasureSpec,
+  type TrustSummary,
 } from '@shvil/shared';
 
 /** 기본 서버 URL — kv 오버라이드 가능 (실기기 테스트 시 LAN IP로 변경). */
@@ -225,6 +226,8 @@ export interface CompanionListing {
   note: string | null;
   status: CompanionStatus;
   createdAt: number;
+  /** C 신뢰 지표: 게시자가 자발 공개한 완주·검증실적 뱃지 (미공개면 null). */
+  trust: TrustSummary | null;
 }
 
 /** GET /companions 필터 (전부 선택). status 미지정 시 전체. */
@@ -864,6 +867,26 @@ export class DirectoryApi {
   /** 공개 별점 열람 (비서명) — 평균·게시 수·자발 신고 받은 수·카드. 회원 번호 없음. */
   getRatings(memberId: string): Promise<RatingSummary> {
     return this.#request('GET', `/ratings?member=${encodeURIComponent(memberId)}`, null, false);
+  }
+
+  // ── 검증 가능한 신뢰 지표 (C — 별점 대신 사실, 검증가능신뢰_설계.md) ──
+
+  /**
+   * 내 신뢰 지표 + 공개 여부 (본인 서명 인증). 공개 여부와 무관하게 자기 것은 본다.
+   * 위조가 어려운 사실(커뮤니티 인정 완주·교차 목격 걷기 실적·활동 기간)의 요약이다.
+   */
+  getMyTrust(): Promise<{ visible: boolean; trust: TrustSummary | null }> {
+    return this.#request('GET', '/trust/me', null, true);
+  }
+
+  /** 신뢰 지표 공개 on/off (본인 서명 인증) — 서버는 동의 없이 집계를 노출하지 않는다. */
+  setTrustVisible(visible: boolean): Promise<{ visible: boolean }> {
+    return this.#request('PUT', '/trust/me', { visible }, true);
+  }
+
+  /** 상대 신뢰 지표 열람 (비서명) — 미공개·미가입은 { visible:false, trust:null }. */
+  getTrust(memberId: string): Promise<{ visible: boolean; trust: TrustSummary | null }> {
+    return this.#request('GET', `/trust?member=${encodeURIComponent(memberId)}`, null, false);
   }
 
   // ── 동행 찾기 (M8 — 여정 공유 + 팀 모집) ──

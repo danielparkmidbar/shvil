@@ -77,6 +77,8 @@ export interface AngelEntry {
   availabilityUpdatedAt?: number | null;
   regionId?: string;
   distanceKm?: number;
+  /** C 신뢰 지표: 엔젤이 자발 공개한 완주·접대 실적 뱃지 (미공개면 null). */
+  trust?: TrustSummary | null;
 }
 
 /**
@@ -150,6 +152,37 @@ export interface CompanionListing {
   note: string | null;
   status: CompanionStatus;
   createdAt: number;
+  /** C 신뢰 지표: 게시자가 자발 공개한 완주·검증실적 뱃지 (미공개면 null). */
+  trust: TrustSummary | null;
+}
+
+/**
+ * 검증 가능한 신뢰 지표 (C — 별점 대신 사실, 검증가능신뢰_설계.md).
+ *
+ * 별점(주관 점수)이 위조를 막지 못하므로, 신뢰의 주 지표를 "위조가 어려운 사실"로
+ * 옮긴다. 전부 뱃지·숫자·일자뿐 — 자연어가 없다(문구는 이 웹의 i18n 사전 몫).
+ * 정확한 코인 액수는 나오지 않는다(walkTier 구간만) — 개인 재정 비노출.
+ */
+export type TrustWalkTier = 'NONE' | 'STARTER' | 'EXPERIENCED' | 'VETERAN';
+
+export interface TrustAngel {
+  guestbookCards: number;
+  firstHosting: boolean;
+  angelSinceDay: string;
+}
+
+export interface TrustSummary {
+  /** 커뮤니티 투표로 인정된 완주 수 (견고성 높음). */
+  claimsApproved: number;
+  certificatesFull: number;
+  certificatesSection: number;
+  /** 교차 목격된 걷기 실적 구간 뱃지 (정확 액수 비노출). */
+  walkTier: TrustWalkTier;
+  /** 가입일 (YYYY-MM-DD). */
+  memberSinceDay: string;
+  /** 엔젤 실적 — 엔젤이 아니면 null. */
+  angel: TrustAngel | null;
+  leaderboardVerified: boolean;
 }
 
 export interface CompanionFilter {
@@ -351,6 +384,15 @@ export async function fetchSpots(region?: string): Promise<SpotEntry[]> {
   const qs = region ? `?region=${encodeURIComponent(region)}` : '';
   const { spots } = await getJson<{ spots: SpotEntry[] }>(`/spot${qs}`);
   return spots;
+}
+
+/**
+ * 특정 회원의 공개 신뢰 지표 (C) — 뱃지·숫자·일자만, 회원 번호 없음.
+ * 미공개·미가입은 { visible:false, trust:null } (존재 오라클 차단). 프로필 카드의
+ * "검증된 실적" 요약에 쓴다. 실패 시 throw (호출부가 조용히 폴백).
+ */
+export async function fetchTrust(memberId: string): Promise<{ visible: boolean; trust: TrustSummary | null }> {
+  return getJson<{ visible: boolean; trust: TrustSummary | null }>(`/trust?member=${encodeURIComponent(memberId)}`);
 }
 
 export async function fetchProposals(): Promise<CourseProposal[]> {

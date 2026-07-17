@@ -48,6 +48,7 @@ import { registerTreasures, treasureTransparency } from './treasure';
 import { registerSpotTreasures, spotTransparency } from './spotTreasure';
 import { registerSync } from './sync';
 import { registerBackup } from './backup';
+import { registerTrust, trustSummariesFor } from './trust';
 
 export const PROMO_KEY_ID = 'promo-angel-2026';
 export const CLAIM_KEY_ID = 'community-claim-2026';
@@ -411,6 +412,10 @@ export function buildApp(
         : null;
     const radiusKm = q.radiusKm !== undefined ? Number(q.radiusKm) : 50;
 
+    // C 신뢰 지표: 엔젤이 자발 공개한 완주·접대 실적 뱃지 (미공개면 키 없음 → null).
+    // 손님이 "검증된 실적 있는 엔젤"을 위조 없이 고르는 근거 (검증가능신뢰_설계 §2).
+    const trust = trustSummariesFor(db, rows.map((r) => r.member_id));
+
     const angels = rows
       .map((r) => {
         const location = { lat: r.lat, lon: r.lon };
@@ -429,6 +434,7 @@ export function buildApp(
           regionId: r.region_id,
           messagingPublicKey: r.messaging_public_key,
           devicePublicKey: r.device_public_key,
+          trust: trust[r.member_id] ?? null,
           ...(distanceKm !== null ? { distanceKm: Math.round(distanceKm * 10) / 10 } : {}),
         };
       })
@@ -664,7 +670,14 @@ export function buildApp(
   // 게스트북·별점과 같은 자발 공개 모델 + 엔젤 디렉토리와 같은 연락 핸들 공개.
   // ★서버는 게시글까지만 안다 — "누가 누구와 팀"이라는 확정 팀 관계를 저장하는
   // 필드가 없다. 관심 표명·팀 조율은 전부 E2E 메시지다 (companions.ts 신뢰 모델).
+  // C 신뢰 지표: 게시자가 공개(disclose)한 완주·검증실적 뱃지를 카드에 함께 실어
+  // "마음 맞는 경험자와 팀"을 위조 없이 고르게 한다 (검증가능신뢰_설계 §2·§4).
   registerCompanions(app, { db, authenticate });
+
+  // ── 검증 가능한 신뢰 지표 (C — 별점 대신 사실): /trust 조회·자발 공개 ──
+  // 위조가 어려운 사실(커뮤니티 인정 완주·교차 목격 걷기 실적·활동 기간)을 뱃지·
+  // 숫자·일자로만 반환한다. 본인이 공개를 선택해야만 노출된다(trust.ts 게이트).
+  registerTrust(app, { db, authenticate });
 
   // ── 보물 마이닝 (M9): 명세 배포 + 수량 한정 발행 회계 ─────────────
   // 이동 검증은 100% 폰 로컬 — 서버는 걸음·방향·좌표를 받지 않는다.

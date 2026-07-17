@@ -76,6 +76,20 @@ export const en: Strings = {
     ratingDisclaimer: 'For reference only — not a verified score (posted by the profile owner).',
   },
 
+  trust: {
+    title: 'Verified track record',
+    walkTier: (tier) =>
+      tier === 'VETERAN' ? 'Veteran walker' : tier === 'EXPERIENCED' ? 'Experienced walker' : 'Started walking',
+    claimsApproved: (n) => `${n} community-verified completion${n === 1 ? '' : 's'}`,
+    certificatesFull: (n) => `${n} full-trail certificate${n === 1 ? '' : 's'}`,
+    certificatesSection: (n) => `${n} section certificate${n === 1 ? '' : 's'}`,
+    memberSince: (day) => `Active since ${day}`,
+    guestbookCards: (n) => `${n} thank-you card${n === 1 ? '' : 's'}`,
+    firstHosting: 'Has hosted',
+    verified: 'Reviewer-verified',
+    none: 'No public track record yet.',
+  },
+
   become: {
     title: 'Become an Angel',
     intro:
