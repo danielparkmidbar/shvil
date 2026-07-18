@@ -158,6 +158,7 @@ export const ko: Strings = {
     remaining: (remaining, total) => `남은 ${remaining} / ${total}명`,
     scale: (shv) => `규모 ${shv}`,
     until: (date) => `${date}까지`,
+    presenceBadge: '🚶 현장 걷기 인증 — 그 자리에 가야 받습니다',
     selectHint: '지도의 마커를 누르면 스팟이 표시됩니다.',
     getInApp: '지갑 앱에서 받기',
     getNote:

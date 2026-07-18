@@ -22,17 +22,25 @@
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
+import { randomBytes, randomInt as nodeRandomInt } from 'node:crypto';
 import {
+  SPOT_PRESENCE_CHALLENGE_TTL_MS,
   buildGrant,
   coinFingerprint,
   isValidSpotTreasureSpec,
+  presenceMinDurationMs,
+  randomPresenceLegs,
   signDistribution,
   spotHasRemaining,
+  spotPresenceTranscriptHash,
   spotRemainingSlots,
   spotTotalSlots,
+  verifyPresenceTranscript,
   verifySpotDeposit,
   type Coin,
+  type MovementLeg,
   type Signer,
+  type SpotPresenceLegReport,
 } from '@shvil/shared';
 import { checkFork, checkOverproduction } from './anomaly';
 import { creditVerifiedWalk, type TrustCreditOptions } from './trust';
@@ -96,6 +104,32 @@ export interface SpotContext {
    */
   claimRateWindowMs?: number;
   claimRateMaxPerWindow?: number;
+  /**
+   * R-스팟-현장결속: 걸음당 최소 소요 시간(ms). 기본은 운영 상수
+   * SPOT_PRESENCE_MIN_MS_PER_STEP(0.3초/걸음). 테스트가 실시간 대기 없이 흐름을
+   * 검증할 수 있도록 주입 가능하다 (claimRateWindowMs와 같은 방식).
+   */
+  presenceMinMsPerStep?: number;
+}
+
+/** 현장 결속 1회용 지시 (R-스팟-현장결속) — 좌표·경로 컬럼이 없다. */
+interface SpotChallengeRow {
+  challenge_id: string;
+  spot_id: string;
+  member_id: string;
+  legs_json: string;
+  issued_at: number;
+  expires_at: number;
+  consumed_at: number | null;
+}
+
+/** 암호학적 난수 — 지시가 예측 가능하면 현장 결속이 무의미하므로 CSPRNG를 쓴다. */
+function randomBelow(maxExclusive: number): number {
+  return maxExclusive <= 1 ? 0 : nodeRandomInt(maxExclusive);
+}
+
+function randomHex(bytes: number): string {
+  return randomBytes(bytes).toString('hex');
 }
 
 interface SpotRow {
@@ -111,6 +145,8 @@ interface SpotRow {
   valid_from: number;
   valid_until: number;
   status: string;
+  /** R-스팟-현장결속: 청구 전 현장 몸-걸음 인증 요구 여부 (기본 1). */
+  require_presence: number;
   created_at: number;
 }
 
@@ -131,6 +167,9 @@ function spotAccounting(row: SpotRow) {
     validFrom: row.valid_from,
     validUntil: row.valid_until,
     status: row.status,
+    // R-스팟-현장결속: 이 스팟이 현장 몸-걸음 인증을 요구하는가 — 지갑이 스캔 후
+    // 지시를 받아야 할지 판단하고, 맵이 "현장 인증 필요" 표식을 붙이는 데 쓴다.
+    requirePresence: row.require_presence === 1,
   };
 }
 
@@ -154,6 +193,12 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       perClaimDshv?: number;
       validFrom?: number;
       validUntil?: number;
+      /**
+       * R-스팟-현장결속: 현장 몸-걸음 인증 요구 여부. **미지정 시 요구(기본 안전)** —
+       * 다니엘 쌤 "그 자리에 가야". 식당·주유소처럼 즉시 스캔이 맞는 곳은 사업자가
+       * 명시적으로 false를 보내 끈다(그 스팟은 원격 청구 위험 V-1을 스스로 진다).
+       */
+      requirePresence?: boolean;
     } | null;
     const spec = {
       spotId: body?.spotId,
@@ -168,11 +213,13 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
     if (!isValidSpotTreasureSpec(spec)) return reply.code(400).send({ error: 'INVALID_SPOT_SPEC' });
     if (getSpot(spec.spotId)) return reply.code(409).send({ error: 'SPOT_ID_TAKEN' });
 
+    // 기본은 현장 결속 요구 — 명시적으로 false를 보낼 때만 끈다.
+    const requirePresence = body?.requirePresence === false ? 0 : 1;
     db.prepare(
       `INSERT INTO spot_treasures
         (spot_id, region_id, sponsor_member, display_name, lat, lon, per_claim_dshv,
-         deposit_total_dshv, issued_count, valid_from, valid_until, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 'OPEN', ?)`,
+         deposit_total_dshv, issued_count, valid_from, valid_until, status, require_presence, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 'OPEN', ?, ?)`,
     ).run(
       spec.spotId,
       spec.regionId,
@@ -183,10 +230,11 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       spec.perClaimDshv,
       spec.validFrom,
       spec.validUntil,
+      requirePresence,
       Date.now(),
     );
     // reservePublicKey를 함께 준다 — 사업자 지갑이 예치 소각 이전을 이 주소로 만든다.
-    return { spotId: spec.spotId, created: true, reservePublicKey };
+    return { spotId: spec.spotId, created: true, reservePublicKey, requirePresence: requirePresence === 1 };
   });
 
   // ── 예치(충전) — 사업자가 자기 코인을 리저브로 소각한 만큼 잔고 등록 ──
@@ -295,17 +343,80 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
     };
   });
 
-  // ── 선착순 지급 (스캐너=회원 서명) — 회계 1회 ──────────────────────
-  // ★현장 결속 없음(V-1, 적대적 검증): 이 청구는 spotId만 알면 원격으로 가능하다 —
-  //   서버는 스캐너가 실제로 스팟에 있는지 검증하지 않는다. 위치 증명 부재는 서버가
-  //   위치를 볼 수 없다는 헌법 제9조 제약의 직접 귀결이다(GET /spot이 spotId·위치를
-  //   공개하므로 스캔 없이도 청구 가능). 따라서 이 왕복은 "존 도착 인증"이 아니라
-  //   수량 한정 발행의 회계일 뿐이다. 근본 완화(M9 몸-걸음 인증 결합)는 R-스팟-현장결속
-  //   (다니엘 쌤 결정 대기). 아래는 원격 자동화만 무디게 하는 회원당 버스트 상한이다.
-  app.post('/spot/claim', async (req, reply) => {
+  // ── 선착순 지급 (스캐너=회원 서명) — 회계 1회 + 현장 결속 ──────────
+  // ★현장 결속 (R-스팟-현장결속, 2026-07-18 확정 — V-1 근본 완화): 현장 인증을
+  //   요구하는 스팟(기본)은 서버가 방금 낸 1회용 랜덤 지시의 수행 보고 없이는 청구가
+  //   성립하지 않는다 — spotId만으로는 원격 청구 불가. 서버가 위치를 볼 수 없다는
+  //   헌법 제9조는 그대로다: 근접·변위 판정은 폰 로컬이고, 서버는 좌표 없이 할 수 있는
+  //   것만 대조한다(지시 일치·최소 소요 시간·걸음 대역 — spotPresence.ts).
+  //   사업자가 끈 스팟(즉시 스캔 원안)은 종전대로이며 그 위험은 그 스팟이 진다.
+  //   버스트 상한(V-1 보조 완화)은 두 경우 모두 유지된다.
+  /**
+   * 현장 결속 지시 발급 (R-스팟-현장결속) — 청구 전에 손님이 받는 1회용 랜덤 지시.
+   *
+   * 손님이 스팟 앞에서 QR을 스캔하면 지갑이 이것을 호출해 "북 12걸음 → 동 18걸음 → …"을
+   * 받고, 그 자리에서 몸으로 수행한다. 지시가 매번 랜덤·1회용이라 사전 계산·재사용이
+   * 통하지 않는다. 서버는 좌표를 받지 않는다 — 근접·변위 판정은 폰 로컬의 몫이다.
+   *
+   * 같은 (회원, 스팟)에 새 지시를 내면 이전 미소비 지시는 폐기된다(항상 최신 1개만
+   * 유효) — 여러 지시를 미리 쌓아두고 골라 쓰는 것을 막는다.
+   */
+  app.post('/spot/challenge', async (req, reply) => {
     const member = authenticate(req);
     if (!member) return reply.code(401).send({ error: 'unauthorized' });
     const body = req.body as { spotId?: string } | null;
+    if (typeof body?.spotId !== 'string') return reply.code(400).send({ error: 'SPOT_CLAIM_FIELDS_REQUIRED' });
+    const row = getSpot(body.spotId);
+    if (!row) return reply.code(404).send({ error: 'UNKNOWN_SPOT' });
+    if (row.require_presence !== 1) return reply.code(409).send({ error: 'SPOT_PRESENCE_NOT_REQUIRED' });
+
+    const now = Date.now();
+    if (now < row.valid_from || now > row.valid_until) {
+      return reply.code(409).send({ error: 'SPOT_OUT_OF_VALIDITY' });
+    }
+    if (row.status !== 'OPEN') return reply.code(409).send({ error: 'SPOT_CLOSED' });
+    // 이미 받은 사람에게 지시를 내주지 않는다 (1인 1회는 청구에서도 다시 검사된다).
+    if (db.prepare('SELECT 1 FROM spot_claims WHERE spot_id = ? AND member_id = ?').get(row.spot_id, member.member_id)) {
+      return reply.code(409).send({ error: 'SPOT_ALREADY_CLAIMED' });
+    }
+
+    // 이전 미소비 지시 폐기 — 항상 최신 1개만 유효하게 한다.
+    db.prepare('DELETE FROM spot_challenges WHERE spot_id = ? AND member_id = ? AND consumed_at IS NULL').run(
+      row.spot_id,
+      member.member_id,
+    );
+
+    const legs = randomPresenceLegs((maxExclusive) => randomBelow(maxExclusive));
+    const challengeId = `spc-${randomHex(16)}`;
+    const expiresAt = now + SPOT_PRESENCE_CHALLENGE_TTL_MS;
+    db.prepare(
+      `INSERT INTO spot_challenges (challenge_id, spot_id, member_id, legs_json, issued_at, expires_at, consumed_at)
+       VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+    ).run(challengeId, row.spot_id, member.member_id, JSON.stringify(legs), now, expiresAt);
+
+    // 숫자·코드만 — 지시 문구("북쪽으로 12걸음")는 지갑 사전이 조립한다(noUiStrings).
+    // location은 **사업장의 공개 위치**다(GET /spot과 동일한 운영자 공개 데이터 —
+    // 사용자 좌표가 아니다): 폰이 근접 판정 기준으로 쓴다. 미충전(목록 밖) 스팟도
+    // 이것으로 현장 인증을 시작할 수 있다.
+    return {
+      challengeId,
+      spotId: row.spot_id,
+      location: { lat: row.lat, lon: row.lon },
+      legs,
+      expiresAt,
+      minDurationMs: presenceMinDurationMs(legs, ctx.presenceMinMsPerStep),
+    };
+  });
+
+  app.post('/spot/claim', async (req, reply) => {
+    const member = authenticate(req);
+    if (!member) return reply.code(401).send({ error: 'unauthorized' });
+    const body = req.body as {
+      spotId?: string;
+      /** R-스팟-현장결속: 현장 인증 요구 스팟이면 필수. */
+      challengeId?: string;
+      legs?: SpotPresenceLegReport[];
+    } | null;
     if (typeof body?.spotId !== 'string') return reply.code(400).send({ error: 'SPOT_CLAIM_FIELDS_REQUIRED' });
     const row = getSpot(body.spotId);
     if (!row) return reply.code(404).send({ error: 'UNKNOWN_SPOT' });
@@ -330,6 +441,42 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       .get(member.member_id, now - windowMs) as { n: number };
     if (recent.n >= maxPerWindow) {
       return reply.code(429).send({ error: 'SPOT_CLAIM_RATE_LIMITED' });
+    }
+
+    // ── R-스팟-현장결속 (V-1 근본 완화) ─────────────────────────────
+    // 이 스팟이 현장 인증을 요구하면, 서버가 방금 낸 1회용 랜덤 지시를 그 자리에서
+    // 몸으로 수행했음을 대조한다. 서버가 볼 수 있는 것만 본다(지시 일치·소요 시간·
+    // 걸음 대역) — 근접·변위·방향은 폰 로컬 판정이며 좌표는 서버로 오지 않는다.
+    let presenceHash: string | null = null;
+    if (row.require_presence === 1) {
+      if (typeof body.challengeId !== 'string' || !Array.isArray(body.legs)) {
+        return reply.code(400).send({ error: 'SPOT_PRESENCE_REQUIRED' });
+      }
+      const ch = db
+        .prepare('SELECT * FROM spot_challenges WHERE challenge_id = ?')
+        .get(body.challengeId) as SpotChallengeRow | undefined;
+      // 지시가 이 회원·이 스팟 것이어야 한다 (남의 지시 도용·다른 스팟 전용 차단).
+      if (!ch || ch.member_id !== member.member_id || ch.spot_id !== row.spot_id) {
+        return reply.code(409).send({ error: 'SPOT_PRESENCE_CHALLENGE_INVALID' });
+      }
+      if (ch.consumed_at !== null) return reply.code(409).send({ error: 'SPOT_PRESENCE_CHALLENGE_USED' });
+      if (now > ch.expires_at) return reply.code(409).send({ error: 'SPOT_PRESENCE_CHALLENGE_EXPIRED' });
+
+      const issued = JSON.parse(ch.legs_json) as MovementLeg[];
+      const verdict = verifyPresenceTranscript(issued, body.legs, now - ch.issued_at, {
+        ...(ctx.presenceMinMsPerStep !== undefined ? { minMsPerStep: ctx.presenceMinMsPerStep } : {}),
+      });
+      if (!verdict.ok) {
+        // 실패한 지시는 즉시 소비 처리한다 — 같은 지시로 값을 바꿔가며 재시도하는
+        // 무차별 대입을 막는다 (다시 하려면 새 지시를 받아 다시 걸어야 한다).
+        db.prepare('UPDATE spot_challenges SET consumed_at = ? WHERE challenge_id = ?').run(now, ch.challenge_id);
+        return reply.code(409).send({ error: `SPOT_PRESENCE_${verdict.reason}` });
+      }
+      db.prepare('UPDATE spot_challenges SET consumed_at = ? WHERE challenge_id = ? AND consumed_at IS NULL').run(
+        now,
+        ch.challenge_id,
+      );
+      presenceHash = spotPresenceTranscriptHash(ch.challenge_id, row.spot_id, member.member_id, body.legs);
     }
 
     const funded = spotHasRemaining(row.deposit_total_dshv, row.per_claim_dshv, row.issued_count);
@@ -357,12 +504,9 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       : null;
 
     try {
-      db.prepare('INSERT INTO spot_claims (spot_id, member_id, grant_json, claimed_at) VALUES (?, ?, ?, ?)').run(
-        row.spot_id,
-        member.member_id,
-        grant ? JSON.stringify(grant) : null,
-        now,
-      );
+      db.prepare(
+        'INSERT INTO spot_claims (spot_id, member_id, grant_json, presence_hash, claimed_at) VALUES (?, ?, ?, ?, ?)',
+      ).run(row.spot_id, member.member_id, grant ? JSON.stringify(grant) : null, presenceHash, now);
     } catch {
       // UNIQUE(spot_id, member_id) 경합 — 위 검사와 동시 요청이 겹친 경우.
       return reply.code(409).send({ error: 'SPOT_ALREADY_CLAIMED' });
@@ -425,6 +569,7 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
         remainingSlots: s.remainingSlots, // 감소 양상(남은 수량)
         depositTotalDshv: s.depositTotalDshv, // 규모
         validUntil: s.validUntil,
+        requirePresence: s.requirePresence, // 현장 몸-걸음 인증 필요 여부 (R-스팟-현장결속)
       }));
     // reservePublicKey를 함께 배포 — 사업자 지갑이 예치 소각 이전을 이 주소로 만든다.
     return signDistribution({ spots, reservePublicKey }, ctx.distSigner, ctx.distKeyId, now);

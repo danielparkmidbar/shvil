@@ -85,6 +85,12 @@ export interface AppOptions {
    * 운영은 이 값을 코드로 넘기지 말고 SHVIL_KEK 환경변수로 주입한다.
    */
   kek?: string;
+  /**
+   * R-스팟-현장결속: 걸음당 최소 소요 시간(ms). 기본은 운영 상수(0.3초/걸음).
+   * 테스트가 실시간 대기 없이 현장 결속 흐름을 검증하기 위한 주입 지점이다 —
+   * 운영은 이 값을 넘기지 않는다(기본값이 물리적 하한).
+   */
+  presenceMinMsPerStep?: number;
 }
 
 interface MemberRow {
@@ -722,6 +728,10 @@ export function buildApp(
     // ★V-3: 예치 소각 코인을 sync와 동일한 초과생성 탐지에 연결한다 (fake-walk 세탁 차단).
     dailyMaxDshv: 400, // 확정 파라미터: 일 40 SHV
     weeklyMaxDshv: 3000, // 확정: 주 300 SHV
+    // R-스팟-현장결속: 현장 수행 최소 소요 시간 (미지정 시 운영 기본 0.3초/걸음).
+    ...(options.presenceMinMsPerStep !== undefined
+      ? { presenceMinMsPerStep: options.presenceMinMsPerStep }
+      : {}),
   });
 
   // ── 기회적 동기화 — 이중지불·초과 생성 사후 탐지 (보안 감사 H-1) ──

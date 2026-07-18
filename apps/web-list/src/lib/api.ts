@@ -214,6 +214,11 @@ export interface SpotEntry {
   /** 예치 총액(규모, dSHV). */
   depositTotalDshv: number;
   validUntil: number;
+  /**
+   * R-스팟-현장결속: 받으려면 그 자리에서 몸-걸음 인증(서버 발급 랜덤 지시 수행)이
+   * 필요한 스팟인가. 지도 표식으로 "가야 받는다"를 미리 알린다.
+   */
+  requirePresence: boolean;
 }
 
 export interface CourseSegmentMeta {

@@ -207,6 +207,11 @@ export interface Strings {
     scale: (shv: string) => string;
     /** "~{date}까지" 유효 기간. */
     until: (date: string) => string;
+    /**
+     * R-스팟-현장결속 표식 — 받으려면 그 자리에서 몸-걸음 인증(랜덤 지시 수행)이
+     * 필요한 스팟. "가야 받는다"를 지도에서 미리 알린다.
+     */
+    presenceBadge: string;
     /** 지도 마커 선택 안내. */
     selectHint: string;
     /** 딥링크 버튼 — "지갑 앱에서 받기" (웹 수령 불허, R-7). */

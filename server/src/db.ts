@@ -248,9 +248,27 @@ export function createDb(path: string): DatabaseSync {
       valid_from INTEGER NOT NULL,
       valid_until INTEGER NOT NULL,
       status TEXT NOT NULL, -- OPEN | CLOSED
+      -- R-스팟-현장결속: 이 스팟이 청구 전에 현장 몸-걸음 인증을 요구하는가.
+      -- 기본 1(요구) — 다니엘 쌤 "그 자리에 가야". 사업자가 0으로 끌 수 있다
+      -- (식당·주유소의 즉시 스캔 원안 보존). 끄면 원격 청구 위험(V-1)을 그 스팟이 진다.
+      require_presence INTEGER NOT NULL DEFAULT 1,
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_spot_region ON spot_treasures(region_id, status);
+    -- 현장 결속 1회용 이동 지시 (R-스팟-현장결속). 서버가 발급한 랜덤 지시를 보관해
+    -- 청구 때 대조한다 — 사전 계산·재사용을 막는 것이 목적이다.
+    -- ★좌표·경로 컬럼이 없다: 지시(방향·걸음)와 발급/소비 시각뿐이며, 손님의 실제
+    --   이동은 폰 로컬에서만 판정된다 (헌법 제9조·제10조).
+    CREATE TABLE IF NOT EXISTS spot_challenges (
+      challenge_id TEXT PRIMARY KEY,
+      spot_id TEXT NOT NULL REFERENCES spot_treasures(spot_id),
+      member_id TEXT NOT NULL,
+      legs_json TEXT NOT NULL,
+      issued_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      consumed_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_spot_challenges_member ON spot_challenges(member_id, spot_id, issued_at);
     -- 예치 코인 대장 — 이중 예치 방지. coin_id(=coinFingerprint의 coinId) UNIQUE로
     -- 같은 소각 코인을 두 번 예치할 수 없다. 좌표·경로 없음(코인 ID·금액·지문뿐).
     CREATE TABLE IF NOT EXISTS spot_deposits (
@@ -268,6 +286,10 @@ export function createDb(path: string): DatabaseSync {
       spot_id TEXT NOT NULL REFERENCES spot_treasures(spot_id),
       member_id TEXT NOT NULL,
       grant_json TEXT,
+      -- R-스팟-현장결속: 현장 수행 요약의 해시 (감사 흔적). 이동 원자료가 아니라
+      -- "이 지시를 이렇게 완수했다"는 요약의 해시라 이동을 복원할 수 없다.
+      -- 현장 인증을 요구하지 않는 스팟(사업자 선택)은 NULL이다.
+      presence_hash TEXT,
       claimed_at INTEGER NOT NULL,
       UNIQUE(spot_id, member_id)
     );
@@ -365,7 +387,24 @@ export function createDb(path: string): DatabaseSync {
   `);
   migrateFlaggedMembers(db);
   migrateAngelsAvailability(db);
+  migrateSpotRequirePresence(db);
   return db;
+}
+
+/**
+ * 구 스키마 이행 (R-스팟-현장결속): spot_treasures에 현장 결속 요구 컬럼 추가.
+ * 기존 스팟은 기본값 1(요구)로 이행된다 — 원격 청구가 열린 채 남지 않게
+ * **안전한 쪽으로** 승격한다. 사업자가 필요하면 0으로 끌 수 있다.
+ */
+function migrateSpotRequirePresence(db: DatabaseSync): void {
+  const spotCols = db.prepare('PRAGMA table_info(spot_treasures)').all() as unknown as { name: string }[];
+  if (spotCols.length > 0 && !spotCols.some((c) => c.name === 'require_presence')) {
+    db.exec('ALTER TABLE spot_treasures ADD COLUMN require_presence INTEGER NOT NULL DEFAULT 1;');
+  }
+  const claimCols = db.prepare('PRAGMA table_info(spot_claims)').all() as unknown as { name: string }[];
+  if (claimCols.length > 0 && !claimCols.some((c) => c.name === 'presence_hash')) {
+    db.exec('ALTER TABLE spot_claims ADD COLUMN presence_hash TEXT;');
+  }
 }
 
 /**

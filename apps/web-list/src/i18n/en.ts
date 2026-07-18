@@ -162,6 +162,7 @@ export const en: Strings = {
     remaining: (remaining, total) => `${remaining} of ${total} left`,
     scale: (shv) => `Pool ${shv}`,
     until: (date) => `Until ${date}`,
+    presenceBadge: '🚶 On-site walk check — be there to claim',
     selectHint: 'Select a marker on the map to see the spot.',
     getInApp: 'Claim in the wallet app',
     getNote:

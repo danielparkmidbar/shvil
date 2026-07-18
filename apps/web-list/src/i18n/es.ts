@@ -168,6 +168,7 @@ export const es: Strings = {
     remaining: (remaining, total) => `Quedan ${remaining} de ${total}`,
     scale: (shv) => `Fondo ${shv}`,
     until: (date) => `Hasta ${date}`,
+    presenceBadge: '🚶 Verificación a pie en el lugar — hay que estar allí para recibir',
     selectHint: 'Toca un marcador del mapa para ver el sitio.',
     getInApp: 'Recoger en la aplicación de billetera',
     getNote:

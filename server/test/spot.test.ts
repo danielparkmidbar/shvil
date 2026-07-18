@@ -41,7 +41,13 @@ function burnToReserve(owner: TestIdentity, reservePublicKey: string, km: number
   return createTransfer(mintWalkCoinFor(owner, km, startAt), owner.signer, reservePublicKey, Date.now());
 }
 
-/** 스팟 생성 → reservePublicKey 반환 (사업자 서명). */
+/**
+ * 스팟 생성 → reservePublicKey 반환 (사업자 서명).
+ *
+ * ★requirePresence=false로 만든다: 이 파일은 **예치·선착순 회계·총량 보존**을
+ * 검증하는 곳이라 현장 결속(R-스팟-현장결속)은 관심사가 아니다. 현장 결속은
+ * 기본값(요구)·지시 발급·수행 대조·우회 차단까지 spotPresence.test.ts가 전담한다.
+ */
 async function createSpot(
   sponsor: TestIdentity,
   spotId: string,
@@ -55,6 +61,7 @@ async function createSpot(
     displayName: '갈릴리 카페',
     location: { lat: 33.231, lon: 35.651 },
     perClaimDshv,
+    requirePresence: false,
     validFrom: overrides.validFrom ?? now - DAY,
     validUntil: overrides.validUntil ?? now + DAY,
   });
@@ -311,6 +318,9 @@ describe('GET /spot — 맵 배포 (잔여0 숨김 + noUiStrings)', () => {
       'remainingSlots',
       'depositTotalDshv',
       'validUntil',
+      // R-스팟-현장결속: 현장 몸-걸음 인증 필요 여부 (불리언 — 자연어 아님).
+      // 지갑이 스캔 후 지시를 받을지 판단하고, 맵이 표식을 붙이는 데 쓴다.
+      'requirePresence',
     ]);
     for (const s of list.spots) {
       for (const k of Object.keys(s)) expect(allowed.has(k)).toBe(true);

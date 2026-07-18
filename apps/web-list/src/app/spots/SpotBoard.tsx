@@ -197,6 +197,8 @@ export default function SpotBoard() {
                   <span className="service-tag">{s.scale(fmtShv(spot.depositTotalDshv))}</span>
                 </p>
                 <p className="muted">{s.until(fmtDate(spot.validUntil, locale))}</p>
+                {/* R-스팟-현장결속: 가야 받는 스팟 표식 — "걸으며 갈지" 판단 정보 */}
+                {spot.requirePresence && <p className="spot-presence">{s.presenceBadge}</p>}
                 <a className="btn" href={spotDeepLink(spot.spotId)}>
                   {s.getInApp}
                 </a>

@@ -7,22 +7,25 @@
  * 발행의 회계다(거래 승인이 아니다 — 헌법 제9조 정합). 사업자는 발행 주체가 아니며,
  * 마켓에서 구매/생성한 자기 코인을 리저브로 소각한 만큼만 서버가 재배포한다(총량 보존).
  *
- * ★현장 결속 없음(V-1, 적대적 검증): 청구는 spotId만 알면 원격으로 가능하다 — 서버는
- * 위치를 볼 수 없다는 헌법 제9조 제약상 스캐너가 실제로 스팟에 있는지 검증할 수 없다.
- * 즉 QR 스캔은 spotId 취득 수단일 뿐 위치 증명이 아니며, GET /spot이 spotId·위치를
- * 공개하므로 스캔 없이도 청구가 성립한다. 근본 완화(M9 몸-걸음 인증 결합)는 결정 대기
- * (몸인증_보물마이닝_설계 4장 R-스팟-현장결속).
+ * ★현장 결속 (R-스팟-현장결속, 2026-07-18 다니엘 쌤 확정 — V-1 근본 완화):
+ * 서버는 위치를 볼 수 없으므로(헌법 제9조) "그 자리에 있는가"를 직접 검증할 수 없다.
+ * 대신 두 겹으로 결속한다 — ① 서버가 1회용 랜덤 이동 지시를 발급하고, ② 폰이 스팟
+ * 근접을 확인한 뒤 그 지시를 몸으로 수행해야 청구가 성립한다. 서버는 자기가 낸 지시와
+ * 대조하고(일치·소요 시간·걸음 대역), 근접·변위 판정은 폰 로컬이다(좌표 비전송).
+ * 사업자가 끈 스팟(식당·주유소 즉시 스캔)은 종전대로 spotId만으로 청구된다.
  *
  * 제1원칙(몸인증_보물마이닝_설계 0장): 이 계층은 선택 기능이다 — 스팟이 없거나 서버가
  * 없으면 지갑의 기본 걷기·지불 경험에 어떤 영향도 주지 않는다(모든 실패는 무해하다).
  *
  * 이 모듈은 순수 TS다 — expo 모듈 import 금지 (directory·walletService를 지연 로드).
  */
+import type { SpotPresenceLegReport } from '@shvil/shared';
 import type {
   SpotCreateInput,
   SpotDepositResult,
   SpotListEntry,
   SpotMineEntry,
+  SpotPresenceChallengeResult,
 } from './api';
 import { wallet } from './walletService';
 
@@ -65,14 +68,29 @@ export const spotService = {
   },
 
   /**
+   * 현장 결속 지시 받기 (R-스팟-현장결속) — 스팟 앞에서 QR을 스캔한 직후 호출한다.
+   * 1회용 랜덤 지시라 미리 받아둘 수 없다(새로 받으면 이전 것은 죽는다).
+   */
+  async requestChallenge(spotId: string): Promise<SpotPresenceChallengeResult> {
+    const { directoryApi } = await import('./directory');
+    return directoryApi.requestSpotChallenge(spotId);
+  },
+
+  /**
    * 스캔 청구 (스캐너) — 스팟당 1인 1회. 코인이 있으면 TREASURE 그랜트를 받아 폰에서
    * 민팅한다(BONUS 계보 — 걸음 코인과 영구 구분). 코인이 없으면 스탬프뿐. 확정 거절
-   * (소진·1인1회·기간 밖·버스트 상한)은 ApiError로 그대로 던진다 — 화면이 안내한다.
-   * ※ QR 스캔은 spotId 취득 수단일 뿐 위치 증명이 아니다(V-1 — 위 모듈 주석 참조).
+   * (소진·1인1회·기간 밖·버스트 상한·현장 인증 실패)은 ApiError로 그대로 던진다 —
+   * 화면이 코드로 안내한다.
+   *
+   * presence: 현장 인증을 요구하는 스팟이면 수행을 마친 세션의 보고를 넘긴다.
+   * 보고에는 좌표·변위가 없다 (지시 + 측정 걸음뿐).
    */
-  async claim(spotId: string): Promise<SpotScanResult> {
+  async claim(
+    spotId: string,
+    presence?: { challengeId: string; legs: SpotPresenceLegReport[] },
+  ): Promise<SpotScanResult> {
     const { directoryApi, getTrustedIssuerKeys } = await import('./directory');
-    const res = await directoryApi.claimSpot(spotId);
+    const res = await directoryApi.claimSpot(spotId, presence);
     if (res.grant) {
       await wallet.mintFromGrant(res.grant, await getTrustedIssuerKeys(), Date.now());
       return { spotId: res.spotId, amountDshv: res.amountDshv, minted: true, stamp: false };

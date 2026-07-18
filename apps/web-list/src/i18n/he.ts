@@ -164,6 +164,7 @@ export const he: Strings = {
     remaining: (remaining, total) => `נותרו ${remaining} מתוך ${total}`,
     scale: (shv) => `מאגר ${shv}`,
     until: (date) => `עד ${date}`,
+    presenceBadge: '🚶 אימות הליכה במקום — צריך להגיע כדי לקבל',
     selectHint: 'הקישו על סמן במפה כדי לראות את הנקודה.',
     getInApp: 'קבלה באפליקציית הארנק',
     getNote:

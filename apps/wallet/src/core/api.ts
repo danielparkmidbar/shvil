@@ -28,7 +28,9 @@ import {
   type RatingDirection,
   type Signed,
   type SignedGrant,
+  type MovementLeg,
   type Signer,
+  type SpotPresenceLegReport,
   type TreasureSpec,
   type TrustSummary,
 } from '@shvil/shared';
@@ -277,6 +279,26 @@ export interface SpotListEntry {
   /** 예치 총액 (규모). */
   depositTotalDshv: number;
   validUntil: number;
+  /**
+   * R-스팟-현장결속: 청구 전 현장 몸-걸음 인증이 필요한 스팟인가.
+   * true면 지갑이 지시를 받아(POST /spot/challenge) 그 자리에서 수행해야 한다.
+   */
+  requirePresence: boolean;
+}
+
+/** 현장 결속 1회용 지시 (POST /spot/challenge). */
+export interface SpotPresenceChallengeResult {
+  challengeId: string;
+  spotId: string;
+  /**
+   * 사업장의 **공개 위치** (GET /spot과 동일한 운영자 공개 데이터 — 사용자 좌표
+   * 아님). 폰이 근접 판정 기준으로 쓴다 — 미충전(목록 밖) 스팟도 인증 가능.
+   */
+  location: GeoPoint;
+  legs: MovementLeg[];
+  expiresAt: number;
+  /** 이 지시를 사람이 수행하는 데 필요한 최소 시간(ms) — 화면 안내용. */
+  minDurationMs: number;
 }
 
 /** 내 스팟 항목 (GET /spot/mine — 사업자) — 미충전 포함 전체 + 회계. */
@@ -630,13 +652,23 @@ export class DirectoryApi {
   }
 
   /**
+   * 현장 결속 지시 발급 (회원 서명) — 그 자리에서 수행할 1회용 랜덤 이동 지시.
+   * 매번 새로 받아야 하며(재사용 불가), 새로 받으면 이전 미소비 지시는 죽는다.
+   */
+  requestSpotChallenge(spotId: string): Promise<SpotPresenceChallengeResult> {
+    return this.#request('POST', '/spot/challenge', { spotId }, true);
+  }
+
+  /**
    * 스캔 청구 (스캐너=회원 서명) — 스팟당 1인 1회. 서버 왕복은 수량 한정 발행의
    * 회계다(승인 아님). grant면 폰에서 민팅(BONUS 계보), 아니면 스탬프뿐.
-   * ※ 현장 결속 없음(V-1): spotId만 알면 원격 청구 가능 — 서버가 위치를 볼 수 없다는
-   * 헌법 제9조 제약의 귀결. QR 스캔은 위치 증명이 아니라 spotId 취득 수단일 뿐이다.
+   *
+   * R-스팟-현장결속: 현장 인증을 요구하는 스팟이면 challengeId + 수행 보고(legs)를
+   * 함께 보낸다. 보고에는 좌표·변위가 없다 — 지시와 측정 걸음뿐이다. 근접·변위
+   * 판정은 폰이 이미 마쳤고(서버는 볼 수 없다), 서버는 자기가 낸 지시와 대조한다.
    */
-  claimSpot(spotId: string): Promise<SpotClaimResult> {
-    return this.#request('POST', '/spot/claim', { spotId }, true);
+  claimSpot(spotId: string, presence?: { challengeId: string; legs: SpotPresenceLegReport[] }): Promise<SpotClaimResult> {
+    return this.#request('POST', '/spot/claim', { spotId, ...(presence ?? {}) }, true);
   }
 
   /** 스팟 마감 (사업자 서명) — 남은 예치 소각분은 회수되지 않는다(영구 소각). */
