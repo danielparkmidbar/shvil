@@ -7,7 +7,7 @@
  *
  * ★정확한 코인 액수는 애초에 데이터에 없다(walkTier 구간 코드만) — 개인 재정 비노출.
  */
-import type { TrustSummary, TrustWalkTier } from '@shvil/shared';
+import { currentOwnerAddress, type Coin, type TrustSummary, type TrustWalkTier } from '@shvil/shared';
 
 export interface TrustBadge {
   key: string;
@@ -58,6 +58,39 @@ export function trustBadges(trust: TrustSummary, compact = false): TrustBadge[] 
         out.push({ key: 'cards', label: `감사 카드 ${trust.angel.guestbookCards}`, strong: false });
       }
     }
+  }
+  return out;
+}
+
+// ── 검증 실적 기여 (안 A) ─────────────────────────────────────────
+
+/** 한 번에 올릴 코인 수 상한 (서버 POST /trust/coins 계약과 동일). */
+export const TRUST_CONTRIBUTE_MAX = 100;
+
+/**
+ * 기여 후보 고르기 — 내가 **지금 보유**하고 있고 **남이 만든** 걷기 코인만.
+ *
+ * 서버가 최종 관문이지만(verifyCoin + 실보유·SELF 검사) 지갑도 보낼 것만 보낸다:
+ *  - 자기 코인: 자기 실적이 될 수 없다(서버 SELF 배제) → 안 보낸다.
+ *  - GRANT 계보(보너스·보물·클레임): 걸음이 아니다 → 안 보낸다.
+ *  - 내가 소유자가 아닌 코인: 서버가 거부한다 → 안 보낸다.
+ * 순수 함수라 vitest로 검증한다 (expo 모듈 import 금지 규약).
+ */
+export function pickWalkCreditCandidates(coins: Coin[], myMemberId: string, myAddress: string): Coin[] {
+  const out: Coin[] = [];
+  for (const coin of coins) {
+    if (out.length >= TRUST_CONTRIBUTE_MAX) break;
+    // 뿌리가 걷기인 코인만 실적이 된다.
+    let root = coin;
+    while (root.provenance.kind === 'SPLIT') root = root.provenance.parent;
+    if (root.provenance.kind !== 'WALK') continue;
+    if (coin.memberId === myMemberId) continue;
+    try {
+      if (currentOwnerAddress(coin) !== myAddress) continue;
+    } catch {
+      continue;
+    }
+    out.push(coin);
   }
   return out;
 }

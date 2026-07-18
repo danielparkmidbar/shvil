@@ -10,6 +10,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useWallet, wallet } from './src/core/walletService';
+import { contributeWalkCredit } from './src/core/trustService';
 import { chatService } from './src/core/chatService';
 import { treasureService } from './src/core/treasureService';
 import { renewMembershipIfDue, syncCoinFingerprints, syncCourses, syncFlaggedList } from './src/core/directory';
@@ -111,6 +112,10 @@ export default function App() {
         // 기회적 동기화 (보안 감사 H-1) — 코인 지문 제출로 사후 이중 사용·초과 생성
         // 대조에 기여. 승인 아님·실패 무해 (다음 온라인 기회에 재제출).
         syncCoinFingerprints().catch(() => {});
+        // C 신뢰 지표 기여 (안 A) — 내가 받은 걷기 코인을 올려 **그것을 걸어 만든
+        // 사람**의 검증 실적을 증언한다 (헌법 제7조 선행의 순환). 내 이득은 없고,
+        // 서버가 서명을 검증하므로 조작으로는 아무도 뱃지를 부풀릴 수 없다. 실패 무해.
+        contributeWalkCredit(wallet.identity.memberId, wallet.identity.address).catch(() => {});
         // 암호화 지갑 백업 (보안 감사 L-2) — 확정 코인을 종단간 암호화해 서버에 보관.
         // 폰 분실 시 니모닉으로 복구. 온라인 전용·실패 무해.
         wallet.backupWallet(Date.now()).catch(() => {});

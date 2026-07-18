@@ -92,32 +92,25 @@ export function checkFork(db: DatabaseSync, fp: CoinFingerprint, now: number): s
  * proofHash당 1회만 walk_proof_stats에 저장(분할 형제·중복 보고 dedup)하고, 그
  * 생산자의 전체 증명을 일자별로 합산해 일/주 한계를 넘으면 생산자를 소명 등재한다.
  *
- * reporterMemberId (C 신뢰 지표): 이 지문을 제출·예치한 회원. 생산자 본인이 아닌
- * 회원이 코인을 목격하면 그 증명을 corroborated=1로 승격한다(교차 목격) — 신뢰
- * 뱃지 집계는 이 표식만 센다. 자기 신고(서명 없는 sync 지문)만으로는 실적을
- * 부풀릴 수 없게 하는 게이트다. 초과 생성 포착 합산은 종전대로 전체를 본다
- * (탐지는 넓게, 신뢰는 좁게). 미지정 시 목격 승격은 일어나지 않는다.
+ * ★이 경로의 입력(지문)은 서명 미검증이다 — 누구나 임의 JSON을 올릴 수 있다.
+ *  탐지에는 그래도 유용하므로(가짜 신고까지 포함해 넓게 받아 한계 초과를 잡는다)
+ *  여기 그대로 두되, **신뢰 뱃지 집계에는 절대 쓰지 않는다**. 뱃지는 verifyCoin을
+ *  통과한 코인만 적재되는 walk_verified_credit에서만 나온다 (trust.ts creditVerifiedWalk,
+ *  검증가능신뢰_설계 안 A) — 탐지는 넓게, 신뢰는 좁게.
  */
 export function checkOverproduction(
   db: DatabaseSync,
   fp: CoinFingerprint,
   limits: HumanLimits,
   now: number,
-  reporterMemberId?: string,
 ): string | null {
   if (fp.rootKind !== 'WALK' || !fp.proofHash || !fp.dailyBreakdown) return null;
-  const corroborates = reporterMemberId !== undefined && reporterMemberId !== fp.producerMemberId;
   const exists = db.prepare('SELECT 1 FROM walk_proof_stats WHERE proof_hash = ?').get(fp.proofHash);
   if (!exists) {
     const total = fp.dailyBreakdown.reduce((s, d) => s + d.amountDshv, 0);
     db.prepare(
-      'INSERT INTO walk_proof_stats (proof_hash, producer_member, breakdown_json, total_dshv, first_seen, corroborated) VALUES (?, ?, ?, ?, ?, ?)',
-    ).run(fp.proofHash, fp.producerMemberId, JSON.stringify(fp.dailyBreakdown), total, now, corroborates ? 1 : 0);
-  } else if (corroborates) {
-    // 교차 목격 승격 — 한 번 올라간 corroborated는 내리지 않는다(단조 증가).
-    db.prepare('UPDATE walk_proof_stats SET corroborated = 1 WHERE proof_hash = ? AND corroborated = 0').run(
-      fp.proofHash,
-    );
+      'INSERT INTO walk_proof_stats (proof_hash, producer_member, breakdown_json, total_dshv, first_seen) VALUES (?, ?, ?, ?, ?)',
+    ).run(fp.proofHash, fp.producerMemberId, JSON.stringify(fp.dailyBreakdown), total, now);
   }
 
   const rows = db

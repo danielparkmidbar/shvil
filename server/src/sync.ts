@@ -54,10 +54,10 @@ export function registerSync(app: FastifyInstance, ctx: SyncContext): void {
         continue; // 형식 불량 지문은 무시 (일괄 제출 관용)
       }
       // 대조는 저장 전에 — 기존 목격과 새 지문을 비교해야 분기가 보인다.
+      // ※ 이 지문은 서명 미검증이므로 신뢰 뱃지에는 절대 반영되지 않는다 (안 A).
+      //   뱃지는 verifyCoin을 통과한 코인만 적재하는 walk_verified_credit에서만 나온다.
       checkFork(db, fp, now);
-      // 제출자(member)를 목격자로 넘긴다 — 생산자가 아니면 교차 목격으로 신뢰 실적
-      // 승격(C). 자기 코인 자기 신고는 승격되지 않는다(부풀림 차단).
-      checkOverproduction(db, fp, limits, now, member.member_id);
+      checkOverproduction(db, fp, limits, now);
       db.prepare(
         `INSERT OR REPLACE INTO coin_sightings
           (coin_id, chain_len, owner_address, last_from_address, producer_member, amount_dshv, root_kind, reporter_member, reported_at)

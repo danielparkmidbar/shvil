@@ -35,6 +35,7 @@ import {
   type Signer,
 } from '@shvil/shared';
 import { checkFork, checkOverproduction } from './anomaly';
+import { creditVerifiedWalk, type TrustCreditOptions } from './trust';
 
 /**
  * V-2 (적대적 검증) — /spot/deposit DoS 방어 상한.
@@ -77,6 +78,11 @@ export interface SpotContext {
   distKeyId: string;
   /** verifyCoin 신뢰 발행 키 (예치 코인 계보 검증용). */
   trustedIssuerKeys: Record<string, string>;
+  /**
+   * C 신뢰 지표(안 A) 검증 크레딧 정책 — 예치된 남의 걷기 코인을 그 생산자의
+   * 검증 실적으로 적재할 때 쓰는 신뢰 루트. 예치는 이미 완전 검증된 경로다.
+   */
+  credit: TrustCreditOptions;
   /**
    * 인간 한계 (확정 파라미터, sync와 동일): 일 400 dSHV / 7일 3,000 dSHV.
    * ★V-3: 예치도 이 한계로 초과생성 탐지를 받는다 — fake-walk 세탁 차단 (아래 예치 참조).
@@ -210,7 +216,13 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       reservePublicKey,
       verifyOptions: { trustedIssuerKeys: ctx.trustedIssuerKeys },
     };
-    const accepted: { coinId: string; amountDshv: number; fp: ReturnType<typeof coinFingerprint> }[] = [];
+    // coin 원본도 보관한다 — C 신뢰 지표(안 A)의 검증 실적 적재에 필요하다.
+    const accepted: {
+      coinId: string;
+      amountDshv: number;
+      fp: ReturnType<typeof coinFingerprint>;
+      coin: Coin;
+    }[] = [];
     const seen = new Set<string>();
     for (const coin of body.coins) {
       // V-2: 검증 전에 SPLIT 재귀 깊이를 잘라 verifyCoin 폭주를 막는다.
@@ -225,7 +237,7 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
         return reply.code(409).send({ error: 'COIN_ALREADY_DEPOSITED' });
       }
       seen.add(coin.id);
-      accepted.push({ coinId: coin.id, amountDshv: verdict.amountDshv, fp: coinFingerprint(coin) });
+      accepted.push({ coinId: coin.id, amountDshv: verdict.amountDshv, fp: coinFingerprint(coin), coin });
       depositedDshv += verdict.amountDshv;
     }
 
@@ -238,10 +250,13 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       //   초과를 포착해 소명 대기 등재한다 — 예치가 fake-walk 방어(sync 기반 탐지)를
       //   우회하는 조용한 세탁 경로가 되지 않게 한다. 목격 저장 **전에** 호출한다.
       checkFork(db, a.fp, now);
-      // 예치자(사업자)를 목격자로 넘긴다 — 남의 걷기 코인을 예치하면 그 생산자의
-      // 증명이 교차 목격으로 신뢰 실적 승격(C). 자가 민팅 fake-walk 예치는 생산자=
-      // 예치자라 승격되지 않는다(V-3 세탁 방어와 같은 방향: 자기 코인은 실적 안 됨).
-      checkOverproduction(db, a.fp, limits, now, member.member_id);
+      checkOverproduction(db, a.fp, limits, now);
+
+      // C 신뢰 지표 (안 A): 예치 코인은 verifySpotDeposit으로 이미 완전 검증됐고
+      // 사업자 소유였음도 확인됐다 — 남의 걷기 코인을 예치했다면 그 생산자의 검증
+      // 실적으로 적재한다. 자가 민팅 fake-walk 예치는 생산자=예치자라 SELF로 배제된다
+      // (V-3 세탁 방어와 같은 방향: 자기 코인은 자기 실적이 되지 않는다).
+      creditVerifiedWalk(db, a.coin, member.member_id, ctx.credit, now);
 
       db.prepare(
         'INSERT INTO spot_deposits (coin_id, spot_id, sponsor_member, amount_dshv, deposited_at) VALUES (?, ?, ?, ?, ?)',

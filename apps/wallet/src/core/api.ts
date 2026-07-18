@@ -889,6 +889,16 @@ export class DirectoryApi {
     return this.#request('GET', `/trust?member=${encodeURIComponent(memberId)}`, null, false);
   }
 
+  /**
+   * 검증 실적 기여 (제출자 서명 인증) — 내가 보유한 남의 걷기 코인을 올리면 서버가
+   * verifyCoin으로 검증해 **그 코인을 만든 사람**의 실적으로 적재한다 (안 A).
+   * 내 이득은 없다 — 내가 받은 코인이 그 사람의 걸음을 증언하는 이타적 기여다.
+   * 조작 JSON은 서명이 없어 서버 검증에서 탈락하므로 뱃지를 부풀릴 수 없다.
+   */
+  contributeTrustCoins(coins: Coin[]): Promise<{ credited: number }> {
+    return this.#request('POST', '/trust/coins', { coins }, true);
+  }
+
   // ── 동행 찾기 (M8 — 여정 공유 + 팀 모집) ──
 
   /** 동행 모집 글 등록 (게시자 서명). 지역·날짜·팀 규모·이동 수단·한마디. */

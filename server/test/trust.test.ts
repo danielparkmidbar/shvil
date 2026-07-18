@@ -129,22 +129,79 @@ describe('① 자발 공개 게이트', () => {
   });
 });
 
-describe('② 교차 목격 걷기 실적 (자기 신고는 실적이 아니다)', () => {
-  it('자기 코인을 자기가 sync 하면 walkTier는 오르지 않는다 (부풀림 차단)', async () => {
+describe('② 검증된 걷기 실적만 뱃지가 된다 (안 A — 조작 불가)', () => {
+  it('미검증 sync 지문은 walkTier에 전혀 영향을 주지 않는다', async () => {
+    // 진짜 코인이라도 sync 지문 경로는 신뢰 집계에 쓰이지 않는다 (탐지 전용).
     const coin = mintWalk(walker, 100, T0);
-    await signedInject(app, walker, 'POST', '/sync/coins', { fingerprints: [coinFingerprint(coin)] });
+    const received = payTo(coin, walker, witness, 'chg-sync-only');
+    await signedInject(app, witness, 'POST', '/sync/coins', { fingerprints: [coinFingerprint(received)] });
     const r = await publicTrust(walker.memberId);
     expect(r.trust!.walkTier).toBe('NONE');
   });
 
-  it('남이 받은 코인을 목격(sync)하면 생산자의 walkTier가 오른다', async () => {
-    // walker가 100 dSHV를 걸어 witness에게 지불 → witness가 sync (교차 목격)
-    const coin = mintWalk(walker, 100, T0 + 86_400_000);
-    const received = payTo(coin, walker, witness, 'chg-trust-corr');
-    await signedInject(app, witness, 'POST', '/sync/coins', { fingerprints: [coinFingerprint(received)] });
+  it('★조작 지문으로는 뱃지를 부풀릴 수 없다 (2번째 계정 공격 차단)', async () => {
+    // 공격: 버너 계정(witness)이 walker를 생산자로 지목한 **완전 조작 JSON**을 올린다.
+    // 실제 코인도, 실제 걷기도 없다. 인간 한계(일 400) 아래로 여러 날에 나눠 조작해
+    // 탐지도 피한다 — 옛 교차 목격 설계였다면 VETERAN까지 올라갔을 공격이다.
+    const fabricated = Array.from({ length: 6 }, (_, i) => ({
+      coinId: `fake-coin-${i}`,
+      rootKind: 'WALK' as const,
+      proofHash: `fake-proof-${i}`,
+      producerMemberId: walker.memberId,
+      amountDshv: 350,
+      chainLen: 1,
+      ownerAddress: `fake-owner-${i}`,
+      lastFromAddress: `fake-from-${i}`,
+      dailyBreakdown: [{ date: `2026-06-0${i + 1}`, amountDshv: 350 }],
+    }));
+    const res = await signedInject(app, witness, 'POST', '/sync/coins', { fingerprints: fabricated });
+    expect(res.statusCode).toBe(200); // 탐지 경로는 관용적으로 수리한다
+
+    // 그러나 뱃지는 꿈쩍도 하지 않는다 — 서명이 없어 검증을 통과할 수 없기 때문.
     const r = await publicTrust(walker.memberId);
-    // 100 dSHV 교차 목격 → STARTER (≥1)
-    expect(r.trust!.walkTier).toBe('STARTER');
+    expect(r.trust!.walkTier).toBe('NONE');
+  });
+
+  it('보유자가 검증 경로(/trust/coins)로 올리면 생산자의 walkTier가 오른다', async () => {
+    // walker가 100 dSHV를 걸어 witness에게 지불 → witness가 보유 코인을 검증 제출.
+    const coin = mintWalk(walker, 100, T0 + 86_400_000);
+    const received = payTo(coin, walker, witness, 'chg-trust-verified');
+    const res = await signedInject(app, witness, 'POST', '/trust/coins', { coins: [received] });
+    expect((res.json() as { credited: number }).credited).toBe(1);
+    const r = await publicTrust(walker.memberId);
+    expect(r.trust!.walkTier).toBe('STARTER'); // 100 dSHV ≥ 1
+  });
+
+  it('자기 코인을 자기가 올리면 실적이 되지 않는다 (유통된 코인만)', async () => {
+    const before = (await publicTrust(walker.memberId)).trust!.walkTier;
+    const own = mintWalk(walker, 300, T0 + 5 * 86_400_000);
+    const res = await signedInject(app, walker, 'POST', '/trust/coins', { coins: [own] });
+    // 본인 보유이므로 소유 검사는 통과하지만 생산자==제출자라 SELF로 배제된다.
+    expect((res.json() as { credited: number }).credited).toBe(0);
+    expect((await publicTrust(walker.memberId)).trust!.walkTier).toBe(before);
+  });
+
+  it('남의 코인 데이터를 주워 올려도 적재되지 않는다 (실보유 필요)', async () => {
+    // voter1이 자기가 보유하지 않은 코인(witness에게 간 것)을 그대로 제출.
+    const coin = mintWalk(walker, 100, T0 + 6 * 86_400_000);
+    const toWitness = payTo(coin, walker, witness, 'chg-not-mine');
+    const res = await signedInject(app, voter1, 'POST', '/trust/coins', { coins: [toWitness] });
+    expect((res.json() as { credited: number }).credited).toBe(0);
+  });
+
+  it('같은 증명을 여러 번 올려도 한 번만 계상된다 (proofHash dedup)', async () => {
+    const coin = mintWalk(walker, 100, T0 + 7 * 86_400_000);
+    const received = payTo(coin, walker, witness, 'chg-dedup');
+    await signedInject(app, witness, 'POST', '/trust/coins', { coins: [received] });
+    const tierAfterFirst = (await publicTrust(walker.memberId)).trust!.walkTier;
+    await signedInject(app, witness, 'POST', '/trust/coins', { coins: [received] });
+    await signedInject(app, witness, 'POST', '/trust/coins', { coins: [received] });
+    expect((await publicTrust(walker.memberId)).trust!.walkTier).toBe(tierAfterFirst);
+  });
+
+  it('검증 제출은 서명 인증 필수', async () => {
+    const res = await app.inject({ method: 'POST', url: '/trust/coins', payload: { coins: [] } });
+    expect(res.statusCode).toBe(401);
   });
 });
 

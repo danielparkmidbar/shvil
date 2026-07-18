@@ -626,6 +626,18 @@ export function buildApp(
     [TREASURE_KEY_ID]: treasureSigner.publicKeyHex,
   };
 
+  /**
+   * C 신뢰 지표(안 A) 검증 크레딧 정책 — 어떤 걷기 코인을 "실적"으로 인정할지.
+   * 운영에서는 무결성 증서(VERIFIED)를 요구한다: **인증된 앱에서 생성된 걷기 코인만**
+   * 뱃지가 된다 (결정 대기 3번 필수화 확정과 동일 기준). 개발·테스트에서는 모의 증서가
+   * 없는 코인으로도 흐름을 검증할 수 있게 완화한다 — devMode는 운영에서 꺼져 있다(C-1).
+   */
+  const trustCredit = {
+    trustedIssuerKeys,
+    trustedRootKeys: { [MEMBERSHIP_ROOT_KEY_ID]: membershipRootSigner.publicKeyHex },
+    requireIntegrity: !devMode,
+  };
+
   // ── 코인 마켓 + 에스크로 (M3) ─────────────────────────────────
   registerMarket(app, {
     db,
@@ -675,9 +687,11 @@ export function buildApp(
   registerCompanions(app, { db, authenticate });
 
   // ── 검증 가능한 신뢰 지표 (C — 별점 대신 사실): /trust 조회·자발 공개 ──
-  // 위조가 어려운 사실(커뮤니티 인정 완주·교차 목격 걷기 실적·활동 기간)을 뱃지·
+  // 위조가 어려운 사실(커뮤니티 인정 완주·검증된 걷기 실적·활동 기간)을 뱃지·
   // 숫자·일자로만 반환한다. 본인이 공개를 선택해야만 노출된다(trust.ts 게이트).
-  registerTrust(app, { db, authenticate });
+  // ★안 A: 걷기 실적은 서버가 verifyCoin으로 직접 검증한 코인만 집계한다 — 조작
+  // 지문(/sync/coins)은 서명이 없어 뱃지에 영향을 주지 못한다.
+  registerTrust(app, { db, authenticate, credit: trustCredit });
 
   // ── 보물 마이닝 (M9): 명세 배포 + 수량 한정 발행 회계 ─────────────
   // 이동 검증은 100% 폰 로컬 — 서버는 걸음·방향·좌표를 받지 않는다.
@@ -703,6 +717,8 @@ export function buildApp(
     distSigner,
     distKeyId: DISTRIBUTION_KEY_ID,
     trustedIssuerKeys,
+    // C 신뢰 지표(안 A): 예치된 남의 걷기 코인을 그 생산자의 검증 실적으로 적재.
+    credit: trustCredit,
     // ★V-3: 예치 소각 코인을 sync와 동일한 초과생성 탐지에 연결한다 (fake-walk 세탁 차단).
     dailyMaxDshv: 400, // 확정 파라미터: 일 40 SHV
     weeklyMaxDshv: 3000, // 확정: 주 300 SHV

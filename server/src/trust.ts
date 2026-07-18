@@ -7,8 +7,8 @@
  *
  * ── 무엇이 신뢰가 되나 (위조 견고성 순) ─────────────────────────────
  *  - claimsApproved: claims 투표(N명 인정) — 혼자 못 만든다.
- *  - walkTier: 교차 목격된(corroborated=1) 걷기 실적의 구간 뱃지. 생산자 본인이
- *    아닌 회원이 목격한 증명만 센다 → 서명 없는 자기 신고로는 못 부풀린다.
+ *  - walkTier: **서버가 verifyCoin으로 검증한** 걷기 코인의 구간 뱃지 (안 A).
+ *    조작 JSON은 서명이 없어 검증을 통과하지 못하므로 뱃지를 부풀릴 수 없다.
  *    정확한 dSHV는 응답에 없다(구간만) — 개인 재정 비노출(설계 §3).
  *  - certificates: 사진+데이터 자기 제출(투표 없음) — 보조 지표.
  *  - memberSinceDay / angelSinceDay: 서명된 가입·등록 시점 — 소급 위조 불가.
@@ -22,16 +22,92 @@
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
-import { trustDayOf, walkTierOf, type TrustSummary } from '@shvil/shared';
+import {
+  addressFromPublicKey,
+  coinFingerprint,
+  currentOwnerAddress,
+  trustDayOf,
+  verifyCoin,
+  walkTierOf,
+  type Coin,
+  type TrustSummary,
+} from '@shvil/shared';
 
 export interface TrustMemberRow {
   member_id: string;
   device_public_key: string;
 }
 
+/**
+ * 검증 크레딧 정책 (안 A) — 어떤 코인을 "진짜 걷기 실적"으로 인정할지.
+ * 서버가 verifyCoin으로 서명·계보를 검증할 때 쓰는 신뢰 루트들이다.
+ */
+export interface TrustCreditOptions {
+  /** GRANT 계보 검증용 신뢰 발행 키 (walk 코인엔 직접 안 쓰이나 분할 부모 검증에 필요). */
+  trustedIssuerKeys: Record<string, string>;
+  /** 회원 증서 신뢰 루트 — 걷기 코인의 무결성 증서 검증 (보안 감사 C-2). */
+  trustedRootKeys: Record<string, string>;
+  /**
+   * 무결성 증서를 필수로 볼지. 운영(devMode=false)에서는 true —
+   * **인증된 앱에서 생성된 걷기 코인만** 실적이 된다 (결정 대기 3번 필수화 확정).
+   * 개발·테스트에서는 false (모의 증서가 없는 코인도 흐름 검증 가능).
+   */
+  requireIntegrity: boolean;
+}
+
 export interface TrustContext {
   db: DatabaseSync;
   authenticate: (req: FastifyRequest) => TrustMemberRow | null;
+  credit: TrustCreditOptions;
+}
+
+/** creditVerifiedWalk 결과 — 호출부가 집계·응답에 쓴다 (자연어 아님). */
+export type TrustCreditResult = 'CREDITED' | 'SELF' | 'INVALID' | 'NOT_WALK';
+
+/**
+ * 검증된 걷기 실적 적재 (안 A의 핵심) — 이 함수만이 walkTier에 영향을 준다.
+ *
+ * ★부풀림이 불가능한 이유: 여기서 서버가 **직접 verifyCoin**을 돌린다. 조작 JSON은
+ *  생산자 기기 키의 서명이 없으므로 BAD_PROOF_SIGNATURE로 탈락한다. 적재되는 금액도
+ *  제출자가 주장한 값이 아니라 **서명된 증명 안의 일자합**에서만 온다.
+ *  운영에서는 무결성 증서(VERIFIED)까지 요구해 인증된 앱 발행분만 인정한다.
+ *
+ * ★자기 크레딧 금지: 생산자 본인이 제출하면 적재하지 않는다 — 코인이 실제로 남의
+ *  손에 넘어간(유통된) 것만 실적이 된다. 호출부는 제출자의 실보유·예치를 별도 확인한다.
+ *
+ * proofHash를 PK로 두어 분할 형제·중복 제출이 이중 계상되지 않는다.
+ * 남는 한계: 루팅 기기의 GPS 위조 자체는 서명이 유효하므로 여기서 못 걸러낸다 —
+ * 그것은 코인 발행 전체가 지는 근본 한계이며 무결성 인증·인간 한계·소명이 맡는다.
+ */
+export function creditVerifiedWalk(
+  db: DatabaseSync,
+  coin: Coin,
+  reporterMemberId: string,
+  options: TrustCreditOptions,
+  now: number,
+): TrustCreditResult {
+  // 예치 코인은 리저브 앞 미완결 링크로 끝나므로 허용한다 — 걷기 증명의 진위와
+  // 무관한 조건이며, 그 앞 체인·계보는 그대로 전부 검증된다.
+  const verdict = verifyCoin(coin, {
+    trustedIssuerKeys: options.trustedIssuerKeys,
+    trustedRootKeys: options.trustedRootKeys,
+    requireIntegrityToken: options.requireIntegrity,
+    allowPendingLastLink: true,
+    now,
+  });
+  if (!verdict.valid) return 'INVALID';
+
+  const fp = coinFingerprint(coin);
+  if (fp.rootKind !== 'WALK' || !fp.proofHash || !fp.dailyBreakdown) return 'NOT_WALK';
+  if (reporterMemberId === fp.producerMemberId) return 'SELF';
+
+  // 금액은 서명된 증명의 일자합에서만 — 제출자 주장값을 쓰지 않는다.
+  const total = fp.dailyBreakdown.reduce((s, d) => s + d.amountDshv, 0);
+  db.prepare(
+    `INSERT OR IGNORE INTO walk_verified_credit (proof_hash, producer_member, total_dshv, first_verified_at)
+     VALUES (?, ?, ?, ?)`,
+  ).run(fp.proofHash, fp.producerMemberId, total, now);
+  return 'CREDITED';
 }
 
 /**
@@ -60,13 +136,12 @@ export function computeTrustSummary(db: DatabaseSync, memberId: string): TrustSu
     }
   ).n;
 
-  // 교차 목격된 증명만 합산한다 (corroborated=1). 자기 신고 지문은 신뢰 실적이
-  // 아니다 — 정확 액수는 walkTier 구간으로만 나가고 밖으로 노출하지 않는다.
-  const corroboratedDshv = (
+  // ★서버가 verifyCoin으로 검증한 코인만 합산한다 (안 A). 미검증 sync 지문
+  // (walk_proof_stats)은 조작 가능하므로 여기서 절대 읽지 않는다.
+  // 정확 액수는 walkTier 구간으로만 나가고 밖으로 노출하지 않는다.
+  const verifiedDshv = (
     db
-      .prepare(
-        'SELECT COALESCE(SUM(total_dshv), 0) AS s FROM walk_proof_stats WHERE producer_member = ? AND corroborated = 1',
-      )
+      .prepare('SELECT COALESCE(SUM(total_dshv), 0) AS s FROM walk_verified_credit WHERE producer_member = ?')
       .get(memberId) as { s: number }
   ).s;
 
@@ -92,7 +167,7 @@ export function computeTrustSummary(db: DatabaseSync, memberId: string): TrustSu
     claimsApproved,
     certificatesFull: certFull,
     certificatesSection: certSection,
-    walkTier: walkTierOf(corroboratedDshv),
+    walkTier: walkTierOf(verifiedDshv),
     memberSinceDay: trustDayOf(member.created_at),
     angel,
     leaderboardVerified,
@@ -127,6 +202,43 @@ export function registerTrust(app: FastifyInstance, ctx: TrustContext): void {
        ON CONFLICT(member_id) DO UPDATE SET visible = excluded.visible, updated_at = excluded.updated_at`,
     ).run(member.member_id, body.visible ? 1 : 0, Date.now());
     return { visible: body.visible };
+  });
+
+  /**
+   * 검증 실적 기여 (제출자 서명 인증) — 내가 **보유한** 걷기 코인을 올리면 서버가
+   * verifyCoin으로 검증해 그 코인을 만든 사람(생산자)의 실적으로 적재한다 (안 A).
+   *
+   * "내가 받은 코인이 그 사람의 걸음을 증언한다" — 선행의 순환(헌법 제7조)에 맞는
+   * 이타적 기여다. 제출자 자신에게는 아무 이득이 없다(자기 코인은 SELF로 배제).
+   *
+   * 방어:
+   *  - 조작 JSON: verifyCoin 실패로 탈락 (서명이 없다). 부풀림의 뿌리를 차단.
+   *  - 남의 코인 데이터 도용 기여: 제출자가 **현재 소유자**여야 한다(실보유 증명).
+   *  - 자기 크레딧: 생산자 == 제출자면 배제 (유통된 코인만 실적).
+   * 응답은 건수뿐 — 어떤 코인이 왜 떨어졌는지 알려주지 않는다(정찰 방지).
+   */
+  app.post('/trust/coins', async (req, reply) => {
+    const member = authenticate(req);
+    if (!member) return reply.code(401).send({ error: 'unauthorized' });
+    const body = req.body as { coins?: Coin[] } | null;
+    const coins = body?.coins;
+    if (!Array.isArray(coins) || coins.length === 0 || coins.length > 100) {
+      return reply.code(400).send({ error: 'coins (1~100) required' });
+    }
+    const myAddress = addressFromPublicKey(member.device_public_key);
+    const now = Date.now();
+    let credited = 0;
+    for (const coin of coins) {
+      // 실보유 확인 — 남의 코인 데이터를 주워 기여하는 경로를 막는다. 형식 불량
+      // 코인은 currentOwnerAddress가 throw할 수 있으므로 관용적으로 건너뛴다.
+      try {
+        if (currentOwnerAddress(coin) !== myAddress) continue;
+      } catch {
+        continue;
+      }
+      if (creditVerifiedWalk(db, coin, member.member_id, ctx.credit, now) === 'CREDITED') credited += 1;
+    }
+    return { credited };
   });
 
   /** 본인 지표 조회 (서명 인증) — 공개 여부와 무관하게 자기 것은 항상 본다. */
