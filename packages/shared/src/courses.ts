@@ -94,6 +94,35 @@ export const SHVIL_ISRAEL_NORTH_SAMPLE: CourseData = {
   ],
 };
 
+/**
+ * 분당 이마트 → 불곡산 정상 — 닫힌 시험용 국내 코스 (다니엘 쌤 지정, 2026-07-18).
+ * 시점: 이마트 분당점(정자동 불정로, OSM 37.35876/127.11971) → 정자동 주택가 동측
+ * → 등산로 진입 → 남동 능선 → 불곡산 정상(성남·광주 경계, OSM 37.35170/127.13439).
+ * 편도 약 1.6km. 폴리라인은 실제 등산로의 직선 근사이므로 회랑을 넉넉히 잡는다
+ * (도심 150m 기본, 산악 120m 명시). 실걷기에서 "코스 밖"이 잦으면 좌표를 실측 보정.
+ * ⚠️ 코스명은 ASCII 고유명사 표기 — 서버 /courses 응답은 UI 문구를 나르지 않는다
+ * (noUiStrings — 한글 명칭 표시는 클라이언트 사전/코스 등록부 후속 몫).
+ */
+export const BUNDANG_BULGOKSAN_SAMPLE: CourseData = {
+  courseId: 'bundang-bulgoksan',
+  name: 'Bundang E-mart - Bulgoksan Peak (pilot)',
+  version: 1,
+  polyline: [
+    { lat: 37.35876, lon: 127.11971 }, // 이마트 분당점
+    { lat: 37.3581, lon: 127.1225 }, // 불정로 동측 횡단
+    { lat: 37.3572, lon: 127.1258 }, // 정자동 주택가 동단 — 등산로 입구
+    { lat: 37.356, lon: 127.1282 }, // 산자락 진입
+    { lat: 37.3549, lon: 127.1305 }, // 능선 오르막
+    { lat: 37.3538, lon: 127.1322 }, // 중턱 쉼터
+    { lat: 37.3527, lon: 127.1334 }, // 능선길
+    { lat: 37.3517, lon: 127.13439 }, // 불곡산 정상 (344m)
+  ],
+  segments: [
+    { fromIdx: 0, toIdx: 2, terrain: 'URBAN', difficultyTenths: 10 },
+    { fromIdx: 2, toIdx: 7, terrain: 'MOUNTAIN', difficultyTenths: 15, corridorHalfWidthM: 120 },
+  ],
+};
+
 /** 샘플 엔젤 포인트 — 서버 미가동·오프라인 시 폴백. */
 export const SAMPLE_ANGELS: AngelPoint[] = [
   { memberId: 'angel-dafna', name: '다프나의 집 (샘플)', location: { lat: 33.229, lon: 35.655 } },

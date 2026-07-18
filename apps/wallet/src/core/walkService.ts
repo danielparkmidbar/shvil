@@ -12,7 +12,7 @@
 import * as Location from 'expo-location';
 import { Pedometer } from 'expo-sensors';
 import { CorridorEngine } from '../walk/corridorEngine';
-import { SAMPLE_ANGELS, SHVIL_ISRAEL_NORTH_SAMPLE } from '../walk/data/shvilIsraelSample';
+import { BUNDANG_BULGOKSAN_SAMPLE, SAMPLE_ANGELS, SHVIL_ISRAEL_NORTH_SAMPLE } from '../walk/data/shvilIsraelSample';
 import { loadCachedAngels, loadCachedCourses } from './directory';
 import { treasureService } from './treasureService';
 import { wallet } from './walletService';
@@ -57,7 +57,10 @@ class WalkService {
             .map((a) => ({ memberId: a.memberId, name: a.name, location: a.location }))
         : SAMPLE_ANGELS;
     this.#engine = new CorridorEngine(
-      cachedCourses && cachedCourses.length > 0 ? cachedCourses : [SHVIL_ISRAEL_NORTH_SAMPLE],
+      // 오프라인 폴백에도 분당–불곡산(닫힌 시험 코스)을 포함 — 서버 캐시가 없어도 걷기 가능.
+      cachedCourses && cachedCourses.length > 0
+        ? cachedCourses
+        : [SHVIL_ISRAEL_NORTH_SAMPLE, BUNDANG_BULGOKSAN_SAMPLE],
       angelPoints,
     );
 

@@ -16,6 +16,7 @@ import {
   AUTH_HEADER_MEMBER,
   AUTH_HEADER_SIG,
   AUTH_HEADER_TS,
+  BUNDANG_BULGOKSAN_SAMPLE,
   SHVIL_ISRAEL_NORTH_SAMPLE,
   TARGET_COUNTRY_COUNT,
   WORLD_TRAILS,
@@ -374,7 +375,8 @@ export function buildApp(
     // 배포 서명(_sig) 부착 (보안 감사 H-3). 기존 소비자는 {courses}만 읽어 하위 호환.
     signDistribution(
       // 기본 코스 + 코스 등록부에서 공식 승격된 코스 (지시서 6장 3절).
-      { courses: [SHVIL_ISRAEL_NORTH_SAMPLE, ...officialCourses(db)] },
+      // 분당–불곡산은 닫힌 시험용 국내 코스 (다니엘 쌤 지정 — courses.ts 주석).
+      { courses: [SHVIL_ISRAEL_NORTH_SAMPLE, BUNDANG_BULGOKSAN_SAMPLE, ...officialCourses(db)] },
       distSigner,
       DISTRIBUTION_KEY_ID,
       Date.now(),
