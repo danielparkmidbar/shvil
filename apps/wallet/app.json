@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "쉬빌 지갑",
-    "slug": "shvil-wallet",
+    "slug": "shvil-coin",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,9 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "걷는 동안 백그라운드에서도 코스 판정을 계속하기 위해 필요합니다. 좌표는 판정 즉시 폐기됩니다.",
         "NSMotionUsageDescription": "걸음 수 측정(만보기)과 걷기 검증에 모션 센서를 사용합니다.",
         "NSCameraUsageDescription": "QR 지불을 위해 카메라를 사용합니다.",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -33,7 +35,14 @@
         "ACTIVITY_RECOGNITION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -52,12 +61,30 @@
       ],
       [
         "expo-camera",
-        { "cameraPermission": "QR 지불을 위해 카메라를 사용합니다." }
+        {
+          "cameraPermission": "QR 지불을 위해 카메라를 사용합니다."
+        }
       ],
       [
         "expo-sensors",
-        { "motionPermission": "걸음 수 측정과 걷기 검증에 모션 센서를 사용합니다." }
+        {
+          "motionPermission": "걸음 수 측정과 걷기 검증에 모션 센서를 사용합니다."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5612b14d-96ba-41ad-9da7-0840f2f709ec"
+      }
+    },
+    "owner": "shvil-coin"
   }
 }
