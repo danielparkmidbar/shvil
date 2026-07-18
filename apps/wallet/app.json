@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "org.shvil.wallet",
       "supportsTablet": false,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "등록 코스 위의 걸음을 판정하기 위해 위치를 사용합니다. 좌표는 판정 즉시 폐기되며 어디에도 저장되지 않습니다.",
@@ -17,6 +18,7 @@
       }
     },
     "android": {
+      "package": "org.shvil.wallet",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

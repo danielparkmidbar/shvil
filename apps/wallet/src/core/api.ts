@@ -36,7 +36,12 @@ import {
 } from '@shvil/shared';
 
 /** 기본 서버 URL — kv 오버라이드 가능 (실기기 테스트 시 LAN IP로 변경). */
-export const DEFAULT_SERVER_URL = 'http://localhost:8787';
+/**
+ * 디렉토리 서버 기본 주소. 배포 빌드는 EXPO_PUBLIC_DIRECTORY_URL로 주입한다
+ * (eas.json preview.env — Expo가 빌드 시점에 정적으로 인라인). 미지정(개발)이면
+ * localhost. 어느 쪽이든 앱의 가입/설정 화면에서 사용자가 바꿀 수 있다(kv 오버라이드).
+ */
+export const DEFAULT_SERVER_URL = process.env.EXPO_PUBLIC_DIRECTORY_URL ?? 'http://localhost:8787';
 
 /** 네트워크 응답 대기 한도 (ms) — 광야 무통신에서 UI가 오래 멈추지 않게. */
 const REQUEST_TIMEOUT_MS = 8_000;

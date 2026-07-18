@@ -12,6 +12,15 @@ import Link from 'next/link';
 import { useI18n } from '@/i18n';
 import ExpansionTrails from '@/components/ExpansionTrails';
 
+/**
+ * 지갑 APK 다운로드 (닫힌 시험 — Android 전용).
+ * GitHub Releases 최신 릴리스로 연결한다 — 새 APK를 릴리스로 올리면 홈페이지
+ * 재배포 없이 이 링크가 항상 최신을 가리킨다. iOS는 웹 다운로드가 불가(애플 정책 —
+ * TestFlight 필요)라 시험판은 Android만. ※저장소가 비공개면 시험단이 접근 불가 —
+ * 공개 전환 또는 별도 배포 채널 필요 (배포_가이드 3장).
+ */
+const WALLET_DOWNLOAD_URL = 'https://github.com/danielparkmidbar/shvil/releases/latest';
+
 const SECTION_LINKS = [
   { key: 'courses', href: '/courses' },
   { key: 'claims', href: '/claims' },
@@ -28,8 +37,8 @@ export default function HomePage() {
         <h1>{s.heroTitle}</h1>
         <p className="hero-vision">{s.vision}</p>
         <div className="hero-actions">
-          {/* 지갑 다운로드 — 앱 배포 전 플레이스홀더 (스토어 링크는 후속). */}
-          <a className="btn" aria-disabled="true" title={s.downloadNote}>
+          {/* 지갑 다운로드 — GitHub Releases 최신 APK (닫힌 시험, Android). */}
+          <a className="btn" href={WALLET_DOWNLOAD_URL} title={s.downloadNote}>
             {s.downloadCta}
           </a>
           <span className="muted">{s.downloadNote}</span>

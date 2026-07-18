@@ -36,7 +36,7 @@ export const en: Strings = {
       'the community redeem steps that went unrecorded. There is no server watching — what ' +
       'watches is always the community. (Detailed trail guides are a separate service, Shvil List.)',
     downloadCta: 'Download the wallet',
-    downloadNote: 'App release in preparation — opening soon.',
+    downloadNote: 'Android test build (APK) — closed pilot. iOS is in preparation.',
     proofTitle: 'Journey proofs — attestation without location',
     proofBody:
       'Walk-proof summaries that you set to public in the app are published here. Only distance, ' +

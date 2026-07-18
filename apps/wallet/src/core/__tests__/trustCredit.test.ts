@@ -108,7 +108,8 @@ describe('pickWalkCreditCandidates', () => {
     expect(pickWalkCreditCandidates([bonus], me.memberId, me.address)).toHaveLength(0);
   });
 
-  it('상한(100)을 넘겨 보내지 않는다', () => {
+  // 코인 120개 민팅·서명이라 무겁다 — 병렬 전체 실행에서 기본 5초를 넘길 수 있어 타임아웃 명시.
+  it('상한(100)을 넘겨 보내지 않는다', { timeout: 30_000 }, () => {
     const many = Array.from({ length: 120 }, (_, i) =>
       payTo(mintWalk(walker, 1, T0 + i * 86_400_000), walker, me, `chg-bulk-${i}`),
     );
