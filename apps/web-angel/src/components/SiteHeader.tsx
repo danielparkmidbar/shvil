@@ -17,6 +17,7 @@ export default function SiteHeader() {
         <div className="nav-links">
           <Link href="/become">{t.common.nav.become}</Link>
           <Link href="/map">{t.common.nav.map}</Link>
+          <Link href="/trail-angels">{t.common.nav.trailAngels}</Link>
           <Link href="/market">{t.common.nav.market}</Link>
           <Link href="/transparency">{t.common.nav.transparency}</Link>
         </div>

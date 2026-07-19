@@ -8,6 +8,7 @@ export const es: Strings = {
       'El hogar de los shvilists — caminantes que acuñan monedas mientras viajan. Tú lo registras, tú lo acreditas.',
     nav: {
       angels: 'Buscar un ángel',
+      trailAngels: 'Ángeles del INT',
       companions: 'Buscar compañeros',
       spots: 'Tesoros de sitio',
       courses: 'Registro de rutas',
@@ -133,6 +134,31 @@ export const es: Strings = {
     empty: 'Aún no hay publicaciones de compañía reclutando. Publica la primera desde la billetera.',
   },
 
+  legacyAngels: {
+    title: 'Ángeles del sendero veteranos (INT)',
+    intro:
+      'La lista pública de ángeles del sendero que la comunidad de caminantes del Sendero Nacional ' +
+      'de Israel mantiene desde hace décadas. Estos anfitriones no son miembros de Shvil — es una ' +
+      'lista de referencia; sigue las notas originales para contacto y cortesía. Ordenada de norte (Dan) a sur (Eilat).',
+    etiquette: 'Cortesía: contacta al menos 48 horas antes de llegar, no llames después de las 21:00 y deja el lugar ordenado.',
+    shoBadge: 'Observa el sabbat',
+    shoNote: 'SHO = hogar que observa el sabbat y las festividades judías — no llamar desde la puesta de sol del viernes hasta el sábado tras la puesta de sol.',
+    source: 'Fuente',
+    updated: (date) => `Última actualización del original: ${date}`,
+    count: (n) => `${n} ángeles · lista de referencia`,
+    serviceLabels: {
+      SLEEP: 'Dormir',
+      SHOWER: 'Ducha',
+      MEAL: 'Comidas',
+      LAUNDRY: 'Lavandería',
+      INTERNET: 'Internet',
+      GROCERY: 'Víveres',
+      KITCHEN: 'Cocina',
+      PICKUP: 'Recogida/entrega',
+      WATER: 'Agua',
+      MAIL: 'Correo',
+    },
+  },
   trust: {
     title: 'Historial verificado',
     walkTier: (tier) =>

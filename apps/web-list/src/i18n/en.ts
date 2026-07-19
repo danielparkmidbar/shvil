@@ -8,6 +8,7 @@ export const en: Strings = {
       'The home of the shvilists — walkers who mint coins as they journey. You record it yourself, you attest it yourself.',
     nav: {
       angels: 'Find an Angel',
+      trailAngels: 'INT Trail Angels',
       companions: 'Find Companions',
       spots: 'Spot Treasures',
       courses: 'Course Registry',
@@ -131,6 +132,31 @@ export const en: Strings = {
     empty: 'No companion posts are recruiting yet. Post the first one from the wallet app.',
   },
 
+  legacyAngels: {
+    title: 'Legacy Trail Angels (INT)',
+    intro:
+      'The public trail-angel list kept for decades by the Israel National Trail hiker community. ' +
+      'These hosts are not Shvil members — this is a reference list; follow the original notes for ' +
+      'contact and etiquette. Ordered north (Dan) to south (Eilat).',
+    etiquette: 'Etiquette: contact at least 48 hours before arrival, no calls after 21:00, and leave your spot tidy.',
+    shoBadge: 'Shabbat observed',
+    shoNote: 'SHO = a household observing Shabbat and Jewish holidays — no calls from Friday sunset until Saturday after sunset.',
+    source: 'Source',
+    updated: (date) => `Original last updated ${date}`,
+    count: (n) => `${n} angels · reference list`,
+    serviceLabels: {
+      SLEEP: 'Sleep',
+      SHOWER: 'Shower',
+      MEAL: 'Meals',
+      LAUNDRY: 'Laundry',
+      INTERNET: 'Internet',
+      GROCERY: 'Groceries',
+      KITCHEN: 'Kitchen',
+      PICKUP: 'Pickup/drop-off',
+      WATER: 'Water',
+      MAIL: 'Mail drop',
+    },
+  },
   trust: {
     title: 'Verified track record',
     walkTier: (tier) =>

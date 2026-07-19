@@ -17,6 +17,10 @@ import {
   AUTH_HEADER_SIG,
   AUTH_HEADER_TS,
   BUNDANG_BULGOKSAN_SAMPLE,
+  INT_TRAIL_ANGELS,
+  INT_TRAIL_ANGELS_SOURCE,
+  INT_TRAIL_ANGELS_UPDATED,
+  INT_TRAIL_ANGEL_REGIONS,
   SHVIL_ISRAEL_NORTH_SAMPLE,
   TARGET_COUNTRY_COUNT,
   WORLD_TRAILS,
@@ -396,6 +400,19 @@ export function buildApp(
       Date.now(),
     ),
   );
+
+  // ── 기존 트레일 엔젤 명단 (INT 커뮤니티 공개 명단 — 참고용) ─────────
+  // ★쉬빌 회원이 아니다: 회원 번호·E2E·코인 수령 없음. 클라이언트는 쉬빌 엔젤
+  // 디렉토리와 절대 섞지 말고 "기존 트레일 엔젤(참고)"로 구분 표시한다.
+  // 데이터 성격·출처·삭제 정책은 @shvil/shared legacyAngels.ts 주석 참조.
+  // 응답은 정적 데이터뿐 — details는 원문(영어 사용자 콘텐츠)이고 서버가 만든
+  // 자연어 문구는 없다 (noUiStrings — 라벨은 각 클라이언트 사전 몫).
+  app.get('/legacy-angels', async () => ({
+    source: INT_TRAIL_ANGELS_SOURCE,
+    updatedAt: INT_TRAIL_ANGELS_UPDATED,
+    regions: INT_TRAIL_ANGEL_REGIONS,
+    angels: INT_TRAIL_ANGELS,
+  }));
 
   // ── 엔젤 디렉토리 ──────────────────────────────────────────────
 

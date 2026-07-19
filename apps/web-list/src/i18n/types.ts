@@ -24,6 +24,7 @@ export interface Strings {
     tagline: string;
     nav: {
       angels: string;
+      trailAngels: string;
       companions: string;
       spots: string;
       courses: string;
@@ -150,6 +151,24 @@ export interface Strings {
     /** "지갑 앱에서 동행 글을 올리세요" 안내 (웹 작성 불가). */
     postInApp: string;
     empty: string;
+  };
+
+  /**
+   * 기존 트레일 엔젤 명단 (INT 커뮤니티 공개 명단 — 참고용).
+   * ★쉬빌 회원이 아니다 — 쉬빌 엔젤 디렉토리와 구분해 표시한다. details는 원문
+   * (영어 사용자 콘텐츠)이라 번역하지 않는다 — 여기 있는 것은 화면 라벨뿐이다.
+   * 데이터 성격·출처·삭제 정책: @shvil/shared legacyAngels.ts 주석.
+   */
+  legacyAngels: {
+    title: string;
+    intro: string;
+    etiquette: string;
+    shoBadge: string;
+    shoNote: string;
+    source: string;
+    updated: (date: string) => string;
+    count: (n: number) => string;
+    serviceLabels: Record<string, string>;
   };
 
   /**

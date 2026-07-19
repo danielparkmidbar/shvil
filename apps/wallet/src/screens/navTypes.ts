@@ -5,6 +5,8 @@ import type { RatingDirection, RatingRelationProof } from '@shvil/shared';
 export type MoreStackParamList = {
   더보기: undefined;
   '엔젤 지도': undefined;
+  /** INT 기존 트레일 엔젤 명단 (커뮤니티 공개 명단 — 비회원 참고, 번들 데이터). */
+  'INT 엔젤 명단': undefined;
   메시지: undefined;
   채팅: { peerMemberId: string; peerName: string };
   /** M6: 투숙 신청 폼 — available은 엔젤의 자발 공개 가능 여부 (R-3, 강제 아님). */

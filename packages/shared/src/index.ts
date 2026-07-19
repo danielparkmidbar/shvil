@@ -35,3 +35,4 @@ export * from './treasure';
 export * from './spotTreasure';
 export * from './spotPresence';
 export * from './trust';
+export * from './legacyAngels';

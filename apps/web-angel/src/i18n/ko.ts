@@ -8,6 +8,7 @@ export const ko: Strings = {
     nav: {
       become: '엔젤 되기',
       map: '이웃 엔젤',
+      trailAngels: 'INT 트레일 엔젤',
       market: '코인 마켓',
       transparency: '투명성',
     },
@@ -75,6 +76,31 @@ export const ko: Strings = {
     ratingDisclaimer: '참고 지표 — 검증된 값이 아닙니다 (프로필 주인이 게시).',
   },
 
+  legacyAngels: {
+    title: '기존 트레일 엔젤 명단 (INT)',
+    intro:
+      '이스라엘 국립 트레일(INT) 하이커 커뮤니티가 수십 년 이어온 공개 엔젤 명단입니다. ' +
+      '이분들은 쉬빌 회원이 아닌 참고 명단입니다 — 연락·이용 방식은 원문 안내를 따르세요. ' +
+      '북쪽 단(Dan)에서 남쪽 에일라트(Eilat)까지 지리 순서입니다.',
+    etiquette: '이용 예절: 도착 최소 48시간 전에 연락하고, 21:00 이후에는 전화하지 마세요. 떠날 때는 머문 자리를 정돈합니다.',
+    shoBadge: '안식일 준수',
+    shoNote: 'SHO = 안식일·유대 명절 준수 가정 — 금요일 일몰부터 토요일 일몰 후까지 전화 금지.',
+    source: '출처',
+    updated: (date) => `원본 최종 갱신 ${date}`,
+    count: (n) => `엔젤 ${n}명 · 참고 명단`,
+    serviceLabels: {
+      SLEEP: '숙박',
+      SHOWER: '샤워',
+      MEAL: '식사',
+      LAUNDRY: '세탁',
+      INTERNET: '인터넷',
+      GROCERY: '식료품',
+      KITCHEN: '취사',
+      PICKUP: '픽업/드롭',
+      WATER: '식수',
+      MAIL: '우편물',
+    },
+  },
   trust: {
     title: '검증된 실적',
     walkTier: (tier) =>

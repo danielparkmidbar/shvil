@@ -12,6 +12,7 @@ import type { MoreStackParamList } from './navTypes';
 
 const MENU: { screen: keyof MoreStackParamList; icon: string; title: string; desc: string }[] = [
   { screen: '엔젤 지도', icon: '🗺', title: '엔젤 지도', desc: '주변 엔젤을 거리순으로 — 서비스 아이콘·메시지 보내기' },
+  { screen: 'INT 엔젤 명단', icon: '📜', title: 'INT 기존 트레일 엔젤', desc: 'INT 커뮤니티 공개 명단 (비회원 참고) · 구간순 · 전화 연결 · 오프라인 열람' },
   { screen: '메시지', icon: '💬', title: '메시지', desc: '엔젤과 채팅 · 종단간 암호화 · 도착 예정 시각 공유 · 감사 카드' },
   { screen: '게스트북', icon: '📖', title: '게스트북 (엔젤)', desc: '받은 감사 카드를 방명록에 공개·철회 (빈집 방명록의 디지털판)' },
   { screen: '내 신뢰 지표', icon: '✅', title: '내 신뢰 지표 (검증된 실적)', desc: '완주·검증 걷기 실적·활동 기간 뱃지 · 프로필 공개 on/off (별점 대신 사실)' },

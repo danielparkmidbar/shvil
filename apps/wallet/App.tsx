@@ -20,6 +20,7 @@ import { WalletScreen } from './src/screens/WalletScreen';
 import { TransactScreen } from './src/screens/TransactScreen';
 import { MoreScreen } from './src/screens/MoreScreen';
 import { AngelMapScreen } from './src/screens/AngelMapScreen';
+import { TrailAngelsScreen } from './src/screens/TrailAngelsScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { BookingRequestScreen } from './src/screens/BookingRequestScreen';
@@ -57,6 +58,7 @@ function MoreStackScreen() {
     <MoreStack.Navigator>
       <MoreStack.Screen name="더보기" component={MoreScreen} options={{ headerTitle: '쉬빌 — 더보기' }} />
       <MoreStack.Screen name="엔젤 지도" component={AngelMapScreen} />
+      <MoreStack.Screen name="INT 엔젤 명단" component={TrailAngelsScreen} options={{ headerTitle: 'INT 기존 트레일 엔젤' }} />
       <MoreStack.Screen name="메시지" component={MessagesScreen} />
       <MoreStack.Screen
         name="채팅"

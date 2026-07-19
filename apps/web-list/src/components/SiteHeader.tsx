@@ -20,6 +20,7 @@ export default function SiteHeader() {
         </Link>
         <div className="nav-links">
           <Link href="/angels">{t.common.nav.angels}</Link>
+          <Link href="/trail-angels">{t.common.nav.trailAngels}</Link>
           <Link href="/companions">{t.common.nav.companions}</Link>
           <Link href="/spots">{t.common.nav.spots}</Link>
           <Link href="/courses">{t.common.nav.courses}</Link>

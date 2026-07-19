@@ -7,6 +7,7 @@ export const ko: Strings = {
     tagline: '걷는 사람들의 집 — 여행하며 코인을 만드는 순례자. 스스로 기록하고 스스로 인증한다.',
     nav: {
       angels: '엔젤 찾기',
+      trailAngels: 'INT 트레일 엔젤',
       companions: '동행 찾기',
       spots: '스팟 보물',
       courses: '코스 등록부',
@@ -128,6 +129,31 @@ export const ko: Strings = {
     empty: '아직 모집 중인 동행 글이 없습니다. 지갑 앱에서 첫 글을 올려 보세요.',
   },
 
+  legacyAngels: {
+    title: '기존 트레일 엔젤 명단 (INT)',
+    intro:
+      '이스라엘 국립 트레일(INT) 하이커 커뮤니티가 수십 년 이어온 공개 엔젤 명단입니다. ' +
+      '이분들은 쉬빌 회원이 아닌 참고 명단입니다 — 연락·이용 방식은 원문 안내를 따르세요. ' +
+      '북쪽 단(Dan)에서 남쪽 에일라트(Eilat)까지 지리 순서입니다.',
+    etiquette: '이용 예절: 도착 최소 48시간 전에 연락하고, 21:00 이후에는 전화하지 마세요. 떠날 때는 머문 자리를 정돈합니다.',
+    shoBadge: '안식일 준수',
+    shoNote: 'SHO = 안식일·유대 명절 준수 가정 — 금요일 일몰부터 토요일 일몰 후까지 전화 금지.',
+    source: '출처',
+    updated: (date) => `원본 최종 갱신 ${date}`,
+    count: (n) => `엔젤 ${n}명 · 참고 명단`,
+    serviceLabels: {
+      SLEEP: '숙박',
+      SHOWER: '샤워',
+      MEAL: '식사',
+      LAUNDRY: '세탁',
+      INTERNET: '인터넷',
+      GROCERY: '식료품',
+      KITCHEN: '취사',
+      PICKUP: '픽업/드롭',
+      WATER: '식수',
+      MAIL: '우편물',
+    },
+  },
   trust: {
     title: '검증된 실적',
     walkTier: (tier) =>

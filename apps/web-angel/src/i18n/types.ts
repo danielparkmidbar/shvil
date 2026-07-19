@@ -22,7 +22,7 @@ export interface Strings {
   common: {
     siteName: string;
     tagline: string;
-    nav: { become: string; map: string; market: string; transparency: string };
+    nav: { become: string; map: string; trailAngels: string; market: string; transparency: string };
     footer: {
       shvilistLink: string;
       shvilistUrl: string;
@@ -95,6 +95,32 @@ export interface Strings {
    * 유일한 출처다. 위조가 어려운 사실(완주·검증 걷기 실적·활동 기간)을 뱃지로 보여
    * "검증된 실적 있는 엔젤"을 위조 없이 고르게 한다(다니엘 쌤 의도). 별점은 참고 지표.
    */
+  /**
+   * 기존 트레일 엔젤 명단 (INT 커뮤니티 공개 명단 — 참고용).
+   * ★쉬빌 회원이 아니다 — 쉬빌 엔젤 디렉토리와 구분해 표시한다. details는 원문
+   * (영어 사용자 콘텐츠)이라 번역하지 않는다 — 여기 있는 것은 화면 라벨뿐이다.
+   * 데이터 성격·출처·삭제 정책: @shvil/shared legacyAngels.ts 주석.
+   */
+  legacyAngels: {
+    title: string;
+    /** 이 명단이 무엇인지 + 쉬빌 회원이 아님 + 북→남 순서 안내. */
+    intro: string;
+    /** 이용 예절 (원본 명단 규칙: 48시간 전 연락, 21시 이후 전화 금지). */
+    etiquette: string;
+    /** SHO 뱃지 라벨. */
+    shoBadge: string;
+    /** SHO 설명 한 줄 (금요일 일몰~토요일 일몰 전화 금지). */
+    shoNote: string;
+    /** "출처" 라벨 (URL은 화면이 붙인다). */
+    source: string;
+    /** "원본 최종 갱신 {date}". */
+    updated: (date: string) => string;
+    /** "엔젤 N명 · 참고 명단". */
+    count: (n: number) => string;
+    /** 서비스 코드 → 라벨 (SLEEP/SHOWER/MEAL/LAUNDRY/INTERNET/GROCERY/KITCHEN/PICKUP/WATER/MAIL). */
+    serviceLabels: Record<string, string>;
+  };
+
   trust: {
     title: string;
     walkTier: (tier: 'STARTER' | 'EXPERIENCED' | 'VETERAN') => string;
