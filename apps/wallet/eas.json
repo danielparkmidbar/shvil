@@ -10,13 +10,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DIRECTORY_URL": "http://192.168.45.137:8787"
+        "EXPO_PUBLIC_DIRECTORY_URL": "https://shvil-directory.onrender.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_DIRECTORY_URL": "https://shvil-directory-XXXX.onrender.com"
+        "EXPO_PUBLIC_DIRECTORY_URL": "https://shvil-directory.onrender.com"
       }
     }
   }
