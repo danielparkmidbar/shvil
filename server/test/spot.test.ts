@@ -181,11 +181,19 @@ describe('V-3 (헌법 중요) — 가짜 걷기 코인 세탁 차단', () => {
       sensorSummaryHash: 'forged',
     };
     const fake = mintWalkCoin(buildWalkSegmentProof(draft, launderer.signer));
-    // 구조적으로는 유효한 코인이라(verifyWalkSegmentProof는 상한을 모른다) 예치는 수리된다 —
-    // ★핵심은 세탁이 "조용히" 되지 않고 생산자가 초과생성으로 포착된다는 점이다(sync와 동일).
+    // ★2026-07-20 강화 (적대적 검증): 예전에는 예치가 **수리된 뒤** 생산자만 등재됐다.
+    //   그 사이 슬롯이 만들어져 부풀린 액수가 진짜 그랜트로 재배포되는 무제한 발행구였다.
+    //   이제는 예치 자체를 거부하면서(총량 보존) 동시에 생산자를 등재한다(소명 책임).
     const burn = createTransfer(fake, launderer.signer, reserve, Date.now());
     const dep = await signedInject(app, launderer, 'POST', '/spot/deposit', { spotId: 'spot-launder', coins: [burn] });
-    expect(dep.statusCode).toBe(200);
+    expect(dep.statusCode).toBe(400);
+    expect((dep.json() as { reasons: string[] }).reasons).toContain('EXCEEDS_HUMAN_LIMITS');
+
+    // 예치가 거부됐으므로 슬롯이 하나도 생기지 않는다 (부풀린 액수가 유통되지 않는다).
+    const mine = (await signedInject(app, launderer, 'GET', '/spot/mine')).json() as {
+      spots: { spotId: string; totalSlots: number }[];
+    };
+    expect(mine.spots.find((s) => s.spotId === 'spot-launder')!.totalSlots).toBe(0);
 
     // 생산자(세탁업자)가 초과생성으로 소명 대기 등재된다 — 예치가 sync 기반 탐지를 우회하지 못한다.
     const flagged = (await app.inject({ method: 'GET', url: '/limits/flagged' })).json() as {

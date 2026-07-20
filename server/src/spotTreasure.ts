@@ -259,11 +259,22 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
     // 각 코인: (a)진짜 코인 (b)사업자 소유 (c)리저브 소각 — 순수 함수로 검증.
     // (d)미소비(이중 예치): coin_id UNIQUE. 하나라도 실패하면 예치 전체를 거부한다.
     let depositedDshv = 0;
+    // ★무결성 증서 검증 (적대적 검증 2026-07-20 시정): 이전에는 trustedIssuerKeys만
+    //   넘겨서, coin.ts verifyMembership이 "루트 미지정 + 비필수 → 검사 생략"으로
+    //   빠져나갔다. 그 결과 무결성 증서가 없거나 가짜인 걷기 코인도 예치를 통과했다.
+    //   C 신뢰 지표(안 A)의 검증 크레딧과 **같은 신뢰 루트**를 쓴다 — 운영에서는
+    //   인증된 앱이 만든 코인만 가치가 된다.
     const check = {
       sponsorPublicKey: member.device_public_key,
       reservePublicKey,
-      verifyOptions: { trustedIssuerKeys: ctx.trustedIssuerKeys },
+      verifyOptions: {
+        trustedIssuerKeys: ctx.credit.trustedIssuerKeys,
+        trustedRootKeys: ctx.credit.trustedRootKeys,
+        requireIntegrityToken: ctx.credit.requireIntegrity,
+      },
     };
+    // 인간 한계 — 검증 루프에서도 쓰므로(거부 시 소명 등재) 미리 잡는다.
+    const limits = { dailyMaxDshv: ctx.dailyMaxDshv, weeklyMaxDshv: ctx.weeklyMaxDshv };
     // coin 원본도 보관한다 — C 신뢰 지표(안 A)의 검증 실적 적재에 필요하다.
     const accepted: {
       coinId: string;
@@ -279,6 +290,12 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       }
       const verdict = verifySpotDeposit(coin, check);
       if (!verdict.valid) {
+        // ★V-3 유지: 부풀린 코인은 **거부하면서 동시에 생산자를 소명 대기 등재**한다.
+        //   거부만 하면 세탁 시도가 조용히 사라져 커뮤니티가 알 수 없다(제3조·제9조의
+        //   소명 책임 절차). 예치는 막고(총량 보존), 포착은 남긴다.
+        if (verdict.reasons.includes('EXCEEDS_HUMAN_LIMITS')) {
+          checkOverproduction(db, coinFingerprint(coin), limits, now);
+        }
         return reply.code(400).send({ error: 'INVALID_DEPOSIT_COIN', reasons: verdict.reasons });
       }
       if (seen.has(coin.id) || db.prepare('SELECT 1 FROM spot_deposits WHERE coin_id = ?').get(coin.id)) {
@@ -289,7 +306,6 @@ export function registerSpotTreasures(app: FastifyInstance, ctx: SpotContext): v
       depositedDshv += verdict.amountDshv;
     }
 
-    const limits = { dailyMaxDshv: ctx.dailyMaxDshv, weeklyMaxDshv: ctx.weeklyMaxDshv };
     for (const a of accepted) {
       // ★V-3 (적대적 검증 — 헌법 중요): 예치 소각 코인을 sync와 **동일한** 초과생성
       //   탐지 경로에 연결한다. 악성 사업자가 자가 서명 WALK 코인(금액 상한 없음)을

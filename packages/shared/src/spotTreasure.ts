@@ -29,6 +29,7 @@
  */
 import { verifyCoin, type VerifyCoinOptions } from './coin';
 import { GRANT_MAX_DSHV } from './coin';
+import { checkHumanLimits } from './humanLimits';
 import { addressFromPublicKey } from './crypto';
 import type { Coin } from './types';
 import type { GeoPoint } from './courses';
@@ -136,7 +137,8 @@ export type SpotDepositRejectReason =
   | 'INVALID_COIN' // 위조 검사 실패 (계보·이전 체인 무효)
   | 'PENDING_COMMIT_MISSING' // 리저브 앞 미완결 이전(소각 서명)이 없다
   | 'NOT_COMMITTED_TO_RESERVE' // 미완결 이전의 수령자가 보물 리저브가 아니다
-  | 'NOT_SPONSOR_OWNED'; // 소각 서명의 지불자가 이 사업자가 아니다
+  | 'NOT_SPONSOR_OWNED' // 소각 서명의 지불자가 이 사업자가 아니다
+  | 'EXCEEDS_HUMAN_LIMITS'; // 걷기 증명 자체가 인간 한계를 넘는다 (부풀린 코인)
 
 export interface SpotDepositVerdict {
   valid: boolean;
@@ -175,6 +177,15 @@ export function verifySpotDeposit(coin: Coin, check: SpotDepositCheck): SpotDepo
 
   const verdict = verifyCoin(coin, { ...(check.verifyOptions ?? {}), allowPendingLastLink: true });
   if (!verdict.valid) reasons.push('INVALID_COIN');
+
+  // ★부풀린 걷기 코인 차단 (적대적 검증 2026-07-20 — 무제한 발행구):
+  // 변조 앱은 PendingWalkLedger를 우회해 SettlementDraft.amountDshv를 손으로 지을 수
+  // 있고, verifyWalkSegmentProof는 서명·일자합 정합만 보므로 그것을 통과시킨다.
+  // 그런 코인이 예치되면 발행 슬롯이 생겨 **걷지 않고 만든 액수가 진짜 TREASURE
+  // 그랜트로 재배포**된다(총량 보존 붕괴). 코인 자체의 증명이 인간 한계(일 400 /
+  // 주 3,000 dSHV)를 넘는지 여기서 먼저 잘라낸다 — 여러 코인에 나눠 담는 회피는
+  // 서버의 교차 합산 탐지(checkOverproduction)가 소명 등재로 잡는 2층 방어다.
+  if (!checkHumanLimits(coin, []).ok) reasons.push('EXCEEDS_HUMAN_LIMITS');
 
   const last = coin.transferChain[coin.transferChain.length - 1];
   if (!last || last.toSignature !== null) {
