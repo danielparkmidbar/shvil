@@ -21,6 +21,16 @@ import ExpansionTrails from '@/components/ExpansionTrails';
  */
 const WALLET_DOWNLOAD_URL = 'https://github.com/danielparkmidbar/shvil/releases/latest';
 
+/**
+ * 다운로드 개방 스위치 (닫힌 시험 중에는 false).
+ *
+ * false면 버튼이 비활성(회색)이고 링크가 없다 — 릴리스가 아직 없는데 버튼만 열려
+ * 있으면 방문자가 "릴리스 없음" 빈 페이지를 보게 되므로, 실기기 검증이 끝나고
+ * APK를 GitHub Release에 올린 **뒤에** true로 바꾼다. web-angel의 지갑 CTA도 같은
+ * 시점에 함께 연다 (두 사이트가 어긋나지 않게).
+ */
+const WALLET_DOWNLOAD_OPEN = false;
+
 const SECTION_LINKS = [
   { key: 'courses', href: '/courses' },
   { key: 'claims', href: '/claims' },
@@ -37,10 +47,17 @@ export default function HomePage() {
         <h1>{s.heroTitle}</h1>
         <p className="hero-vision">{s.vision}</p>
         <div className="hero-actions">
-          {/* 지갑 다운로드 — GitHub Releases 최신 APK (닫힌 시험, Android). */}
-          <a className="btn" href={WALLET_DOWNLOAD_URL} title={s.downloadNote}>
-            {s.downloadCta}
-          </a>
+          {/* 지갑 다운로드 — 개방 시 GitHub Releases 최신 APK (닫힌 시험, Android).
+              WALLET_DOWNLOAD_OPEN=false 동안은 비활성 (릴리스 없는 빈 페이지 방지). */}
+          {WALLET_DOWNLOAD_OPEN ? (
+            <a className="btn" href={WALLET_DOWNLOAD_URL} title={s.downloadNote}>
+              {s.downloadCta}
+            </a>
+          ) : (
+            <a className="btn" aria-disabled="true" title={s.downloadNote}>
+              {s.downloadCta}
+            </a>
+          )}
           <span className="muted">{s.downloadNote}</span>
         </div>
       </section>

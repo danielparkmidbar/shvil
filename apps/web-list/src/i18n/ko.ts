@@ -36,7 +36,7 @@ export const ko: Strings = {
       '커뮤니티가 함께 구제합니다. 감시하는 서버는 없습니다 — 지켜보는 것은 언제나 커뮤니티입니다. ' +
       '(상세 트레일 정보 안내는 별도 서비스 Shvil List가 다룹니다.)',
     downloadCta: '지갑 다운로드',
-    downloadNote: 'Android 시험판(APK) — 닫힌 시험용. iOS는 준비 중입니다.',
+    downloadNote: '닫힌 시험 진행 중 — 실기기 검증 후 Android 시험판(APK)을 엽니다.',
     proofTitle: '여정 인증 — 위치 없는 증명',
     proofBody:
       '앱에서 본인이 공개로 설정한 걷기 증명 요약이 이곳에 게시됩니다. 공개되는 것은 ' +

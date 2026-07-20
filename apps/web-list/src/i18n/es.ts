@@ -38,7 +38,7 @@ export const es: Strings = {
       'registrar. No hay un servidor que vigile — quien vela es siempre la comunidad. ' +
       '(Las guías detalladas de rutas son un servicio aparte, Shvil List.)',
     downloadCta: 'Descargar la billetera',
-    downloadNote: 'Versión de prueba para Android (APK) — piloto cerrado. iOS en preparación.',
+    downloadNote: 'Piloto cerrado en curso — la versión de prueba para Android se abrirá tras las pruebas de campo.',
     proofTitle: 'Pruebas de travesía — acreditación sin ubicación',
     proofBody:
       'Aquí se publican los resúmenes de prueba de caminata que tú decides hacer públicos en la ' +
