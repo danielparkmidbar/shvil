@@ -12,3 +12,6 @@ coverage/
 .env
 .env.*
 *.tsbuildinfo
+
+# 세계 트레일 OSM 원본 캐시 (생성기 재실행 시 속도 제한 회피용 — 산출물은 worldCourses.ts)
+packages/shared/scripts/osm-cache/
