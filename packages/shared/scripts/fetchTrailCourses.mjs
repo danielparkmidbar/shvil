@@ -47,103 +47,122 @@ const UA = 'shvil-dev/0.1 (world trail course catalog; contact via github.com/da
  * relationId: null = 아직 미확인 (이 항목은 생성에서 건너뛴다).
  */
 export const MANIFEST = [
-  {
-    regionId: 'milford-track',
-    courseId: 'milford-track',
-    name: 'Milford Track',
-    // ✅ 확인됨 (2026-07-22): DOC 공식 운영, "GW - 07 Milford Track", 32 way / 2,068점.
-    relationId: 1385121,
-    expectedKm: 53.5,
-    defaultTerrain: 'MOUNTAIN',
-    difficultyTenths: 15,
-    // ⚠ 예약제·편도 4일 — 활성화 여부는 다니엘 쌤 결정 (계획 §4-2).
-    note: 'booking required, one-way',
-  },
-  {
-    regionId: 'everest-base-camp',
-    courseId: 'everest-base-camp',
-    name: 'Everest Base Camp Trek',
-    relationId: null, // ⏳ 검색에 잡혔으나 ID 미확인 — 사람 확인 필요
-    expectedKm: 130,
-    defaultTerrain: 'MOUNTAIN',
-    difficultyTenths: 25,
-  },
-  {
-    regionId: 'john-muir-trail',
-    courseId: 'john-muir-trail',
-    name: 'John Muir Trail',
-    relationId: null, // ⏳ 검색에 잡혔으나 ID 미확인
-    expectedKm: 340,
-    defaultTerrain: 'MOUNTAIN',
-    difficultyTenths: 20,
-  },
+  // ── 1차 대상 (다니엘 쌤 결정 2026-07-22: 자유 도보 가능 트레일만) ──────
+  // 변형은 "가장 많은 사람이 다니는 길"을 택한다 (결정 1).
   {
     regionId: 'camino-de-santiago',
     courseId: 'camino-frances',
+    // 결정 1: 카미노 여러 갈래 중 **Camino Francés**가 압도적 다수(순례자 통계상
+    // 절반 이상)가 걷는 본선이다. 생 장 피에드포르 → 산티아고 데 콤포스텔라.
     name: 'Camino de Santiago (Camino Francés)',
-    relationId: null, // ⏳ 변형 결정 필요 (계획 §4-1) — Francés 권장
+    // ✅ 확인됨 (2026-07-22): OSM superroute 2163573 "Camiño Francés", distance=750,
+    //    구간 관계 6개를 묶는 상위 관계. 하위 구간(예: 2163558 = 03 Logroño→Burgos)만
+    //    받으면 일부만 나오므로 반드시 이 상위 ID를 쓴다.
+    relationId: 2163573,
     expectedKm: 780,
     defaultTerrain: 'OPEN',
     difficultyTenths: 10,
+    priority: 1, // 순차 활성화 순서 (결정 3) — 가장 많이 걷고 엔젤 문화가 이미 있다
   },
   {
     regionId: 'tour-du-mont-blanc',
     courseId: 'tour-du-mont-blanc',
     name: 'Tour du Mont Blanc',
-    relationId: null, // ⏳ Overpass 속도 제한으로 미확인
+    relationId: null,
     expectedKm: 170,
     defaultTerrain: 'MOUNTAIN',
     difficultyTenths: 20,
+    priority: 2,
+  },
+  {
+    regionId: 'annapurna-circuit',
+    courseId: 'annapurna-circuit',
+    // 결정 1: 서킷 본선(베시사하르 → 토롱라 → 좀솜). 우회 변형은 제외.
+    name: 'Annapurna Circuit',
+    relationId: null,
+    expectedKm: 200,
+    defaultTerrain: 'MOUNTAIN',
+    difficultyTenths: 25,
+    priority: 3,
+  },
+  {
+    regionId: 'everest-base-camp',
+    courseId: 'everest-base-camp',
+    // 결정 1: 루클라 → EBC 표준 경로 (가장 많이 걷는 길).
+    name: 'Everest Base Camp Trek',
+    relationId: null,
+    expectedKm: 130,
+    defaultTerrain: 'MOUNTAIN',
+    difficultyTenths: 25,
+    priority: 4,
   },
   {
     regionId: 'gr20',
     courseId: 'gr20',
     name: 'GR20 (Corsica)',
-    relationId: null, // ⏳ 미확인
+    relationId: null,
     expectedKm: 180,
     defaultTerrain: 'MOUNTAIN',
     difficultyTenths: 30,
+    priority: 5,
   },
   {
-    regionId: 'annapurna-circuit',
-    courseId: 'annapurna-circuit',
-    name: 'Annapurna Circuit',
-    relationId: null, // ⏳ 미확인 + 변형 결정 필요
-    expectedKm: 200,
+    regionId: 'john-muir-trail',
+    courseId: 'john-muir-trail',
+    name: 'John Muir Trail',
+    relationId: null,
+    expectedKm: 340,
     defaultTerrain: 'MOUNTAIN',
-    difficultyTenths: 25,
+    difficultyTenths: 20,
+    priority: 6,
+  },
+
+  // ── 1차 제외 (결정 2: 가이드·예약 의무 → 자유 도보 전제와 어긋남) ──────
+  // 데이터는 남겨두되 activate=false. 나중에 열 때 매니페스트만 고치면 된다.
+  {
+    regionId: 'milford-track',
+    courseId: 'milford-track',
+    name: 'Milford Track',
+    // ✅ 관계 확인됨 (2026-07-22): DOC 공식, "GW - 07 Milford Track", 32 way / 2,068점.
+    //    생성·검증까지 마쳤으나 **예약제·편도 4일**이라 1차에서 제외한다.
+    relationId: 1385121,
+    expectedKm: 53.5,
+    defaultTerrain: 'MOUNTAIN',
+    difficultyTenths: 15,
+    excluded: 'booking required, one-way — 결정 2',
   },
   {
     regionId: 'inca-trail',
     courseId: 'inca-trail',
     name: 'Inca Trail to Machu Picchu',
-    // ❌ 자동 검색이 볼리비아 Takesi Inca Trail을 오탐했다. 페루 경로를 사람이 확인해야 한다.
+    // 자동 검색이 볼리비아 Takesi Inca Trail을 오탐했다 — 페루 경로는 사람 확인 필요.
     relationId: null,
     expectedKm: 43,
     defaultTerrain: 'MOUNTAIN',
     difficultyTenths: 25,
-    note: 'permit + licensed guide required, 500/day cap',
-  },
-  {
-    regionId: 'torres-del-paine-w',
-    courseId: 'torres-del-paine-w',
-    name: 'Torres del Paine W Trek',
-    // ❌ route 관계가 없다 — 개별 way 목록 지정 또는 GPX 경로가 필요하다.
-    relationId: null,
-    expectedKm: 80,
-    defaultTerrain: 'MOUNTAIN',
-    difficultyTenths: 20,
+    excluded: 'permit + licensed guide, 500/day cap — 결정 2',
   },
   {
     regionId: 'kilimanjaro',
     courseId: 'kilimanjaro-machame',
     name: 'Kilimanjaro (Machame Route)',
-    // ❌ hiking 관계 없음 + 등정 루트 7종 중 선택 필요 (계획 §4-1).
+    // hiking 관계 없음 + 등정 루트 7종. Machame가 가장 많이 쓰이나 가이드 의무라 제외.
     relationId: null,
     expectedKm: 62,
     defaultTerrain: 'MOUNTAIN',
     difficultyTenths: 30,
-    note: 'guide mandatory by law',
+    excluded: 'guide mandatory by law — 결정 2',
+  },
+  {
+    regionId: 'torres-del-paine-w',
+    courseId: 'torres-del-paine-w',
+    name: 'Torres del Paine W Trek',
+    // route 관계가 없다 — 개별 way 지정 또는 GPX 경로가 필요하다.
+    relationId: null,
+    expectedKm: 80,
+    defaultTerrain: 'MOUNTAIN',
+    difficultyTenths: 20,
+    excluded: 'OSM route 관계 부재 + 국립공원 예약제 — 데이터 확보 후 재검토',
   },
 ];
 
@@ -221,7 +240,7 @@ function simplify(pts, toleranceM) {
  * 탐욕적으로 이어 붙이고, 이어지지 않는 조각은 버린다(가장 긴 사슬만 취한다) —
  * 접근로·대피소 지선이 본선에 섞이면 경로가 엉뚱해지기 때문이다.
  */
-function stitchWays(ways, gapToleranceM = 60) {
+function stitchWays(ways, gapToleranceM = 250) {
   if (ways.length === 0) return [];
   const remaining = ways.map((w) => w.slice());
   let chain = remaining.shift();
@@ -275,7 +294,11 @@ async function fetchRelation(relationId) {
     console.log('    (캐시 사용)');
     return JSON.parse(readFileSync(cachePath, 'utf-8'));
   }
-  const query = `[out:json][timeout:180];relation(${relationId});out geom;`;
+  // ★superroute 대응: 긴 트레일은 구간별 관계로 쪼개져 상위 superroute가 그것들을
+  //   묶는다 (Camino Francés = 구간 관계 6개 + superroute 2163573). 관계 자신과
+  //   **하위 관계까지 재귀로** 내려가 way 기하를 모두 받는다 — 상위만 받으면
+  //   멤버가 관계뿐이라 좌표가 하나도 안 나온다.
+  const query = `[out:json][timeout:600];rel(${relationId});rel(r)->.kids;(rel(${relationId});.kids;);out geom;`;
   const res = await fetch(OVERPASS, {
     method: 'POST',
     headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -293,38 +316,88 @@ async function fetchRelation(relationId) {
   return json;
 }
 
-function extractWays(overpassJson) {
-  const ways = [];
+/**
+ * 관계별로 way를 묶어 돌려준다 (구간 순서 보존).
+ *
+ * ★긴 트레일은 구간 관계로 쪼개져 있다 (Camino Francés = "01 …" ~ "06 …").
+ * 모든 way를 한 자루에 쏟고 탐욕적으로 이으면 3,742개 조각 중 32km만 연결되는
+ * 참사가 난다(실측). 구간 안에서 먼저 잇고, 구간을 이름순(01, 02, …)으로 이어야
+ * 실제 경로가 나온다.
+ */
+function extractWayGroups(overpassJson) {
+  const groups = [];
   for (const el of overpassJson.elements ?? []) {
+    const ways = [];
     for (const mem of el.members ?? []) {
       if (mem.type === 'way' && Array.isArray(mem.geometry) && mem.geometry.length >= 2) {
         ways.push(mem.geometry.map((g) => ({ lat: g.lat, lon: g.lon })));
       }
     }
+    if (ways.length > 0) {
+      groups.push({ id: el.id, name: el.tags?.name ?? '', ref: el.tags?.ref ?? '', ways });
+    }
   }
-  return ways;
+
+  // ★대체 경로(variant) 배제 — 결정 1 "가장 많은 사람이 다니는 길"의 실행.
+  //   Camino Francés superroute에는 "Camiño Francés (Rutas alternativas)"(769 way)가
+  //   본선과 함께 들어 있어, 그대로 이으면 연장이 2배(1,584km)로 부풀었다(실측).
+  //   본선만 남긴다 — 이름에 대체/변형 표식이 있는 구간은 버린다.
+  const VARIANT_RE = /alternativ|variant|option|bypass|detour|우회|대체/i;
+  const mainline = groups.filter((g) => !VARIANT_RE.test(g.name));
+  const dropped = groups.length - mainline.length;
+  if (dropped > 0) console.log(`    대체 경로 ${dropped}개 제외 (본선만 사용 — 결정 1)`);
+  // 구간 이름의 선두 번호(01, 02, …)로 정렬 — 없으면 이름 사전순.
+  const seq = (g) => {
+    const m = (g.ref || g.name).match(/(\d{1,3})/);
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+  };
+  mainline.sort((a, b) => seq(a) - seq(b) || a.name.localeCompare(b.name));
+  return mainline;
 }
 
 // ── 본체 ──────────────────────────────────────────────────────────
 
 const only = process.argv[2];
-const targets = MANIFEST.filter((m) => (only ? m.regionId === only : true));
+// 제외 항목(결정 2: 가이드·예약 의무)은 명시 지정할 때만 생성한다 — 실수로 열지 않기 위해.
+const targets = MANIFEST.filter((m) => (only ? m.regionId === only : !m.excluded)).sort(
+  (a, b) => (a.priority ?? 99) - (b.priority ?? 99),
+);
 const built = [];
 
 for (const t of targets) {
   console.log(`\n[${t.regionId}] ${t.name}`);
+  if (t.excluded) console.log(`    ⚠ 1차 제외 대상: ${t.excluded}`);
   if (!t.relationId) {
     console.log('    ⏭ relationId 미확인 — 건너뜀 (사람이 osm.org에서 확인 후 매니페스트에 기입)');
     continue;
   }
   try {
     const json = await fetchRelation(t.relationId);
-    const ways = extractWays(json);
-    if (ways.length === 0) {
+    const groups = extractWayGroups(json);
+    if (groups.length === 0) {
       console.log('    ❌ way 기하가 없다 (관계 ID 확인 필요)');
       continue;
     }
-    const stitched = stitchWays(ways);
+
+    // 구간 안에서 먼저 잇고, 구간을 순서대로 이어붙인다 (extractWayGroups 주석 참조).
+    let stitched = [];
+    let wayCount = 0;
+    for (const g of groups) {
+      wayCount += g.ways.length;
+      const part = stitchWays(g.ways);
+      if (part.length < 2) continue;
+      if (stitched.length === 0) {
+        stitched = part;
+        continue;
+      }
+      // 이전 구간 끝과 이 구간의 어느 끝이 가까운지 보고 방향을 맞춘다.
+      const tail = stitched[stitched.length - 1];
+      const oriented = haversineM(tail, part[0]) <= haversineM(tail, part[part.length - 1])
+        ? part
+        : part.slice().reverse();
+      stitched = stitched.concat(oriented);
+    }
+    if (groups.length > 1) console.log(`    구간 ${groups.length}개를 순서대로 연결`);
     const rawKm = polylineLengthM(stitched) / 1000;
     const simplified = simplify(stitched, SIMPLIFY_TOLERANCE_M);
     const km = polylineLengthM(simplified) / 1000;
@@ -332,11 +405,18 @@ for (const t of targets) {
     const deviation = Math.abs(km - t.expectedKm) / t.expectedKm;
     const flag = deviation > 0.15 ? '⚠ 연장 불일치' : '✓';
     console.log(
-      `    ${flag} way ${ways.length}개 → ${stitched.length}점 (${rawKm.toFixed(1)}km) ` +
+      `    ${flag} way ${wayCount}개 → ${stitched.length}점 (${rawKm.toFixed(1)}km) ` +
         `→ 단순화 ${simplified.length}점 (${km.toFixed(1)}km) / 기대 ${t.expectedKm}km`,
     );
     if (deviation > 0.15) {
       console.log('       → way 이어붙이기 실패이거나 다른 트레일일 수 있다. 사람 검수 필요.');
+      // ★fail-closed: 연장 검사를 통과하지 못한 경로는 **파일에 쓰지 않는다.**
+      //   이 폴리라인이 곧 코인 생성 기준이므로, 의심스러운 좌표를 산출물에 남기면
+      //   나중에 누군가 그대로 LIVE로 올릴 위험이 있다. --force로만 강제 기록한다.
+      if (!process.argv.includes('--force')) {
+        console.log('       ⛔ 산출물에서 제외 (강제하려면 --force)');
+        continue;
+      }
     }
 
     built.push({ ...t, polyline: simplified, actualKm: km });
