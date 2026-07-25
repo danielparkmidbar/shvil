@@ -1,7 +1,8 @@
 /** 지갑 — 생성/구매 코인 구분 잔액 + 코인별 계보 (지시서 4장). */
 import React from 'react';
-import { Button, FlatList, StyleSheet, Text, View } from 'react-native';
+import { Button, FlatList, Share, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp, type ParamListBase } from '@react-navigation/native';
+import { coinSerial } from '@shvil/shared';
 import { useWallet } from '../core/walletService';
 import { Card, Muted, Title, colors, fmtShv, provenanceText } from '../ui/common';
 import type { StoredCoin } from '../core/db';
@@ -19,6 +20,8 @@ function CoinRow({ item }: { item: StoredCoin }) {
         <Text style={styles.coinAmount}>{fmtShv(item.coin.amountDshv)}</Text>
         <Text style={styles.coinOrigin}>{ORIGIN_LABEL[item.origin]}</Text>
       </View>
+      {/* 일련번호 (M16): 계보 해시에서 유도 — 계보가 바뀌면 번호도 바뀐다. */}
+      <Text style={styles.coinSerial}>{coinSerial(item.coin)}</Text>
       <Muted>{provenanceText(item.coin)}</Muted>
       <Muted>생성 회원 {item.coin.memberId} · 이전 {item.coin.transferChain.length}회</Muted>
     </View>
@@ -65,6 +68,23 @@ export function WalletScreen() {
         renderItem={({ item }) => <CoinRow item={item} />}
         ListEmptyComponent={<Muted>아직 확정된 코인이 없습니다. 등록 코스를 걷고 정산해 보세요.</Muted>}
         contentContainerStyle={styles.list}
+        ListFooterComponent={
+          w.coins.length > 0 ? (
+            <View style={styles.exportBtn}>
+              <Button
+                title="검사용 내보내기 — 위폐 감지기 (shvilist.org/verify)"
+                color={colors.primary}
+                onPress={() => {
+                  // 위폐 감지기(M16) 입력 형식: { coins: [...] } — 평문 코인 JSON.
+                  // 암호화 백업이 아니다: 사이트에 백업 키를 넣게 유도하지 않기 위해서다.
+                  void Share.share({
+                    message: JSON.stringify({ coins: w.coins.map((c) => c.coin) }),
+                  });
+                }}
+              />
+            </View>
+          ) : null
+        }
       />
     </View>
   );
@@ -77,7 +97,9 @@ const styles = StyleSheet.create({
   balanceCol: { alignItems: 'center', flex: 1 },
   balanceNum: { fontSize: 18, fontWeight: '800' },
   sellBtn: { marginTop: 8 },
+  exportBtn: { marginTop: 12 },
   coinRow: { backgroundColor: colors.card, borderRadius: 10, padding: 12 },
+  coinSerial: { fontSize: 11, color: colors.muted, fontVariant: ['tabular-nums'], marginBottom: 2 },
   coinHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   coinAmount: { fontSize: 16, fontWeight: '800' },
   coinOrigin: { fontSize: 12, color: colors.primary, fontWeight: '700' },

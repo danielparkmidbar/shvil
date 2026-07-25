@@ -30,6 +30,7 @@ export interface Strings {
       courses: string;
       claims: string;
       certificates: string;
+      verify: string;
       leaderboard: string;
       transparency: string;
     };
@@ -373,5 +374,27 @@ export interface Strings {
     expandIntro: string;
     /** ISO 국가 코드 → 로케일별 국가명 (없으면 코드 표기로 폴백). */
     countries: Record<string, string>;
+  };
+  /** 위폐 감지기 (M16) — 코인 업로드 진위 검사. 판정 상세(detail)는 코어가 한국어로 생성한다. */
+  verify: {
+    title: string;
+    intro: string;
+    /** 개인정보 안내 — 검사는 브라우저 안에서만, 서버 전송 없음. */
+    privacyNote: string;
+    pastePlaceholder: string;
+    uploadLabel: string;
+    checkButton: string;
+    clearButton: string;
+    verdicts: { FORGED: string; SUSPECT: string; AUTHENTIC: string; INCONCLUSIVE: string };
+    summaryTitle: string;
+    findingsTitle: string;
+    notesTitle: string;
+    serialsTitle: string;
+    statsLine: (proofs: number, grants: number, totalShv: string) => string;
+    fatalBadge: string;
+    signalBadge: string;
+    /** 비한국어 로케일용: 상세 설명이 한국어로 표시된다는 안내. */
+    detailsLangNote: string;
+    errorPrefix: string;
   };
 }

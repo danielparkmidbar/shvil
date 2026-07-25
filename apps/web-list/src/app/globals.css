@@ -860,3 +860,104 @@ h2 {
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ── 위폐 감지기 (M16) ─────────────────────────────────────────── */
+.privacy-note {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  margin-top: -0.4rem;
+}
+
+.verify-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.7rem;
+  resize: vertical;
+}
+
+.verify-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.verify-error {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+.verify-verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 0.6rem;
+}
+
+.verify-verdict .verdict-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.verify-verdict .verdict-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.verdict-forged {
+  background: #fbe9e7;
+  color: #8c2f24;
+}
+
+.verdict-suspect {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+.verdict-authentic {
+  background: var(--green-100);
+  color: var(--green-700);
+}
+
+.verdict-inconclusive {
+  background: #eef1ef;
+  color: var(--ink-soft);
+}
+
+.verify-stats {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.verify-findings li,
+.verify-notes li {
+  margin: 0.45rem 0;
+  line-height: 1.55;
+}
+
+.finding-fatal .badge {
+  background: #fbe9e7;
+  color: #8c2f24;
+}
+
+.verify-serials {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+}
+
+.verify-serials code {
+  background: var(--green-50);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.85rem;
+}

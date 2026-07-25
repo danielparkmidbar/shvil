@@ -26,6 +26,7 @@ export default function SiteHeader() {
           <Link href="/courses">{t.common.nav.courses}</Link>
           <Link href="/claims">{t.common.nav.claims}</Link>
           <Link href="/certificates">{t.common.nav.certificates}</Link>
+          <Link href="/verify">{t.common.nav.verify}</Link>
           <Link href="/leaderboard">{t.common.nav.leaderboard}</Link>
           <Link href="/transparency">{t.common.nav.transparency}</Link>
         </div>
