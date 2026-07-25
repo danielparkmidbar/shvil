@@ -121,8 +121,21 @@ export async function loadCachedTrustedRootKeys(): Promise<Record<string, string
 export async function renewMembershipIfDue(now: number = Date.now()): Promise<void> {
   if (isProvisionalMemberId(wallet.identity.memberId)) return;
   if (!isMembershipRenewalDue(wallet.identity.membership, now)) return;
-  const { platform, token } = await getIntegrityToken();
-  const { membershipCertificate } = await directoryApi.refreshCertificate({ integrityToken: token, platform });
+  // 챌린지 → 실토큰 → 갱신. 챌린지 발급이 실패해도(오프라인 등) 폴백 토큰으로
+  // 시도한다 — 그 경우 서버가 UNVERIFIED로 판정할 뿐 앱은 계속 동작한다(0층 불변).
+  let challenge: string | undefined;
+  try {
+    const res = await directoryApi.requestIntegrityChallenge(wallet.identity.signer.publicKeyHex);
+    challenge = res.challenge;
+  } catch {
+    challenge = undefined;
+  }
+  const { platform, token } = await getIntegrityToken(challenge, wallet.identity.signer.publicKeyHex);
+  const { membershipCertificate } = await directoryApi.refreshCertificate({
+    integrityToken: token,
+    platform,
+    ...(challenge !== undefined ? { integrityChallenge: challenge } : {}),
+  });
   await wallet.applyMembership(membershipCertificate, token);
 }
 

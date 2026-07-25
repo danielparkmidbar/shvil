@@ -107,12 +107,16 @@ export interface RegisterArgs {
   integrityToken?: string;
   /** 무결성 API 종류 구분 (예: 'android' | 'ios'). */
   platform?: string;
+  /** 무결성 챌린지 — 서버가 nonce 대조로 재생·중계 공격을 막는다. */
+  integrityChallenge?: string;
 }
 
 /** 증서 발급/갱신 요청 (POST /auth/certificate) — 서명 인증 + 무결성 토큰. */
 export interface CertificateArgs {
   integrityToken?: string;
   platform?: string;
+  /** 무결성 챌린지 — 서버가 nonce 대조로 재생·중계 공격을 막는다. */
+  integrityChallenge?: string;
 }
 
 export interface PutAngelResult {
@@ -596,6 +600,15 @@ export class DirectoryApi {
    */
   refreshCertificate(args: CertificateArgs): Promise<{ membershipCertificate: MembershipCertificate }> {
     return this.#request('POST', '/auth/certificate', args, true);
+  }
+
+  /**
+   * 무결성 챌린지 발급 (비서명 — 가입 전에도 필요).
+   * 이 챌린지로 nonce를 만들어 Play Integrity 토큰을 받고, 그 토큰을 가입·갱신에 실어
+   * 보낸다. 챌린지는 기기 공개키에 결속되고 1회만 쓰인다(재생·중계 차단).
+   */
+  requestIntegrityChallenge(devicePublicKey: string): Promise<{ challenge: string; expiresAt: number }> {
+    return this.#request('POST', '/auth/integrity-challenge', { devicePublicKey }, false);
   }
 
   // ── 코스 데이터 배포 ──

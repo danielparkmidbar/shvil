@@ -26,6 +26,19 @@ export function createDb(path: string): DatabaseSync {
       code TEXT NOT NULL,
       expires_at INTEGER NOT NULL
     );
+    -- 기기 무결성 1회용 챌린지 (보안 감사 C-2 실연동).
+    -- ★재생·중계 공격 차단: 무결성 토큰만 훔쳐 다른 기기에서 쓰지 못하도록, 서버가
+    --   난수 챌린지를 발급하고 기기 공개키와 함께 묶어 nonce를 만든다. Google이 토큰
+    --   안에 그 nonce를 돌려주므로 (1)내가 낸 챌린지인지 (2)소비 전인지 (3)이 기기의
+    --   것인지를 전부 대조할 수 있다. 소비된 챌린지는 재사용되지 않는다.
+    -- 좌표·개인정보 없음: 난수·기기 공개키·시각뿐이다.
+    CREATE TABLE IF NOT EXISTS integrity_challenges (
+      challenge TEXT PRIMARY KEY,
+      device_public_key TEXT NOT NULL,
+      issued_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      consumed_at INTEGER
+    );
     CREATE TABLE IF NOT EXISTS angels (
       member_id TEXT PRIMARY KEY REFERENCES members(member_id),
       name TEXT NOT NULL,

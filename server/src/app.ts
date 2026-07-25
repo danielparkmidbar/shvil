@@ -11,6 +11,7 @@
  */
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { DatabaseSync } from 'node:sqlite';
+import { randomBytes } from 'node:crypto';
 import {
   ANGEL_BONUS_DSHV,
   AUTH_HEADER_MEMBER,
@@ -35,13 +36,19 @@ import {
   verifyAuthHeaders,
   verifyCoin,
   type Coin,
+  type IntegrityLevel,
   type MembershipCertificate,
   type MessageEnvelope,
   type SignedGrant,
 } from '@shvil/shared';
 import { createDb } from './db';
 import { SealedKeystore } from './keystore';
-import { verifyIntegrityToken } from './integrity';
+import {
+  issueIntegrityChallenge,
+  verifyIntegrityAsync,
+  verifyIntegrityToken,
+  type IntegrityContext,
+} from './integrity';
 import { haversineKm } from './geo';
 import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
@@ -192,8 +199,10 @@ export function buildApp(
     integrityToken: string | undefined,
     platform: string | undefined,
     now: number,
+    /** 실검증(Play Integrity) 결과 — 비동기 경로에서 미리 판정해 넘긴다. */
+    verifiedLevel?: IntegrityLevel,
   ): MembershipCertificate {
-    const integrity = verifyIntegrityToken(platform, integrityToken, devMode);
+    const integrity = verifiedLevel ?? verifyIntegrityToken(platform, integrityToken, devMode);
     return buildMembershipCertificate(
       {
         memberId,
@@ -291,6 +300,33 @@ export function buildApp(
     );
   }
 
+  /**
+   * 기기 무결성 컨텍스트 (보안 감사 C-2 실연동).
+   * playConfig는 환경변수에서 읽는다(미설정이면 UNVERIFIED로 폴백 — fail-closed).
+   * requirePlayRecognized는 Play Store 배포 후 단계에서 켠다 (sideload에서는 정상적으로
+   * UNRECOGNIZED_VERSION이 나오므로 닫힌 시험 중에는 끈다).
+   */
+  const integrityCtx: IntegrityContext = {
+    db,
+    devMode,
+    requirePlayRecognized: process.env.SHVIL_REQUIRE_PLAY_RECOGNIZED === '1',
+  };
+
+  /**
+   * 무결성 챌린지 발급 — 기기가 이 값으로 nonce를 만들어 Play Integrity 토큰을 받는다.
+   * 비인증 라우트다(가입 전에도 필요). 챌린지는 기기 공개키에 결속되고 1회만 쓰인다.
+   */
+  app.post('/auth/integrity-challenge', async (req, reply) => {
+    const body = req.body as { devicePublicKey?: string } | null;
+    if (!body?.devicePublicKey || !/^[0-9a-f]{64}$/i.test(body.devicePublicKey)) {
+      return reply.code(400).send({ error: 'devicePublicKey required' });
+    }
+    const challenge = randomBytes(32).toString('base64url');
+    const issued = issueIntegrityChallenge(integrityCtx, body.devicePublicKey, challenge, Date.now());
+    // 기기가 nonce를 스스로 계산할 수 있도록 챌린지만 준다 (nonce = H(challenge|devicePubKey)).
+    return { challenge: issued.challenge, expiresAt: issued.expiresAt };
+  });
+
   // ── 가입 (의무 정보는 전화 OTP + 이메일뿐 — 지시서 2.1) ────────
 
   app.post('/auth/otp', async (req, reply) => {
@@ -316,6 +352,8 @@ export function buildApp(
       messagingPublicKey?: string;
       integrityToken?: string;
       platform?: string;
+      /** 무결성 챌린지 (POST /auth/integrity-challenge로 발급받은 값). */
+      integrityChallenge?: string;
     } | null;
     if (!body?.phone || !body.code || !body.email || !body.devicePublicKey || !body.messagingPublicKey) {
       return reply.code(400).send({ error: 'phone, code, email, devicePublicKey, messagingPublicKey required' });
@@ -346,12 +384,20 @@ export function buildApp(
 
     // 회원 증서 발급 — 회원 번호↔기기 키 결속 (보안 감사 C-2). 무결성 미제출/미검증
     // 기기도 UNVERIFIED 증서를 받되, 수신 지갑 정책이 그 수준을 거부·보류한다.
+    // 운영에서는 Play Integrity 실검증 결과를 각인한다 (챌린지·nonce 대조 포함).
+    const regVerdict = await verifyIntegrityAsync(integrityCtx, {
+      platform: body.platform,
+      token: body.integrityToken,
+      devicePublicKey: body.devicePublicKey,
+      challenge: body.integrityChallenge,
+    });
     const membershipCertificate = issueMembershipCertificate(
       memberId,
       body.devicePublicKey,
       body.integrityToken,
       body.platform,
       Date.now(),
+      regVerdict.level,
     );
     return { memberId, membershipCertificate };
   });
@@ -362,13 +408,21 @@ export function buildApp(
   app.post('/auth/certificate', async (req, reply) => {
     const member = authenticate(req);
     if (!member) return reply.code(401).send({ error: 'unauthorized' });
-    const body = (req.body as { integrityToken?: string; platform?: string } | null) ?? {};
+    const body =
+      (req.body as { integrityToken?: string; platform?: string; integrityChallenge?: string } | null) ?? {};
+    const renewVerdict = await verifyIntegrityAsync(integrityCtx, {
+      platform: body.platform,
+      token: body.integrityToken,
+      devicePublicKey: member.device_public_key,
+      challenge: body.integrityChallenge,
+    });
     const membershipCertificate = issueMembershipCertificate(
       member.member_id,
       member.device_public_key,
       body.integrityToken,
       body.platform,
       Date.now(),
+      renewVerdict.level,
     );
     return { membershipCertificate };
   });
