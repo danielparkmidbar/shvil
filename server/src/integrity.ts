@@ -38,6 +38,13 @@ export type IntegrityPlatform = 'android' | 'ios';
 /** 챌린지 유효 시간 — 무결성 토큰 획득에 넉넉하되 재사용 창을 좁게. */
 export const INTEGRITY_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
+/**
+ * 기기당 동시 미소비 챌린지 상한.
+ * 쌓아두기(여러 개 받아 골라 쓰기)는 막되, **남의 챌린지를 지우지 않기 위한** 상한이다 —
+ * 무인증 라우트에서 DELETE를 쓰면 공개된 기기 키로 남의 갱신을 봉쇄할 수 있다.
+ */
+export const INTEGRITY_MAX_LIVE_CHALLENGES = 5;
+
 export interface IntegrityContext {
   db: DatabaseSync;
   devMode: boolean;
@@ -84,10 +91,35 @@ export function issueIntegrityChallenge(
   now: number,
 ): { challenge: string; expiresAt: number } {
   const expiresAt = now + INTEGRITY_CHALLENGE_TTL_MS;
-  // 같은 기기의 미소비 챌린지는 폐기한다 — 여러 개를 쌓아두고 고르는 것을 막는다.
-  ctx.db
-    .prepare('DELETE FROM integrity_challenges WHERE device_public_key = ? AND consumed_at IS NULL')
-    .run(devicePublicKey);
+  // ★남의 미소비 챌린지를 지우지 않는다 (적대적 검증 치명 지적 시정).
+  //   이전 구현은 같은 기기 키의 미소비 챌린지를 전부 DELETE 했는데, 이 라우트가
+  //   **무인증**이고 devicePublicKey는 코인 계보에 실려 공개 유통되는 값이다. 따라서
+  //   공격자가 피해자 키로 반복 호출하면 피해자가 막 받은 챌린지가 계속 지워져
+  //   증서 갱신이 영구 실패하고, 30일 뒤 증서 만료로 **그 사람의 모든 걷기 코인이
+  //   무효화**된다(무인증 HTTP 요청만으로 남의 화폐를 소각).
+  //   대신 동시 보유 개수만 제한하고 나머지는 만료로 자연 소멸시킨다 — 쌓아두기는
+  //   막으면서 남의 것을 건드리지 않는다.
+  const liveCount = (
+    ctx.db
+      .prepare(
+        'SELECT COUNT(*) AS n FROM integrity_challenges WHERE device_public_key = ? AND consumed_at IS NULL AND expires_at > ?',
+      )
+      .get(devicePublicKey, now) as { n: number }
+  ).n;
+  if (liveCount >= INTEGRITY_MAX_LIVE_CHALLENGES) {
+    // 상한 초과 시 **가장 오래된 것 하나만** 밀어낸다 (선입선출) — 피해자가 방금 받은
+    // 최신 챌린지는 남는다.
+    ctx.db
+      .prepare(
+        `DELETE FROM integrity_challenges WHERE challenge = (
+           SELECT challenge FROM integrity_challenges
+           WHERE device_public_key = ? AND consumed_at IS NULL
+           ORDER BY issued_at ASC LIMIT 1)`,
+      )
+      .run(devicePublicKey);
+  }
+  // 만료된 찌꺼기는 정리한다 (테이블 무한 증가 방지).
+  ctx.db.prepare('DELETE FROM integrity_challenges WHERE expires_at < ?').run(now - INTEGRITY_CHALLENGE_TTL_MS);
   ctx.db
     .prepare(
       `INSERT INTO integrity_challenges (challenge, device_public_key, issued_at, expires_at, consumed_at)

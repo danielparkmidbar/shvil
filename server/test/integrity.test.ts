@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { createDb } from '../src/db';
 import {
   INTEGRITY_CHALLENGE_TTL_MS,
+  INTEGRITY_MAX_LIVE_CHALLENGES,
   issueIntegrityChallenge,
   verifyIntegrityAsync,
   verifyIntegrityToken,
@@ -81,12 +82,39 @@ describe('② 챌린지 — 1회용·기기 결속·만료 (재생·중계 차�
     expect(row.consumed_at).toBeNull();
   });
 
-  it('같은 기기가 새로 발급받으면 이전 미소비 챌린지는 폐기된다 (쌓아두기 차단)', () => {
+  it('★남의 챌린지를 지우지 않는다 — 무인증 반복 호출로 갱신을 봉쇄할 수 없다', () => {
+    // 적대적 검증 치명 지적: 이전 구현은 같은 기기 키의 미소비 챌린지를 전부 지웠다.
+    // 이 라우트는 무인증이고 devicePublicKey는 코인 계보에 실려 공개 유통되므로,
+    // 공격자가 피해자 키로 반복 호출하면 피해자가 방금 받은 챌린지가 지워져 증서
+    // 갱신이 영구 실패하고 30일 뒤 그 사람의 모든 걷기 코인이 무효화됐다.
     const now = Date.now();
-    issueIntegrityChallenge(prodCtx(), DEVICE_KEY, 'ch-old', now);
-    issueIntegrityChallenge(prodCtx(), DEVICE_KEY, 'ch-new', now);
-    expect(db.prepare('SELECT 1 FROM integrity_challenges WHERE challenge = ?').get('ch-old')).toBeUndefined();
-    expect(db.prepare('SELECT 1 FROM integrity_challenges WHERE challenge = ?').get('ch-new')).toBeDefined();
+    // 피해자가 챌린지를 받는다.
+    issueIntegrityChallenge(prodCtx(), DEVICE_KEY, 'ch-victim', now);
+    // 공격자가 공개된 피해자 기기 키로 반복 호출한다.
+    for (let i = 0; i < 3; i++) {
+      issueIntegrityChallenge(prodCtx(), DEVICE_KEY, `ch-attack-${i}`, now + i);
+    }
+    // 피해자 챌린지는 살아있어야 한다.
+    expect(db.prepare('SELECT 1 FROM integrity_challenges WHERE challenge = ?').get('ch-victim')).toBeDefined();
+  });
+
+  it('동시 보유 상한을 넘으면 가장 오래된 것만 밀려난다 (쌓아두기는 막는다)', () => {
+    const now = Date.now();
+    for (let i = 0; i < INTEGRITY_MAX_LIVE_CHALLENGES + 1; i++) {
+      issueIntegrityChallenge(prodCtx(), DEVICE_KEY, `ch-${i}`, now + i);
+    }
+    const live = (
+      db
+        .prepare(
+          'SELECT COUNT(*) AS n FROM integrity_challenges WHERE device_public_key = ? AND consumed_at IS NULL',
+        )
+        .get(DEVICE_KEY) as { n: number }
+    ).n;
+    expect(live).toBeLessThanOrEqual(INTEGRITY_MAX_LIVE_CHALLENGES);
+    // 가장 최근 것은 반드시 남는다 (방금 받은 사람이 피해를 보지 않는다).
+    expect(
+      db.prepare('SELECT 1 FROM integrity_challenges WHERE challenge = ?').get(`ch-${INTEGRITY_MAX_LIVE_CHALLENGES}`),
+    ).toBeDefined();
   });
 
   it('★남의 챌린지로는 검증할 수 없다 (중계 공격 차단)', async () => {
@@ -241,5 +269,74 @@ describe('④ devMode 게이팅 (보안 감사 C-1)', () => {
     expect(verifyIntegrityToken('android', 'dev-verified', false)).toBe('UNVERIFIED');
     expect(verifyIntegrityToken('android', 'dev-verified', true)).toBe('VERIFIED');
     expect(verifyIntegrityToken('android', 'dev-basic', true)).toBe('BASIC');
+  });
+});
+
+describe('⑤ ★앱 서명 지문 — 변조 APK 차단 (적대적 검증 치명 지적 시정)', () => {
+  /**
+   * 공격 시나리오: 공격자가 쉬빌 APK를 디컴파일해 인간 한계·회랑 판정을 전부 제거하고,
+   * applicationId는 org.shvil.wallet 그대로 둔 채 **자기 키스토어로 서명**해 정품
+   * 무루팅 폰에 설치한다. 패키지명은 일치하고 기기도 진짜이므로, 서명 지문을 보지
+   * 않으면 VERIFIED가 나온다 — 무결성의 목적 자체가 무효화된다.
+   *
+   * 서명 키는 EAS 키스토어에 있어 공격자가 가질 수 없으므로, 지문 대조만이
+   * "우리가 빌드한 앱"을 증명한다.
+   */
+  const OUR_DIGEST = 'OurRealSigningCertDigestBase64Url';
+  const ATTACKER_DIGEST = 'AttackerSelfSignedCertDigest';
+
+  function payload(digests: string[] | undefined) {
+    return {
+      tokenPayloadExternal: {
+        requestDetails: { nonce: 'n', requestPackageName: 'org.shvil.wallet', timestampMillis: String(Date.now()) },
+        appIntegrity: {
+          appRecognitionVerdict: 'UNRECOGNIZED_VERSION', // sideload에서는 정상
+          packageName: 'org.shvil.wallet',
+          ...(digests !== undefined ? { certificateSha256Digest: digests } : {}),
+        },
+        deviceIntegrity: { deviceRecognitionVerdict: ['MEETS_DEVICE_INTEGRITY'] }, // 진짜 폰
+      },
+    };
+  }
+
+  /** verifyPlayIntegrityToken의 판정부만 재현한다 (네트워크 없이 규칙을 고정). */
+  function judge(digests: string[] | undefined, configured: string[] | undefined) {
+    const p = payload(digests).tokenPayloadExternal;
+    const reasons: string[] = [];
+    const got = p.appIntegrity.certificateSha256Digest ?? [];
+    let certOk = false;
+    if (configured && configured.length > 0) {
+      certOk = got.some((d) => configured.includes(d));
+      if (!certOk) reasons.push(got.length === 0 ? 'CERT_DIGEST_ABSENT' : 'CERT_DIGEST_MISMATCH');
+    } else {
+      reasons.push('CERT_DIGEST_NOT_CONFIGURED');
+    }
+    let level = p.deviceIntegrity.deviceRecognitionVerdict.includes('MEETS_DEVICE_INTEGRITY')
+      ? 'VERIFIED'
+      : 'UNVERIFIED';
+    if (!certOk) level = 'UNVERIFIED';
+    return { level, reasons };
+  }
+
+  it('★자기 키로 서명한 변조 APK는 진짜 폰에서도 VERIFIED를 받지 못한다', () => {
+    const r = judge([ATTACKER_DIGEST], [OUR_DIGEST]);
+    expect(r.level).toBe('UNVERIFIED');
+    expect(r.reasons).toContain('CERT_DIGEST_MISMATCH');
+  });
+
+  it('우리가 서명한 앱은 통과한다', () => {
+    expect(judge([OUR_DIGEST], [OUR_DIGEST]).level).toBe('VERIFIED');
+  });
+
+  it('지문 필드가 아예 없으면 통과시키지 않는다 (부재를 통과로 삼지 않는다)', () => {
+    const r = judge(undefined, [OUR_DIGEST]);
+    expect(r.level).toBe('UNVERIFIED');
+    expect(r.reasons).toContain('CERT_DIGEST_ABSENT');
+  });
+
+  it('지문을 설정하지 않았으면 앱 동일성 검사가 없는 것이므로 UNVERIFIED', () => {
+    const r = judge([OUR_DIGEST], undefined);
+    expect(r.level).toBe('UNVERIFIED');
+    expect(r.reasons).toContain('CERT_DIGEST_NOT_CONFIGURED');
   });
 });

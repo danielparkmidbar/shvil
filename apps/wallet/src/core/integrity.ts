@@ -32,6 +32,12 @@ export interface IntegrityToken {
   token: string;
   /** 서버가 발급한 챌린지 — 서버가 nonce 대조에 쓴다. */
   challenge?: string;
+  /**
+   * 실토큰을 못 받은 사유 (진단용 — 자연어 아님). 값이 있으면 이 토큰은 실증명이
+   * 아니며 서버가 UNVERIFIED로 판정한다. 화면이 사용자에게 상태를 정직하게 알리는
+   * 데 쓴다(제3조) — "이 기기는 인증되지 않아 코인이 거부될 수 있습니다".
+   */
+  reason?: string;
 }
 
 /**
@@ -89,6 +95,14 @@ export async function getIntegrityToken(
     }
   }
 
-  // 개발 토큰 — 서버 devMode에서만 수용된다 (운영 서버는 거부 → UNVERIFIED).
-  return { platform, token: 'dev-verified', ...(challenge !== undefined ? { challenge } : {}) };
+  // ★실토큰 획득 실패 — 정직하게 사유를 담아 돌려준다 (적대적 검증 지적 시정).
+  //   이전 구현은 무조건 'dev-verified'를 반환해, 네이티브 모듈이 아예 없는 상태에서도
+  //   "무결성 연동 완료"처럼 보였다. 실제로는 단 한 번도 실토큰이 만들어지지 않았다.
+  //   개발 토큰은 __DEV__ 빌드에서만 쓰고, 배포 빌드는 빈 토큰 + 사유를 보낸다 —
+  //   서버는 이를 UNVERIFIED로 판정하며, 그것이 사실이다.
+  const reason = platform === 'ios' ? 'IOS_NOT_INTEGRATED' : 'MODULE_UNAVAILABLE';
+  if (__DEV__) {
+    return { platform, token: 'dev-verified', reason, ...(challenge !== undefined ? { challenge } : {}) };
+  }
+  return { platform, token: '', reason, ...(challenge !== undefined ? { challenge } : {}) };
 }

@@ -18,10 +18,14 @@
  * 제공하지 않는다 — 반환값은 오직 증서에 각인될 등급뿐이다.
  *
  * ── 재생 공격 방어 (nonce 결속) ──────────────────────────────────────────
- * ★토큰만 훔치면 끝나면 안 된다. 진짜 폰에서 받은 토큰을 변조 폰이 그대로 제출하는
- * 중계 공격을 막기 위해, 서버가 1회용 챌린지를 발급하고 **기기 공개키를 함께 묶어**
- * nonce를 만든다. Google이 토큰 안에 그 nonce를 되돌려주므로, 서버는 (1) 자기가 낸
- * 챌린지인지 (2) 소비되지 않았는지 (3) 이 기기 키의 것인지를 전부 대조할 수 있다.
+ * 서버가 1회용 챌린지를 발급하고 기기 공개키를 묶어 nonce를 만든다. 서버는 (1) 자기가 낸
+ * 챌린지인지 (2) 소비되지 않았는지 (3) 이 기기 키의 것인지를 대조한다.
+ *
+ * ★막지 못하는 것 (정직화 — 제3조): 이것은 "**증명 오라클 중계**"를 막지 못한다.
+ *  공격자가 자기 키쌍을 만들어 그 키로 챌린지를 받고, 깨끗한 폰에서 그 nonce로 토큰을
+ *  받아 제출하면 VERIFIED가 자기 키에 결속된다 — 공격자가 곧 그 키의 소유자이기
+ *  때문이다. 원리적 차단은 하드웨어 키 증명(attestation) 병행뿐이며 미구현이다.
+ *  여기서 막는 것은 "남의 토큰을 주워 쓰는" 수동적 재사용까지다.
  *
  * 실 API 연동 전(자격증명 미설정)에는 **UNVERIFIED를 반환한다** — 미검증 기기를
  * VERIFIED로 오인하지 않는 안전 기본값이다(fail-closed).
@@ -43,6 +47,16 @@ export interface PlayIntegrityConfig {
   clientEmail: string;
   /** 서비스 계정 개인키 (PEM). 운영에서는 환경변수로 주입한다. */
   privateKeyPem: string;
+  /**
+   * ★앱 서명 인증서 SHA-256 지문 (base64url, 복수 허용 — 키 교체 대비).
+   *
+   * 이것이 **앱 동일성의 유일한 고리**다. 패키지명은 공격자가 자기 빌드에서 임의로
+   * 정할 수 있으므로(applicationId는 그냥 문자열이다), 패키지명만 대조하면 변조 APK가
+   * 그대로 통과한다 — 적대적 검증이 이 경로를 치명으로 지목했다. 서명 키는 EAS
+   * 키스토어에 있고 공격자가 가질 수 없으므로, 지문 대조만이 "우리가 빌드한 앱"을
+   * 증명한다. 미설정이면 앱 동일성 검사가 없는 것이므로 VERIFIED를 주지 않는다.
+   */
+  certDigests?: string[];
 }
 
 /**
@@ -138,7 +152,12 @@ export async function verifyPlayIntegrityToken(
   const json = (await res.json()) as {
     tokenPayloadExternal?: {
       requestDetails?: { nonce?: string; requestPackageName?: string; timestampMillis?: string };
-      appIntegrity?: { appRecognitionVerdict?: string; packageName?: string };
+      appIntegrity?: {
+        appRecognitionVerdict?: string;
+        packageName?: string;
+        certificateSha256Digest?: string[];
+        versionCode?: string;
+      };
       deviceIntegrity?: { deviceRecognitionVerdict?: string[] };
     };
   };
@@ -155,6 +174,19 @@ export async function verifyPlayIntegrityToken(
   // 토큰 신선도 — 오래된 토큰 재사용 차단 (10분).
   const ts = Number(payload.requestDetails?.timestampMillis ?? 0);
   if (ts > 0 && Date.now() - ts > 10 * 60 * 1000) reasons.push('TOKEN_STALE');
+
+  // ★앱 서명 지문 대조 — 변조 APK 차단의 핵심.
+  //   패키지명은 공격자가 정할 수 있지만 서명 키는 가질 수 없다. 지문이 없거나
+  //   목록에 없으면 "우리가 빌드한 앱"임을 증명하지 못한 것이므로 통과시키지 않는다.
+  const digests = payload.appIntegrity?.certificateSha256Digest ?? [];
+  let certOk = false;
+  if (config.certDigests && config.certDigests.length > 0) {
+    certOk = digests.some((d) => config.certDigests!.includes(d));
+    if (!certOk) reasons.push(digests.length === 0 ? 'CERT_DIGEST_ABSENT' : 'CERT_DIGEST_MISMATCH');
+  } else {
+    // 지문 미설정 = 앱 동일성 검사 없음. 이 상태를 통과로 삼지 않는다(fail-closed).
+    reasons.push('CERT_DIGEST_NOT_CONFIGURED');
+  }
 
   const device = payload.deviceIntegrity?.deviceRecognitionVerdict ?? [];
   const appVerdict = payload.appIntegrity?.appRecognitionVerdict ?? '';
@@ -174,6 +206,9 @@ export async function verifyPlayIntegrityToken(
   }
 
   // 대조 실패는 등급을 UNVERIFIED로 떨어뜨린다 (fail-closed).
+  // ★서명 지문 관련 실패는 강등이 아니라 **고정**이다 — 변조 APK가 BASIC으로라도
+  //   살아남으면 안 된다(BASIC도 P2P 수령이 열리므로).
+  if (!certOk) level = 'UNVERIFIED';
   if (reasons.some((r) => r.endsWith('MISMATCH') || r === 'TOKEN_STALE')) level = 'UNVERIFIED';
 
   return { level, nonce: payload.requestDetails?.nonce ?? null, reasons };
