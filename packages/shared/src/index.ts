@@ -6,6 +6,7 @@
 export * from './params';
 export * from './canonical';
 export * from './crypto';
+export * from './keyId';
 export * from './types';
 export * from './rates';
 export * from './walkFilter';

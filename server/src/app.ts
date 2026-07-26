@@ -29,6 +29,9 @@ import {
   liveRegions,
   buildMembershipCertificate,
   currentOwnerAddress,
+  deriveKeyId,
+  ISSUER_KEY_PURPOSES,
+  ROOT_KEY_PURPOSE,
   sha256Hex,
   signDistribution,
   snapToPrivacyGrid,
@@ -41,7 +44,13 @@ import {
   type SignedGrant,
 } from '@shvil/shared';
 import { createDb } from './db';
-import { SealedKeystore, archivedPublicKeys, recordPublicKey, trustedKeysForPurposes } from './keystore';
+import {
+  SealedKeystore,
+  archivedPublicKeys,
+  nonConformingArchiveEntries,
+  recordPublicKey,
+  trustedKeysForPurposes,
+} from './keystore';
 import {
   issueIntegrityChallenge,
   verifyIntegrityAsync,
@@ -63,15 +72,27 @@ import { registerSync } from './sync';
 import { registerBackup } from './backup';
 import { registerTrust, trustSummariesFor } from './trust';
 
-export const PROMO_KEY_ID = 'promo-angel-2026';
-export const CLAIM_KEY_ID = 'community-claim-2026';
-export const REWARD_KEY_ID = 'community-reward-2026';
-/** 보물 마이닝 발행 키 ID (M9) — 기간·수량 한정, 투명성 공시 대상 (T-3). */
-export const TREASURE_KEY_ID = 'promo-treasure-2026';
-/** 회원 증서 발행 루트 키 ID — 지갑이 신뢰 루트로 핀한다 (보안 감사 C-2). */
-export const MEMBERSHIP_ROOT_KEY_ID = 'membership-root-2026';
-/** 배포 서명 키 ID — 신뢰 발행 키 목록·소명 목록·코스 데이터 서명 (보안 감사 H-3). */
-export const DISTRIBUTION_KEY_ID = 'distribution-2026';
+/**
+ * ★이 배포의 발행 키 이름 — 전부 **공개키에서 유도**된다 (규격 9.2 I-1).
+ *
+ * 2026-07-26까지 이 이름들은 `'membership-root-2026'` 같은 **문자열 리터럴**이었다.
+ * 키 재료는 배포마다 새로 생성되는데 이름은 모든 배포가 같았으므로, 제2 발행자가
+ * 나오는 순간 신뢰 목록(`Record<keyId, publicKey>`)의 **같은 슬롯**을 두고 충돌하고
+ * 진 쪽의 코인이 전량 무효가 되었다(실측 재현). 이름을 키 재료에서 유도하면 배포마다
+ * 달라져 **애초에 같은 슬롯을 쓰지 않는다.**
+ *
+ * 옛 이름은 `keystore` 이력에 **이미 들어 있는 배포만** 계속 게시한다(별칭 — I-2).
+ * 새로 세운 배포는 이력이 비어 있으므로 옛 이름을 주장하지 않는다. 즉 "원조 별칭은
+ * 원조만"이 코드 구조로 성립한다(규격 9.3 의무 2번).
+ */
+export interface DeploymentKeyIds {
+  promo: string;
+  claim: string;
+  reward: string;
+  treasure: string;
+  membershipRoot: string;
+  distribution: string;
+}
 /**
  * 첫 접대 증빙 코인의 최소 금액 (dSHV) — 권장 가격표에서 역산 (④ 금액 하한).
  *
@@ -189,7 +210,7 @@ function sanitizeServices(services: unknown): unknown {
 
 export function buildApp(
   options: AppOptions = {},
-): FastifyInstance & { db: DatabaseSync; chain: ChainAdapter } {
+): FastifyInstance & { db: DatabaseSync; chain: ChainAdapter; keyIds: DeploymentKeyIds } {
   const db = createDb(options.dbPath ?? ':memory:');
   const quota = options.registrationQuota ?? 500;
   // 첫 접대 보너스도 수량 한정 — 등록과 같은 기본값(500명분).
@@ -218,28 +239,66 @@ export function buildApp(
   const distSigner = keystore.loadOrCreateSigner('distKey');
 
   /**
+   * ★발행 키 이름을 공개키에서 유도한다 (규격 9.2 I-1).
+   *
+   * 하드코딩 상수였을 때는 모든 배포가 같은 이름을 써서 두 발행자가 공존할 수 없었다.
+   * 유도하면 이름이 키 재료에서 나오므로 배포마다 다르고, 충돌이 **구조적으로** 사라진다.
+   * 지갑은 같은 유도식(`@shvil/shared` keyId.ts)으로 검산해 참칭을 걸러낸다(I-3).
+   */
+  const keyIds: DeploymentKeyIds = {
+    promo: deriveKeyId('ANGEL_BONUS', promoSigner.publicKeyHex),
+    claim: deriveKeyId('COMMUNITY_CLAIM', claimSigner.publicKeyHex),
+    reward: deriveKeyId('COMMUNITY_REWARD', rewardSigner.publicKeyHex),
+    treasure: deriveKeyId('TREASURE', treasureSigner.publicKeyHex),
+    membershipRoot: deriveKeyId('MEMBERSHIP_ROOT', membershipRootSigner.publicKeyHex),
+    distribution: deriveKeyId('DISTRIBUTION', distSigner.publicKeyHex),
+  };
+
+  /**
    * ★공개키 이력 등재 (2026-07-26) — 키를 회전해도 옛 코인이 죽지 않게.
    *
    * 여기서 한 번 적어 두면 그 공개키는 이 서버가 사는 동안 `/keys`에서 사라지지 않고,
    * 서버 자신의 `trustedRootKeys`·`trustedIssuerKeys`에도 계속 들어간다. 회전은 새
-   * keyId로 이루어지므로(이름에 연도가 있다) 그때 새 항목이 하나 더 붙을 뿐이다.
+   * 키 재료 = 새 유도 이름으로 이루어지므로 그때 새 항목이 하나 더 붙을 뿐이다.
    * 옛 개인키가 유출된 것이 아니므로 위조 여지는 늘지 않는다 — keystore.ts 주석 참조.
+   *
+   * ★옛 하드코딩 이름(`membership-root-2026` 등)은 **여기서 새로 적지 않는다.**
+   * 이미 그 이름이 이력에 있는 배포는 계속 게시하고(옛 앱 버전이 그것을 봐야 한다),
+   * 새로 세운 배포는 옛 이름을 **주장하지 않는다**(규격 9.3 의무 2번).
+   *
+   * ★그리고 **적지 않아도 옛 코인이 죽지 않는다.** 앞선 설계는 "이력에 옛 이름이
+   * 남아 있을 것"이라는 배포 순서 전제에 걸려 있었다 — 이력이 빈 채로 이 버전이 처음
+   * 기동하면 옛 증서가 서버에서도 지갑에서도 `UNKNOWN_MEMBERSHIP_ROOT`가 됐다(적대검증
+   * F1 재현). 지금은 검증 측이 옛 이름을 **공개키로 해소**하므로(`isTrustedKeyBinding`)
+   * 배포 순서가 무엇이든 옛 증서·옛 GRANT가 검증된다.
    */
   for (const [keyId, signer, purpose] of [
-    [PROMO_KEY_ID, promoSigner, 'ANGEL_BONUS'],
-    [CLAIM_KEY_ID, claimSigner, 'COMMUNITY_CLAIM'],
-    [REWARD_KEY_ID, rewardSigner, 'COMMUNITY_REWARD'],
-    [TREASURE_KEY_ID, treasureSigner, 'TREASURE'],
-    [MEMBERSHIP_ROOT_KEY_ID, membershipRootSigner, 'MEMBERSHIP_ROOT'],
-    [DISTRIBUTION_KEY_ID, distSigner, 'DISTRIBUTION'],
+    [keyIds.promo, promoSigner, 'ANGEL_BONUS'],
+    [keyIds.claim, claimSigner, 'COMMUNITY_CLAIM'],
+    [keyIds.reward, rewardSigner, 'COMMUNITY_REWARD'],
+    [keyIds.treasure, treasureSigner, 'TREASURE'],
+    [keyIds.membershipRoot, membershipRootSigner, 'MEMBERSHIP_ROOT'],
+    [keyIds.distribution, distSigner, 'DISTRIBUTION'],
   ] as const) {
     recordPublicKey(db, { keyId, publicKey: signer.publicKeyHex, purpose });
   }
-  /** GRANT 계보 검증용 신뢰 발행 키 — **은퇴 키를 포함한 이력 전체.** */
-  const issuerKeyHistory = (): Record<string, string> =>
-    trustedKeysForPurposes(db, ['ANGEL_BONUS', 'COMMUNITY_CLAIM', 'COMMUNITY_REWARD', 'TREASURE']);
+  // 이력 kv는 평문 JSON이라 DB 쓰기 권한만으로 항목을 끼워 넣을 수 있다(적대검증 재현).
+  // 지우지는 않는다 — 지우면 옛 이름이 사라져 옛 코인이 죽는다. 기동 시 드러내기만 한다.
+  const odd = nonConformingArchiveEntries(db);
+  if (odd.length > 0) {
+    console.warn(
+      `[keys] 규격형이 아닌 공개키 이력 항목 ${odd.length}개: ${odd.map((k) => k.keyId).join(', ')}` +
+        ' — DB가 직접 수정되었을 수 있습니다 (규격 9.2 I-1).',
+    );
+  }
+  /**
+   * GRANT 계보 검증용 신뢰 발행 키 — **은퇴 키를 포함한 이력 전체.**
+   * 용도 목록은 지갑(`foldTrustedKeys`)과 **같은 표**(`ISSUER_KEY_PURPOSES`)를 본다 —
+   * 둘이 어긋나면 같은 코인이 지갑에서는 진품, 서버에서는 위폐가 된다(실측 재현).
+   */
+  const issuerKeyHistory = (): Record<string, string> => trustedKeysForPurposes(db, ISSUER_KEY_PURPOSES);
   /** 회원 증서 신뢰 루트 — 마찬가지로 이력 전체. 회전해도 옛 증서가 계속 검증된다. */
-  const rootKeyHistory = (): Record<string, string> => trustedKeysForPurposes(db, ['MEMBERSHIP_ROOT']);
+  const rootKeyHistory = (): Record<string, string> => trustedKeysForPurposes(db, [ROOT_KEY_PURPOSE]);
 
   /** 무결성 검증 통과 시 회원 번호↔기기 키를 결속한 증서를 발급한다. */
   function issueMembershipCertificate(
@@ -259,7 +318,7 @@ export function buildApp(
         integrity,
         issuedAt: now,
         expiresAt: now + MEMBERSHIP_CERT_TTL_MS,
-        issuerKeyId: MEMBERSHIP_ROOT_KEY_ID,
+        issuerKeyId: keyIds.membershipRoot,
       },
       membershipRootSigner,
     );
@@ -323,7 +382,7 @@ export function buildApp(
         amountDshv: kind === 'REGISTRATION' ? ANGEL_BONUS_DSHV.REGISTRATION : ANGEL_BONUS_DSHV.FIRST_HOSTING,
         reference: kind === 'REGISTRATION' ? 'angel-registration' : 'angel-first-hosting',
         recipientPublicKey: member.device_public_key,
-        issuerKeyId: PROMO_KEY_ID,
+        issuerKeyId: keyIds.promo,
         issuedAt: now,
       },
       promoSigner,
@@ -487,7 +546,7 @@ export function buildApp(
       // 서버가 거부하는 상황이 생겨 정직한 사용자가 막힌다.
       { courses: distributedCourses(db) },
       distSigner,
-      DISTRIBUTION_KEY_ID,
+      keyIds.distribution,
       Date.now(),
     ),
   );
@@ -501,7 +560,7 @@ export function buildApp(
     signDistribution(
       { regions: WORLD_TRAILS, targetCountryCount: TARGET_COUNTRY_COUNT },
       distSigner,
-      DISTRIBUTION_KEY_ID,
+      keyIds.distribution,
       Date.now(),
     ),
   );
@@ -676,7 +735,9 @@ export function buildApp(
     //   증서가 없는 옛 코인은 그대로 통과한다(requireIntegrityToken을 켜지 않는다) —
     //   막으려는 것은 "증서가 있는데 그 증서가 이 시각을 못 덮는" 경우뿐이다.
     const verdict = verifyCoin(coin, {
-      trustedIssuerKeys: { [PROMO_KEY_ID]: promoSigner.publicKeyHex },
+      // ★엔젤 보너스 키의 **이력 전체**(옛 하드코딩 이름 + 유도 이름). 유도 이름으로
+      //   바뀌기 전에 발급된 보너스 코인도 증빙 자격을 잃지 않는다(유통 코인 0개 무효).
+      trustedIssuerKeys: trustedKeysForPurposes(db, ['ANGEL_BONUS']),
       trustedRootKeys: rootKeyHistory(),
     });
     if (!verdict.valid) return reply.code(400).send({ error: `invalid coin: ${verdict.reasons.join(',')}` });
@@ -740,7 +801,9 @@ export function buildApp(
 
   // ── 공개 정보 ─────────────────────────────────────────────────
 
-  app.get('/keys/promo', async () => ({ keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex }));
+  // 현행 프로모 키 1개 (레거시 경로). 이름은 유도값이다 — 지갑이 같은 유도식으로
+  // 검산할 수 있어야 한다(규격 I-3). 이력 전체는 `/keys`에 있다.
+  app.get('/keys/promo', async () => ({ keyId: keyIds.promo, publicKey: promoSigner.publicKeyHex }));
 
   /**
    * 신뢰 발행 키 목록 — 지갑이 캐시해 GRANT 계보·회원 증서 검증에 사용. 배포 서명(_sig).
@@ -755,7 +818,7 @@ export function buildApp(
         keys: archivedPublicKeys(db).map(({ keyId, publicKey, purpose }) => ({ keyId, publicKey, purpose })),
       },
       distSigner,
-      DISTRIBUTION_KEY_ID,
+      keyIds.distribution,
       Date.now(),
     ),
   );
@@ -807,12 +870,12 @@ export function buildApp(
     db,
     authenticate,
     claimSigner,
-    claimKeyId: CLAIM_KEY_ID,
+    claimKeyId: keyIds.claim,
     rewardSigner,
-    rewardKeyId: REWARD_KEY_ID,
+    rewardKeyId: keyIds.reward,
     // 배포 서명 키 — /limits/flagged 응답에 _sig 부착 (보안 감사 H-3).
     distSigner,
-    distKeyId: DISTRIBUTION_KEY_ID,
+    distKeyId: keyIds.distribution,
     promotionThreshold: options.promotionThreshold ?? 100,
     claimVoteThreshold: options.claimVoteThreshold ?? 5,
     claimMonthlyLimit: options.claimMonthlyLimit ?? 2,
@@ -853,9 +916,9 @@ export function buildApp(
     db,
     authenticate,
     treasureSigner,
-    treasureKeyId: TREASURE_KEY_ID,
+    treasureKeyId: keyIds.treasure,
     distSigner,
-    distKeyId: DISTRIBUTION_KEY_ID,
+    distKeyId: keyIds.distribution,
     devMode,
   });
 
@@ -866,10 +929,10 @@ export function buildApp(
     db,
     authenticate,
     spotSigner: treasureSigner,
-    spotKeyId: TREASURE_KEY_ID,
+    spotKeyId: keyIds.treasure,
     reserveSigner: spotReserveSigner,
     distSigner,
-    distKeyId: DISTRIBUTION_KEY_ID,
+    distKeyId: keyIds.distribution,
     trustedIssuerKeys,
     // C 신뢰 지표(안 A): 예치된 남의 걷기 코인을 그 생산자의 검증 실적으로 적재.
     credit: trustCredit,
@@ -893,5 +956,5 @@ export function buildApp(
   // ── 암호화 지갑 백업 — 니모닉 복구 지원 (보안 감사 L-2, 지시서 2.3) ──
   registerBackup(app, { db, authenticate, maxSkewMs: 10 * 60 * 1000 });
 
-  return Object.assign(app, { db, chain });
+  return Object.assign(app, { db, chain, keyIds });
 }

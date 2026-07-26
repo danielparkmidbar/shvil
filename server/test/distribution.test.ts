@@ -8,7 +8,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { verifyDistribution, type DistributionSig } from '@shvil/shared';
-import { buildApp, DISTRIBUTION_KEY_ID } from '../src/app';
+import { buildApp } from '../src/app';
 import { register, type TestIdentity } from './utils';
 
 const app = buildApp({ dbPath: ':memory:', devMode: true });
@@ -43,7 +43,7 @@ describe('배포 서명 — 세 엔드포인트가 verifyDistribution을 통과 
   it.each(['/keys', '/courses', '/limits/flagged'])('%s 응답에 유효한 _sig가 붙는다', async (url) => {
     const body = await getSigned(url);
     expect(body._sig).toBeDefined();
-    expect(body._sig!.distKeyId).toBe(DISTRIBUTION_KEY_ID);
+    expect(body._sig!.distKeyId).toBe(app.keyIds.distribution);
     expect(body._sig!.distPublicKey).toMatch(/^[0-9a-f]{64}$/);
     const verdict = verifyDistribution(body as SignedResponse & { _sig: DistributionSig });
     expect(verdict.valid).toBe(true);
@@ -120,7 +120,7 @@ describe('/keys가 배포 공개키를 노출 (지갑 자기 일관성 확인 �
     };
     const dist = body.keys.find((k) => k.purpose === 'DISTRIBUTION');
     expect(dist).toBeDefined();
-    expect(dist!.keyId).toBe(DISTRIBUTION_KEY_ID);
+    expect(dist!.keyId).toBe(app.keyIds.distribution);
     // 목록에 실린 배포 공개키가 실제 서명 키(_sig)와 동일해야 지갑이 핀을 교차 확인한다.
     expect(dist!.publicKey).toBe(body._sig.distPublicKey);
   });

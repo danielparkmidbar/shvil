@@ -5,8 +5,8 @@
  * /keys에 신뢰 루트 노출, /auth/certificate 갱신, 운영 기본 UNVERIFIED(C-1 게이팅).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { verifyMembershipCertificate, type MembershipCertificate } from '@shvil/shared';
-import { buildApp, MEMBERSHIP_ROOT_KEY_ID } from '../src/app';
+import { deriveKeyId, verifyMembershipCertificate, type MembershipCertificate } from '@shvil/shared';
+import { buildApp } from '../src/app';
 import { register, signedInject, type TestIdentity } from './utils';
 
 const app = buildApp({ dbPath: ':memory:', devMode: true });
@@ -36,8 +36,10 @@ afterAll(async () => {
 
 describe('/keys — 회원 증서 신뢰 루트 노출 (지갑이 핀)', () => {
   it('MEMBERSHIP_ROOT 목적의 루트 키가 포함된다', () => {
-    expect(roots[MEMBERSHIP_ROOT_KEY_ID]).toBeDefined();
-    expect(roots[MEMBERSHIP_ROOT_KEY_ID]).toMatch(/^[0-9a-f]{64}$/);
+    // ★키 이름은 이 배포의 루트 공개키에서 유도된다 (규격 9.2 I-1) — 하드코딩 상수가 아니다.
+    expect(roots[app.keyIds.membershipRoot]).toBeDefined();
+    expect(roots[app.keyIds.membershipRoot]).toMatch(/^[0-9a-f]{64}$/);
+    expect(app.keyIds.membershipRoot).toBe(deriveKeyId('MEMBERSHIP_ROOT', roots[app.keyIds.membershipRoot]!));
   });
 });
 
@@ -49,7 +51,7 @@ describe('가입 시 회원 증서 발급 (보안 감사 C-2)', () => {
     // 회원 번호 ↔ 기기 공개키가 증서로 결속된다.
     expect(cert.memberId).toBe(alon.memberId);
     expect(cert.devicePublicKey).toBe(alon.signer.publicKeyHex);
-    expect(cert.issuerKeyId).toBe(MEMBERSHIP_ROOT_KEY_ID);
+    expect(cert.issuerKeyId).toBe(app.keyIds.membershipRoot);
     // 수신 지갑이 신뢰 루트로 로컬 검증.
     const verdict = verifyMembershipCertificate(cert, roots, Date.now());
     expect(verdict.valid).toBe(true);
@@ -72,7 +74,7 @@ describe('가입 시 회원 증서 발급 (보안 감사 C-2)', () => {
 
   it('신뢰하지 않는 루트로는 검증에 실패한다', async () => {
     const m = await register(app, '+972-50-777-6666', 'm2@example.org', 'M2', 'dev-verified');
-    const verdict = verifyMembershipCertificate(m.cert!, { [MEMBERSHIP_ROOT_KEY_ID]: 'ff'.repeat(32) }, Date.now());
+    const verdict = verifyMembershipCertificate(m.cert!, { [app.keyIds.membershipRoot]: 'ff'.repeat(32) }, Date.now());
     expect(verdict.valid).toBe(false);
   });
 

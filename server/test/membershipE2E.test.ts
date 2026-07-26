@@ -14,7 +14,7 @@ import {
   type MembershipCertificate,
   type WalkSample,
 } from '@shvil/shared';
-import { buildApp, MEMBERSHIP_ROOT_KEY_ID } from '../src/app';
+import { buildApp } from '../src/app';
 import { register, type TestIdentity } from './utils';
 
 const app = buildApp({ dbPath: ':memory:', devMode: true });
@@ -73,7 +73,7 @@ describe('회원 증서 E2E — 무결성 필수 모드 (파일럿 전제)', () 
     expect(honest.cert!.integrity).toBe('VERIFIED');
     expect(honest.cert!.memberId).toBe(honest.memberId);
     expect(honest.cert!.devicePublicKey).toBe(honest.signer.publicKeyHex);
-    expect(trustedRootKeys[MEMBERSHIP_ROOT_KEY_ID]).toBeDefined();
+    expect(trustedRootKeys[app.keyIds.membershipRoot]).toBeDefined();
   });
 
   it('정품 증서를 품은 코인은 필수 모드 검증을 통과한다', () => {

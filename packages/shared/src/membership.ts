@@ -46,6 +46,7 @@
  * 있으므로 하나도 죽지 않는다.
  */
 import { signObject, verifyObject, type Signer } from './crypto';
+import { isTrustedKeyBinding } from './keyId';
 
 /** 기기 무결성 수준 — 서버가 Play Integrity / App Attest 판정을 요약해 담는다. */
 export type IntegrityLevel =
@@ -181,8 +182,12 @@ function verifySeal(
   if (cert.v !== 1 || !cert.memberId || !cert.devicePublicKey) return { valid: false, reason: 'MALFORMED' };
   // 유효기간이 뒤집힌 증서는 창을 유도할 수 없다.
   if (!(cert.expiresAt > cert.issuedAt)) return { valid: false, reason: 'MALFORMED' };
-  const trusted = trustedRootKeys[cert.issuerKeyId];
-  if (!trusted || trusted !== cert.issuerPublicKey) return { valid: false, reason: 'UNTRUSTED_ROOT' };
+  // ★이름이 아니라 공개키로 판정한다 (규격 9.2 I-3). 옛 이름(`membership-root-2026`)이
+  // 박힌 증서는 증서가 들고 다니는 공개키를 유도해 신뢰 목록에서 찾는다 — 그래서 그
+  // 이름 슬롯을 누가 차지하고 있든 옛 증서가 죽지 않는다. 서명은 아래에서 따로 본다.
+  if (!isTrustedKeyBinding(trustedRootKeys, cert.issuerKeyId, cert.issuerPublicKey)) {
+    return { valid: false, reason: 'UNTRUSTED_ROOT' };
+  }
   if (!verifyObject(certPayload(cert), cert.signature, cert.issuerPublicKey)) {
     return { valid: false, reason: 'BAD_SIGNATURE' };
   }
@@ -206,8 +211,9 @@ export function verifyMembershipCertificate(
 ): MembershipVerdict {
   // 기존 순서 유지: 형식 → 루트 → 만료 → 서명.
   if (cert.v !== 1 || !cert.memberId || !cert.devicePublicKey) return { valid: false, reason: 'MALFORMED' };
-  const trusted = trustedRootKeys[cert.issuerKeyId];
-  if (!trusted || trusted !== cert.issuerPublicKey) return { valid: false, reason: 'UNTRUSTED_ROOT' };
+  if (!isTrustedKeyBinding(trustedRootKeys, cert.issuerKeyId, cert.issuerPublicKey)) {
+    return { valid: false, reason: 'UNTRUSTED_ROOT' };
+  }
   if (now >= cert.expiresAt) return { valid: false, reason: 'EXPIRED' };
   if (!verifyObject(certPayload(cert), cert.signature, cert.issuerPublicKey)) {
     return { valid: false, reason: 'BAD_SIGNATURE' };

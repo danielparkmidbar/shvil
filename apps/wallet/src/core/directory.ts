@@ -22,7 +22,7 @@ import { FLAGGED_CACHE_KEY, parseFlaggedCache } from './flagged';
 import { getIntegrityToken } from './integrity';
 import { isProvisionalMemberId } from './identity';
 import { isMembershipRenewalDue } from './membershipRenewal';
-import { mergeTrustedKeyInfos } from './trustedKeys';
+import { foldTrustedKeys, mergeTrustedKeyInfos } from './trustedKeys';
 import { wallet } from './walletService';
 
 const SERVER_URL_KEY = 'serverUrl.v1';
@@ -66,7 +66,8 @@ async function verifyAndPin<T extends object>(response: Signed<T>): Promise<T> {
  *
  * ★2026-07-26: 덮어쓰기를 **누적**으로 바꿨다. 예전에는 서버 응답으로 캐시를 통째
  * 교체해서, 루트 키를 한 번 회전하면 그 순간 보유 중인 옛 코인이 전부
- * `UNKNOWN_MEMBERSHIP_ROOT`가 되었다. 규칙은 trustedKeys.ts 참조 (keyId 단위 TOFU).
+ * `UNKNOWN_MEMBERSHIP_ROOT`가 되었다. 규칙은 trustedKeys.ts 참조 (keyId 단위 TOFU
+ * + 유도식 검산). 검산에 걸린 항목은 버려지고 캐시는 그대로 남는다.
  */
 async function fetchKeyInfos(): Promise<TrustedKeyInfo[]> {
   try {
@@ -79,12 +80,9 @@ async function fetchKeyInfos(): Promise<TrustedKeyInfo[]> {
   }
 }
 
+/** 검증 함수가 받는 모양으로 접는다 — 본체는 trustedKeys.ts(순수·테스트 대상). */
 function pickKeys(infos: TrustedKeyInfo[], isRoot: boolean): Record<string, string> {
-  const keys: Record<string, string> = {};
-  for (const k of infos) {
-    if ((k.purpose === 'MEMBERSHIP_ROOT') === isRoot) keys[k.keyId] = k.publicKey;
-  }
-  return keys;
+  return foldTrustedKeys(infos, isRoot);
 }
 
 async function loadCachedKeyInfos(): Promise<TrustedKeyInfo[]> {

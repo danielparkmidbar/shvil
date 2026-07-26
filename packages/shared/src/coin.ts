@@ -7,6 +7,7 @@
  *   승인이 아니라 위조 검사다.
  */
 import { addressFromPublicKey, hashObject, signObject, verifyObject, type Signer } from './crypto';
+import { isTrustedKeyBinding } from './keyId';
 import { verifyWalkSegmentProof } from './proof';
 import { verifyMembershipForMint } from './membership';
 import type {
@@ -297,7 +298,12 @@ function verifyProvenance(coin: Coin, options: VerifyCoinOptions, reasons: CoinR
       if (coin.amountDshv !== p.grant.amountDshv) reasons.push('AMOUNT_MISMATCH');
       if (coin.memberId !== p.grant.memberId) reasons.push('MEMBER_MISMATCH');
       const trusted = options.trustedIssuerKeys ?? {};
-      if (trusted[p.grant.issuerKeyId] !== p.grant.issuerPublicKey) reasons.push('UNTRUSTED_ISSUER');
+      // ★이름이 아니라 공개키로 판정한다 (규격 9.2 I-3 — membership.ts verifySeal과 같다).
+      // 옛 이름(`promo-angel-2026` 등)이 박힌 GRANT는 그랜트가 들고 다니는 공개키를
+      // 유도해 찾는다. 이름 슬롯 선점으로 남의 옛 코인을 죽일 수 없다.
+      if (!isTrustedKeyBinding(trusted, p.grant.issuerKeyId, p.grant.issuerPublicKey)) {
+        reasons.push('UNTRUSTED_ISSUER');
+      }
       return;
     }
     case 'SPLIT': {
