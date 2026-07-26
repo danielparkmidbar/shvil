@@ -17,12 +17,11 @@ import {
   AUTH_HEADER_MEMBER,
   AUTH_HEADER_SIG,
   AUTH_HEADER_TS,
-  BUNDANG_BULGOKSAN_SAMPLE,
   INT_TRAIL_ANGELS,
   INT_TRAIL_ANGELS_SOURCE,
   INT_TRAIL_ANGELS_UPDATED,
   INT_TRAIL_ANGEL_REGIONS,
-  SHVIL_ISRAEL_NORTH_SAMPLE,
+  RECOMMENDED_PRICES_DSHV,
   TARGET_COUNTRY_COUNT,
   WORLD_TRAILS,
   addressFromPublicKey,
@@ -52,7 +51,9 @@ import {
 import { haversineKm } from './geo';
 import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
-import { officialCourses, registerCommunity } from './community';
+import { registerCommunity } from './community';
+// 배포 코스 목록의 단일 진실 원천 — /courses와 발행 라우트가 같은 함수를 본다.
+import { distributedCourses } from './courses';
 import { registerGuestbook } from './guestbook';
 import { registerRatings } from './ratings';
 import { registerCompanions } from './companions';
@@ -71,6 +72,21 @@ export const TREASURE_KEY_ID = 'promo-treasure-2026';
 export const MEMBERSHIP_ROOT_KEY_ID = 'membership-root-2026';
 /** 배포 서명 키 ID — 신뢰 발행 키 목록·소명 목록·코스 데이터 서명 (보안 감사 H-3). */
 export const DISTRIBUTION_KEY_ID = 'distribution-2026';
+/**
+ * 첫 접대 증빙 코인의 최소 금액 (dSHV) — 권장 가격표에서 역산 (④ 금액 하한).
+ *
+ * 증빙 요건이 "타인이 만든 코인 1개를 이전받아 보유"뿐이어서, 0.1 SHV(1 dSHV)짜리
+ * 코인 하나로 30 SHV 보너스를 받을 수 있었다. 하한의 근거는 권장 가격표
+ * (RECOMMENDED_PRICES_DSHV: BED 100 / MEAL 50 / SHOWER 30 / FULL_PACKAGE 180)에서
+ * **가장 싼 접대인 샤워 30 dSHV(3 SHV)**다 — 실제로 접대를 했다면 최소한 그만큼은
+ * 받았을 것이므로, 그 아래는 접대의 증빙이 될 수 없다.
+ *
+ * ★잠자리(100)·풀패키지(180)로 올리지 않는 이유: 샤워만 내어주는 엔젤도 똑같은
+ *  순환의 참여자다(제7조). 하한을 높이면 가장 소박한 접대를 한 사람이 보너스를 받지
+ *  못한다 — 막는 것보다 배제하는 것이 커진다. 방어의 목적은 "0.1 SHV 증빙" 차단이지
+ *  접대의 크기를 심사하는 것이 아니다(제9조 불간섭).
+ */
+export const HOSTING_EVIDENCE_MIN_DSHV = RECOMMENDED_PRICES_DSHV.SHOWER;
 const OTP_TTL_MS = 10 * 60 * 1000;
 /** 회원 증서 유효기간 — 만료 전 갱신으로 무결성 재확인 강제 (30일). */
 const MEMBERSHIP_CERT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -79,6 +95,13 @@ export interface AppOptions {
   dbPath?: string;
   /** 엔젤 등록 보너스 수량 한정 (확정 파라미터: 기간·수량 한정 — 기본 500가정). */
   registrationQuota?: number;
+  /**
+   * 첫 접대 보너스 수량 한정 — 등록 보너스와 **같은 방식·같은 주입 경로**.
+   * 확정 파라미터가 "등록 20 + 첫 접대 30 SHV (기간·수량 한정)"인데 첫 접대에만
+   * quota가 없어 코드와 주석이 어긋나 있었다(제3조 정직화). 기본값은 등록과 동일한
+   * 500명분 — 다니엘 쌤이 다른 수를 정하시면 이 옵션으로 주입한다.
+   */
+  firstHostingQuota?: number;
   /** 개발 모드: OTP 코드를 응답에 포함 (실 SMS 발송은 운영 연동 항목). */
   devMode?: boolean;
   /** 스테이블코인 체인 어댑터 — 체인 확정(결정 대기 1번) 전까지 Mock. */
@@ -169,6 +192,8 @@ export function buildApp(
 ): FastifyInstance & { db: DatabaseSync; chain: ChainAdapter } {
   const db = createDb(options.dbPath ?? ':memory:');
   const quota = options.registrationQuota ?? 500;
+  // 첫 접대 보너스도 수량 한정 — 등록과 같은 기본값(500명분).
+  const firstHostingQuota = options.firstHostingQuota ?? 500;
   // 보안 감사 C-1: 기본 false. dev 전용 라우트(devCode 반환·dev-deposit·소명 수동
   // 등재)는 devMode에서만 등록된다. 운영은 환경변수로 명시하지 않는 한 꺼진다.
   const devMode = options.devMode ?? false;
@@ -433,8 +458,10 @@ export function buildApp(
     // 배포 서명(_sig) 부착 (보안 감사 H-3). 기존 소비자는 {courses}만 읽어 하위 호환.
     signDistribution(
       // 기본 코스 + 코스 등록부에서 공식 승격된 코스 (지시서 6장 3절).
-      // 분당–불곡산은 닫힌 시험용 국내 코스 (다니엘 쌤 지정 — courses.ts 주석).
-      { courses: [SHVIL_ISRAEL_NORTH_SAMPLE, BUNDANG_BULGOKSAN_SAMPLE, ...officialCourses(db)] },
+      // ★이 목록이 곧 "서버가 아는 코스"다 — 발행 라우트(/certificates·/claims)의
+      // 코스 대조도 같은 함수(courses.ts)를 본다. 어긋나면 앱에 보이는 코스인데
+      // 서버가 거부하는 상황이 생겨 정직한 사용자가 막힌다.
+      { courses: distributedCourses(db) },
       distSigner,
       DISTRIBUTION_KEY_ID,
       Date.now(),
@@ -602,6 +629,13 @@ export function buildApp(
     if (hasGrant(member.member_id, 'FIRST_HOSTING')) {
       return reply.code(409).send({ error: 'first hosting bonus already issued' });
     }
+    // 수량 한정 (③) — 등록 보너스와 같은 방식. ★증빙 소모(hosting_evidence 등재) 전에
+    // 검사한다: 소진된 뒤 제출한 정직한 엔젤의 증빙 코인이 헛되이 잠기면 안 된다.
+    if (grantCount('FIRST_HOSTING') >= firstHostingQuota) {
+      return reply
+        .code(409)
+        .send({ error: 'first hosting bonus quota exhausted', code: 'FIRST_HOSTING_QUOTA_EXHAUSTED' });
+    }
     const body = req.body as { coin?: Coin } | null;
     const coin = body?.coin;
     if (!coin) return reply.code(400).send({ error: 'coin evidence required' });
@@ -618,6 +652,15 @@ export function buildApp(
     }
     if (coin.memberId === member.member_id) {
       return reply.code(400).send({ error: 'self-minted coin cannot prove hosting' });
+    }
+    // 금액 하한 (④) — 권장 가격표의 가장 싼 접대(샤워 3 SHV) 미만은 증빙이 될 수 없다.
+    // 상세 근거는 HOSTING_EVIDENCE_MIN_DSHV 주석.
+    if (coin.amountDshv < HOSTING_EVIDENCE_MIN_DSHV) {
+      return reply.code(400).send({
+        error: `coin evidence is below the minimum (${HOSTING_EVIDENCE_MIN_DSHV} dSHV = cheapest recommended service)`,
+        code: 'EVIDENCE_BELOW_MINIMUM',
+        minAmountDshv: HOSTING_EVIDENCE_MIN_DSHV,
+      });
     }
 
     db.prepare('INSERT INTO hosting_evidence (coin_id, member_id, submitted_at) VALUES (?, ?, ?)').run(
@@ -693,6 +736,9 @@ export function buildApp(
     registrationIssued: grantCount('REGISTRATION'),
     firstHostingIssued: grantCount('FIRST_HOSTING'),
     registrationQuota: quota,
+    // 첫 접대도 수량 한정임을 공시한다 — 상한이 있다는 사실이 공개되지 않으면
+    // "기간·수량 한정"이라는 말만 남는다 (제3조).
+    firstHostingQuota,
     ...treasureTransparency(db),
     // 스팟 보물 (M12) — 예치 총액·발행 총액·발행 수. 발행 ≤ 예치(총량 보존)를 공시로 확인 가능.
     ...spotTransparency(db),

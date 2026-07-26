@@ -7,6 +7,10 @@
  *   민팅은 사용자 폰에서 (서버는 승인서만).
  * - 완주 인증 게시판: 요건(사진+데이터) 충족 시 격려 코인 발행 (완주 10 / 구간 3 SHV
  *   제안 — 결정 대기 9번). 1인 1코스 1회.
+ *
+ * ★발행 라우트(/certificates·/claims)의 courseId는 배포 목록(GET /courses)과 대조한다
+ *  (courses.ts — 단일 진실 원천). 등록되지 않은 코스는 거부(fail-closed): 이 대조가
+ *  없으면 "1인 1코스 1회"가 "1인 1문자열 1회"가 되어 무한 발행이 열린다.
  * - 탑 100 리더보드: 본인 동의로 거리·생성 총량만 공개 (위치 없음). 검증 엔진의
  *   개연성 상한 기준선으로 연동.
  * - 소명 대기 목록: 이상 생성 포착 회원 번호 배포 — 수신 지갑들이 수령 보류.
@@ -21,10 +25,11 @@ import {
   hashObject,
   isFlagReasonCode,
   signDistribution,
-  type CourseData,
   type SignedGrant,
   type Signer,
 } from '@shvil/shared';
+// 발행 라우트의 코스 대조는 GET /courses 배포 목록과 **같은 함수**를 쓴다 (courses.ts).
+import { isKnownCourse } from './courses';
 
 export interface CommunityMemberRow {
   member_id: string;
@@ -56,6 +61,17 @@ export interface CommunityContext {
 
 /** 격려 코인 보상액 (dSHV) — 제안: 완주 10 / 구간 3 SHV (결정 대기 9번). */
 export const REWARD_DSHV = { FULL: 100, SECTION: 30 } as const;
+
+/**
+ * 등록되지 않은 코스 거부 응답 (fail-closed).
+ * error는 사람이 읽을 수 있는 영문 한 줄, code는 클라이언트가 자국어로 옮길 열쇠다 —
+ * 서버는 화면 문장(한국어 등)을 만들지 않는다 (noUiStrings 원칙).
+ * 뜻: "등록되지 않은 코스입니다 — 배포 중인 코스 목록에 없습니다."
+ */
+const UNKNOWN_COURSE_ERROR = {
+  error: 'unknown course: not in the distributed course list (GET /courses)',
+  code: 'UNKNOWN_COURSE',
+} as const;
 
 /** 클레임 산정: 기준 요율 1km = 1 SHV, 일 40 SHV 상한.
  *  난이도 계수 적용은 코스 구간 매핑(등록부 확정) 후속 항목. */
@@ -169,6 +185,12 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
     } | null;
     if (!body?.courseId || !Number.isInteger(body.walkedAt) || !Number.isInteger(body.distanceM) || body.distanceM! <= 0) {
       return reply.code(400).send({ error: 'courseId, walkedAt, distanceM required' });
+    }
+    // ★코스 대조 (fail-closed) — 서버가 배포하지 않는 코스로는 클레임을 걸 수 없다.
+    // 클레임은 5표 투표를 거치지만, 임의 문자열이 허용되면 계정 6개(Sybil)로 존재하지도
+    // 않는 코스에 대해 연 960 SHV/인을 뽑을 수 있다 (docs/발행경로_실측_2026-07-26.md §2-2).
+    if (!isKnownCourse(db, body.courseId)) {
+      return reply.code(400).send(UNKNOWN_COURSE_ERROR);
     }
     if (!Array.isArray(body.photos) || body.photos.length < 1) {
       return reply.code(400).send({ error: 'at least one photo required' });
@@ -313,6 +335,12 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
     } | null;
     if (!body?.courseId || (body.kind !== 'FULL' && body.kind !== 'SECTION')) {
       return reply.code(400).send({ error: 'courseId and kind (FULL|SECTION) required' });
+    }
+    // ★★코스 대조 (fail-closed) — 이 검사가 없으면 아래의 "1인 1코스 1회"
+    // (certificates UNIQUE(member_id, course_id, kind))가 "1인 1문자열 1회"가 되어,
+    // courseId를 바꿔가며 요청당 13 SHV를 무한히 발행할 수 있다 (rate limit 없음).
+    if (!isKnownCourse(db, body.courseId)) {
+      return reply.code(400).send(UNKNOWN_COURSE_ERROR);
     }
     // 등록 요건: 완주 인증 사진 + 트레킹 데이터 완비 (지시서 2.6).
     if (!Array.isArray(body.photos) || body.photos.length < 1 || !body.data || Object.keys(body.data).length === 0) {
@@ -515,16 +543,6 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
   });
 }
 
-/** 공식 승격된 코스를 CourseData로 변환 (GET /courses 배포용). */
-export function officialCourses(db: DatabaseSync): CourseData[] {
-  const rows = db
-    .prepare("SELECT course_id, name, polyline_json, segments_json FROM course_proposals WHERE status = 'OFFICIAL'")
-    .all() as unknown as { course_id: string; name: string; polyline_json: string; segments_json: string }[];
-  return rows.map((r) => ({
-    courseId: r.course_id,
-    name: r.name,
-    polyline: JSON.parse(r.polyline_json) as CourseData['polyline'],
-    segments: JSON.parse(r.segments_json) as CourseData['segments'],
-    version: 1,
-  }));
-}
+// officialCourses는 courses.ts로 옮겼다 — 배포 목록과 발행 라우트의 코스 대조가
+// 같은 모듈(단일 진실 원천)을 쓰게 하기 위해서다. 순환 import를 만들지 않는다.
+export { officialCourses } from './courses';
