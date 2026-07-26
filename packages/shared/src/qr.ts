@@ -13,10 +13,11 @@ import {
   acknowledgeTransfer,
   createTransfer,
   currentOwnerAddress,
+  isUnprovenOnly,
   verifyCoin,
   type VerifyCoinOptions,
 } from './coin';
-import type { Coin } from './types';
+import type { Coin, CoinRejectReason } from './types';
 
 // ── 메시지 타입 ───────────────────────────────────────────────────
 
@@ -141,6 +142,29 @@ export interface AcceptResult {
 }
 
 /**
+ * 수령 거부 문구 — ★이 문자열이 그대로 사람의 화면에 뜬다
+ * (ReceiveScreen의 `Alert.alert('수령 거부', e.message)`).
+ *
+ * 예전에는 이유가 무엇이든 `forged or invalid coin`이었다. 그래서 키 회전 직후이거나
+ * 오프라인 첫 실행이라 키 목록이 빈 엔젤이 **정직한 종주자의 코인**을 스캔하면 화면에
+ * "forged"라는 단어가 떴다. 같은 상황을 두고 코드의 다른 곳(types.ts·authenticity.ts)은
+ * "코인의 흠이 아니다"라고 적어 두었으니, 코드가 서로 반대로 말하고 있었던 것이다.
+ * 어휘를 나눴으면 사람이 보는 자리까지 나눠야 한다(제3조).
+ */
+function rejectionMessage(coin: Coin, reasons: readonly CoinRejectReason[]): string {
+  const tag = `${coin.id.slice(0, 12)}… [${reasons.join(',')}]`;
+  if (isUnprovenOnly(reasons)) {
+    // 서명·ID·이전 체인은 전부 온전하다. 받지는 않지만 위조라고 부르지 않는다.
+    return (
+      `수령을 보류했습니다: 이 코인의 발행 자격을 지금 확인할 수 없습니다 ${tag}. ` +
+      `서명과 계보 자체는 온전합니다 — 위조라는 뜻이 아닙니다. ` +
+      `온라인에 한 번 연결해 신뢰 키 목록을 갱신한 뒤 다시 시도해 보십시오.`
+    );
+  }
+  return `수령 거부: 서명 또는 계보가 손상된 코인입니다 ${tag}`;
+}
+
+/**
  * 3단계 (엔젤): 지불 역스캔 → 계보 로컬 검증(위조 검사) → 확인 서명으로 완결.
  * 검증은 승인이 아니다 — 밀리초 단위 로컬 위조 검사다.
  */
@@ -162,7 +186,7 @@ export function acceptPayment(
   for (const coin of payment.coins) {
     const verdict = verifyCoin(coin, { ...verifyOptions, allowPendingLastLink: true });
     if (!verdict.valid) {
-      throw new Error(`accept: forged or invalid coin ${coin.id.slice(0, 12)}… [${verdict.reasons.join(',')}]`);
+      throw new Error(rejectionMessage(coin, verdict.reasons));
     }
     if (currentOwnerAddress(coin) !== angelAddress) {
       throw new Error('accept: coin is not addressed to this angel');

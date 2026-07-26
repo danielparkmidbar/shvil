@@ -8,7 +8,12 @@
  * 평균 속도(0.417 km/h)와 케이던스(9.26 spm)가 오히려 더 안전해 보인다.
  *
  * 막은 방법: 비율이 아니라 **절대량**을 건다.
- *   WINDOW_TOO_LONG · BREAKDOWN_TOO_MANY · PROOF_CAP.
+ *   PROOF_CAP(증명 한 건의 절대 상한) · DAILY_CAP · BREAKDOWN_TOO_MANY.
+ *
+ * ★2026-07-26 정정: 여기에 WINDOW_TOO_LONG도 FATAL로 넣었었는데, 다시 재어 보니
+ *   **발행액을 전혀 묶지 않으면서**(총액은 PROOF_CAP이 묶는다) 정산을 오래 미룬
+ *   정직한 사용자만 소급해 위폐로 만들고 있었다. SIGNAL로 내렸다. 아래 테스트가
+ *   그 사실을 못 박는다 — 창 검사 없이도 3년·10년 공격은 그대로 FORGED다.
  *
  * ★이 파일에서 가장 중요한 테스트는 위조 차단이 아니라 **60일 종주자 통과**다.
  *   상한을 거는 순간 정직한 종주자를 위폐범으로 만들 위험이 생기기 때문이다(제3조).
@@ -91,16 +96,20 @@ describe('★백데이팅 — 재현했던 공격이 이제 차단된다', () =>
     const checks = report.coreFindings.map((f) => f.check);
     expect(checks).toContain('WINDOW_TOO_LONG');
     expect(checks).toContain('PROOF_CAP');
+    // ★FORGED를 만드는 것은 PROOF_CAP(절대 발행 상한)이다. 창 길이는 정황일 뿐이다
+    //   (2026-07-26). 창 검사를 빼도 이 공격은 그대로 잡힌다 — 발행액이 상한의 12배다.
+    expect(report.coreFindings.find((f) => f.check === 'PROOF_CAP')!.severity).toBe('FATAL');
+    expect(report.coreFindings.find((f) => f.check === 'WINDOW_TOO_LONG')!.severity).toBe('SIGNAL');
     // BREAKDOWN_TOO_MANY는 여기서 **일부러 걸리지 않는다**: 이 위조는 1095일 창에
     // 1095줄을 넣어 내부적으로는 앞뒤가 맞는다. 그 검사는 "짧은 창에 많은 줄"이라는
     // 다른 수법을 잡는 것이다. 걸리지도 않을 검사를 걸렸다고 적지 않는다(제3조).
     expect(checks).not.toContain('BREAKDOWN_TOO_MANY');
   });
 
-  it('10년(3650일) 백데이팅 146,000 SHV → FORGED', () => {
+  it('10년(3650일) 백데이팅 146,000 SHV → FORGED (PROOF_CAP이 잡는다)', () => {
     const report = checkCoinAuthenticity(backdatedCoin(3650), { now: NOW });
     expect(report.coreVerdict).toBe('FORGED');
-    expect(report.coreFindings.map((f) => f.check)).toContain('WINDOW_TOO_LONG');
+    expect(report.coreFindings.filter((f) => f.severity === 'FATAL').map((f) => f.check)).toContain('PROOF_CAP');
   });
 
   // 재현(A-5)과 같은 100장 분할. 자식마다 부모 계보를 재귀 검증하고 부모 증명의
@@ -145,7 +154,7 @@ describe('★정직한 사용자 오탐 방지 — 여기가 진짜 시험대다
     expect(coin.amountDshv).toBe(12_000); // 1,200 SHV — 절대 상한 36,000 dSHV 안쪽
   });
 
-  it(`창이 정확히 ${MAX_SEGMENT_SPAN_DAYS}일이면 통과하고, 1 ms만 넘으면 FORGED`, () => {
+  it(`창이 정확히 ${MAX_SEGMENT_SPAN_DAYS}일이면 아무것도 걸리지 않고, 1 ms만 넘으면 **정황(SIGNAL)** 하나가 붙는다`, () => {
     const atLimit = forge({
       startedAt: NOW - MAX_SEGMENT_SPAN_MS,
       settledAt: NOW,
@@ -159,9 +168,17 @@ describe('★정직한 사용자 오탐 방지 — 여기가 진짜 시험대다
     expect(checkCoinAuthenticity(atLimit, { now: NOW }).coreFindings.map((f) => f.check)).not.toContain(
       'WINDOW_TOO_LONG',
     );
-    expect(checkCoinAuthenticity(overLimit, { now: NOW }).coreFindings.map((f) => f.check)).toContain(
-      'WINDOW_TOO_LONG',
-    );
+
+    // ★2026-07-26 (다니엘 쌤 원칙): 창 초과는 FATAL이 아니라 SIGNAL이다.
+    //   이 검사는 발행액을 전혀 묶지 않으면서(그건 PROOF_CAP이 한다) 정산을 미룬
+    //   정직한 사람만 소급해 위폐로 만들었다. 정황으로 남기되 판정은 내리지 않는다.
+    const over = checkCoinAuthenticity(overLimit, { now: NOW });
+    const spanFinding = over.coreFindings.find((f) => f.check === 'WINDOW_TOO_LONG');
+    expect(spanFinding).toBeDefined();
+    expect(spanFinding!.severity).toBe('SIGNAL');
+    expect(over.coreVerdict).toBe('AUTHENTIC'); // 정황 하나로는 판정하지 않는다
+    // 단정하는 문장이 사라졌는지도 못 박는다 — "과거로 밀어 발행액을 키웠다"는 거짓일 수 있다.
+    expect(spanFinding!.detail).not.toContain('발행액을 키운 기록입니다');
   });
 
   it('하루 걷고 하루 쉰 사람(내역 30일 · 창 60일)은 통과한다 — 개수 상한은 날짜 수이지 강제 출석부가 아니다', () => {

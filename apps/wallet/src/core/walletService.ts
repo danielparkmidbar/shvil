@@ -14,6 +14,7 @@ import {
   buildCharge,
   buildPayment,
   buildWalkSegmentProof,
+  certificateCoversMint,
   checkHumanLimits,
   createTransfer,
   currentOwnerAddress,
@@ -117,6 +118,17 @@ export interface WalletState {
   bonusBalanceDshv: number;
   liveStatus: LiveWalkStatus | null;
   walkTracking: boolean;
+  /**
+   * ★마지막 정산에서 회원 증서를 붙이지 못했는가 (2026-07-26).
+   *
+   * 증서가 이 정산 시각을 덮지 못하면 지갑이 스스로 증서를 떼고 민팅한다 — 붙이면
+   * 그 코인이 태어나자마자 거부되기 때문이다(#settle 주석 참조). 그런데 이 일이
+   * **아무 말 없이** 일어나고 있었다. 증서 없는 코인은 필수화 스위치를 켠 상대(운영
+   * 서버의 신뢰 뱃지·스팟 예치)에게 받아들여지지 않으므로, 사용자는 자기 코인이 왜
+   * 반쪽인지 알 길이 없었다. 화면이 이 값을 보고 "온라인에 한 번 연결하십시오"를
+   * 안내할 수 있게 상태로 내보낸다(제3조 — 안 한 일을 한 것처럼 두지 않는다).
+   */
+  lastMintMissedCertificate: boolean;
 }
 
 const EMPTY_PENDING: PendingSnapshot = {
@@ -156,6 +168,7 @@ class WalletService {
     bonusBalanceDshv: 0,
     liveStatus: null,
     walkTracking: false,
+    lastMintMissedCertificate: false,
   };
 
   #identity: Identity | null = null;
@@ -373,14 +386,28 @@ class WalletService {
     // 회원 증서·무결성 토큰 첨부 (보안 감사 C-2) — 회원 번호↔기기 키 결속을
     // 계보에 각인한다. 증서는 서명 대상에 포함되어 바꿔치기 불가. 미가입·오프라인
     // 가입이면 null이며, 증서 없이도 민팅은 그대로 동작한다 (점진 전환).
+    //
+    // ★2026-07-26: 첨부 전에 "이 증서가 이 정산 시각을 덮는가"를 묻는다.
+    //   덮지 못하는 증서를 붙이면 그 코인은 `MEMBERSHIP_OUT_OF_WINDOW`로
+    //   **태어나자마자 수령 거부**된다 — 넉 달 넘게 오프라인이던 종주자가 정확히
+    //   그렇게 된다(증서 갱신은 온라인 전용). 붙이지 않으면 "증서 없는 코인"이 되어
+    //   최소한 완전히 죽지는 않는다. 0층 불변: 걷기와 정산 자체는 그대로 된다.
+    const covers =
+      this.identity.membership !== null && certificateCoversMint(this.identity.membership, draft.settledAt);
+    const membership = covers ? this.identity.membership : null;
     const proof = buildWalkSegmentProof(draft, this.identity.signer, {
-      membership: this.identity.membership,
+      membership,
       appIntegrityToken: this.identity.integrityToken,
     });
     const coin = mintWalkCoin(proof);
     await saveCoin(coin, 'WALK_SELF', now);
     await this.#reloadCoins();
-    this.#set({ pending: this.#ledger!.getPending() });
+    // ★증서를 갖고 있는데도 못 붙였다면 조용히 넘기지 않는다 — 화면이 안내할 수 있게
+    //   상태로 내보낸다. (증서가 아예 없는 미가입 상태는 여기 해당하지 않는다.)
+    this.#set({
+      pending: this.#ledger!.getPending(),
+      lastMintMissedCertificate: this.identity.membership !== null && !covers,
+    });
     return coin;
   }
 
@@ -482,12 +509,16 @@ class WalletService {
     // 회원 증서 검증 (보안 감사 C-2): 캐시된 신뢰 루트로 WALK 코인의 증서를 검증한다.
     // 오프라인 지불 수령 경로이므로 네트워크 없이 캐시만 읽는다. requireIntegrity 게이트가
     // 켜지면 증서 없는(또는 integrity≠VERIFIED) 코인 수령을 거부한다 (기본 off — 점진 전환).
-    const { loadCachedTrustedRootKeys } = await import('./directory');
+    const { loadCachedTrustedRootKeys, loadCachedTrustedIssuerKeys } = await import('./directory');
     const trustedRootKeys = await loadCachedTrustedRootKeys();
+    // ★발행 키 캐시도 넘긴다: 넘기지 않으면 verifyCoin이 GRANT 계보를 무조건
+    //   UNTRUSTED_ISSUER로 거부해, 엔젤 보너스·보물 코인을 대면으로 받을 수 없었다.
+    const trustedIssuerKeys = await loadCachedTrustedIssuerKeys();
     const requireIntegrityToken = await this.#requireIntegrity();
 
     const result = acceptPayment(this.#incomingCharge, msg, this.identity.signer, {
       trustedRootKeys,
+      trustedIssuerKeys,
       requireIntegrityToken,
       now,
     });

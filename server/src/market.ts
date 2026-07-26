@@ -33,6 +33,15 @@ export interface MarketContext {
   feeBps: number;
   devMode: boolean;
   trustedIssuerKeys: Record<string, string>;
+  /**
+   * 회원 증서 신뢰 루트 (이력 전체).
+   *
+   * ★2026-07-26: 예전에는 넘기지 않아 에스크로 코인 검증에서 회원 증서 블록 **전체**가
+   * 건너뛰어졌다(coin.ts `hasKeys` 분기). 그래서 유출 증서로 소급 발행한 코인을 서버는
+   * 받아들이고, 구매자 지갑은 같은 코인을 거절하는 상태 불일치가 생겼다.
+   * 증서가 없는 옛 코인은 그대로 통과한다 — `requireIntegrityToken`을 켜지 않는다.
+   */
+  trustedRootKeys: Record<string, string>;
 }
 
 interface ListingRow {
@@ -287,7 +296,11 @@ export function registerMarket(app: FastifyInstance, ctx: MarketContext): void {
     let total = 0;
     for (const coin of coins) {
       // 위조 검사 + 미완결 마지막 링크(구매자 앞 지불 서명) 허용
-      const verdict = verifyCoin(coin, { allowPendingLastLink: true, trustedIssuerKeys: ctx.trustedIssuerKeys });
+      const verdict = verifyCoin(coin, {
+        allowPendingLastLink: true,
+        trustedIssuerKeys: ctx.trustedIssuerKeys,
+        trustedRootKeys: ctx.trustedRootKeys,
+      });
       if (!verdict.valid) {
         return reply.code(400).send({ error: `invalid coin ${coin.id.slice(0, 12)}: ${verdict.reasons.join(',')}` });
       }
@@ -331,7 +344,10 @@ export function registerMarket(app: FastifyInstance, ctx: MarketContext): void {
     }
     for (const coin of coins) {
       // 완결 검증: 구매자 확인 서명까지 포함해 유효해야 한다.
-      const verdict = verifyCoin(coin, { trustedIssuerKeys: ctx.trustedIssuerKeys });
+      const verdict = verifyCoin(coin, {
+        trustedIssuerKeys: ctx.trustedIssuerKeys,
+        trustedRootKeys: ctx.trustedRootKeys,
+      });
       if (!verdict.valid) {
         return reply.code(400).send({ error: `coin not finalized: ${verdict.reasons.join(',')}` });
       }

@@ -410,6 +410,7 @@ export const es: Strings = {
     serialsTitle: 'Números de serie',
     statsLine: (proofs, grants, totalShv) => `${proofs} pruebas de caminata · ${grants} monedas de bono · total ${totalShv}`,
     fatalBadge: 'Físicamente imposible',
+    unprovenBadge: 'Elegibilidad no probada',
     signalBadge: 'Indicio',
     detailsLangNote: 'Las explicaciones detalladas se generan actualmente en coreano.',
     errorPrefix: 'No se pudo leer la entrada',

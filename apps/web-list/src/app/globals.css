@@ -946,6 +946,12 @@ h2 {
   color: #8c2f24;
 }
 
+/* 자격 미증명 — 위조가 아니다. 경고색(붉은색)을 쓰지 않는다. */
+.finding-unproven .badge {
+  background: #fff4e0;
+  color: #8a5a12;
+}
+
 .verify-serials {
   list-style: none;
   padding: 0;

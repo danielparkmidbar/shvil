@@ -37,6 +37,9 @@
   .meta { color:var(--muted); font-size:13px; }
   ul { padding-left:20px; margin:14px 0 0; } li { margin:5px 0; }
   .FATAL { color:#c0392b; font-weight:600; } .SIGNAL { color:#c98a1b; font-weight:600; }
+  /* UNPROVEN — "위조가 아니라 확인하지 못했다". 경고색(붉은·주황)을 일부러 쓰지 않는다.
+     이 등급은 어떤 경우에도 FORGED가 되지 않으므로, 색으로 먼저 유죄를 말하면 안 된다. */
+  .UNPROVEN { color:#3a6ea5; font-weight:600; }
   .err { color:#c0392b; }
   h3 { font-size:13px; text-transform:none; color:var(--muted); margin:20px 0 4px; font-weight:600; }
   code { font:12px ui-monospace,Menlo,Consolas,monospace; background:var(--card); border:1px solid var(--line);
@@ -102,7 +105,10 @@
 
     if (f.length) {
       html += '<h3>발견</h3><ul>' + f.map(function (x) {
-        return '<li><span class="' + x.severity + '">' + x.severity + '</span> · ' + esc(x.check) + ' — ' + esc(x.detail) + '</li>';
+        // severity 문자열을 그대로 찍지 않고 한국어로 옮긴다 — 이 도구를 쓰는 사람은
+        // 개발자가 아니다. 특히 UNPROVEN은 "위조"로 오해되면 안 된다.
+        var 등급 = x.severity === 'FATAL' ? '결정적' : x.severity === 'UNPROVEN' ? '확인 못 함' : '정황';
+        return '<li><span class="' + x.severity + '">' + 등급 + '</span> · ' + esc(x.check) + ' — ' + esc(x.detail) + '</li>';
       }).join('') + '</ul>';
     }
     html += '<h3>검사하지 못한 범위 (정직화 · 제3조)</h3><ul>'

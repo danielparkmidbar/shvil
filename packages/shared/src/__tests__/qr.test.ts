@@ -80,7 +80,30 @@ describe('QR 왕복 지불 — 서버 개입 0회, 통신 불요 (지시서 2.3)
     // 공격: 금액을 100으로 조작한 코인 (ID·서명 불일치)
     const forged: Coin = { ...real, amountDshv: 100 };
     const payment = buildPayment(charge, [forged], 'm-list', list, T0 + 1000);
-    expect(() => acceptPayment(charge, payment, angel)).toThrow(/forged or invalid/);
+    // ★진짜 위조(계보 손상)에는 그대로 "손상"이라고 말한다.
+    expect(() => acceptPayment(charge, payment, angel)).toThrow(/서명 또는 계보가 손상/);
+  });
+
+  it('★자격을 확인 못 한 코인은 거부하되 "위조"라고 말하지 않는다 (사람이 보는 문구)', () => {
+    // 이 문자열이 그대로 ReceiveScreen의 Alert에 뜬다. 키 목록이 비었거나 낡은
+    // 엔젤이 정직한 종주자의 코인을 스캔하는 상황 — 받지는 않지만 위폐범 취급은 안 된다.
+    const real = mintCoinFor('m-list', list);
+    const charge = buildCharge(
+      { chargeId: 'chg-003b', angelMemberId: 'm-angel', amountDshv: real.amountDshv, createdAt: T0 },
+      angel,
+    );
+    const payment = buildPayment(charge, [real], 'm-list', list, T0 + 1000);
+    // 증서가 없는 코인 + 필수화 스위치 on → MISSING_INTEGRITY_TOKEN (자격 미증명).
+    let message = '';
+    try {
+      acceptPayment(charge, payment, angel, { requireIntegrityToken: true });
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    }
+    expect(message).toContain('수령을 보류');
+    expect(message).toContain('위조라는 뜻이 아닙니다');
+    expect(message).not.toContain('손상');
+    expect(message.toLowerCase()).not.toContain('forged');
   });
 
   it('지불 메시지 변조(금액·수신자 조작)는 서명 검증에서 걸린다', () => {

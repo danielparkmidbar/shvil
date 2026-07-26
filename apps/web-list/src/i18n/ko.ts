@@ -393,6 +393,7 @@ export const ko: Strings = {
     serialsTitle: '일련번호',
     statsLine: (proofs, grants, totalShv) => `걷기 증명 ${proofs}건 · 보너스 계보 ${grants}장 · 합계 ${totalShv}`,
     fatalBadge: '물리적 불가능',
+    unprovenBadge: '자격 미증명 (위조 아님)',
     signalBadge: '정황',
     detailsLangNote: '',
     errorPrefix: '읽기 실패',

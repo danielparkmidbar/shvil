@@ -400,6 +400,7 @@ export const he: Strings = {
     serialsTitle: 'מספרים סידוריים',
     statsLine: (proofs, grants, totalShv) => `${proofs} הוכחות הליכה · ${grants} מטבעות מענק · סה"כ ${totalShv}`,
     fatalBadge: 'בלתי אפשרי פיזית',
+    unprovenBadge: 'הזכאות לא הוכחה',
     signalBadge: 'אינדיקציה',
     detailsLangNote: 'ההסברים המפורטים נוצרים כרגע בקוריאנית.',
     errorPrefix: 'לא ניתן לקרוא את הקלט',

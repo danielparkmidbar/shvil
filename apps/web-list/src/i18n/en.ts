@@ -403,6 +403,7 @@ export const en: Strings = {
     serialsTitle: 'Serial numbers',
     statsLine: (proofs, grants, totalShv) => `${proofs} walk proofs · ${grants} grant coins · total ${totalShv}`,
     fatalBadge: 'Physically impossible',
+    unprovenBadge: 'Eligibility not proven',
     signalBadge: 'Indication',
     detailsLangNote: 'Detailed explanations are currently generated in Korean.',
     errorPrefix: 'Could not read input',

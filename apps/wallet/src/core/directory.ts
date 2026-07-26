@@ -22,6 +22,7 @@ import { FLAGGED_CACHE_KEY, parseFlaggedCache } from './flagged';
 import { getIntegrityToken } from './integrity';
 import { isProvisionalMemberId } from './identity';
 import { isMembershipRenewalDue } from './membershipRenewal';
+import { mergeTrustedKeyInfos } from './trustedKeys';
 import { wallet } from './walletService';
 
 const SERVER_URL_KEY = 'serverUrl.v1';
@@ -62,12 +63,17 @@ async function verifyAndPin<T extends object>(response: Signed<T>): Promise<T> {
 /**
  * 전체 신뢰 키 목록을 서버에서 갱신 시도 → 배포 서명 검증(H-3) 실패 포함 모든
  * 실패 시 기존 캐시 → 없으면 빈 목록. 조작된 키 목록은 캐시에 닿지 않는다.
+ *
+ * ★2026-07-26: 덮어쓰기를 **누적**으로 바꿨다. 예전에는 서버 응답으로 캐시를 통째
+ * 교체해서, 루트 키를 한 번 회전하면 그 순간 보유 중인 옛 코인이 전부
+ * `UNKNOWN_MEMBERSHIP_ROOT`가 되었다. 규칙은 trustedKeys.ts 참조 (keyId 단위 TOFU).
  */
 async function fetchKeyInfos(): Promise<TrustedKeyInfo[]> {
   try {
     const { keys } = await verifyAndPin(await directoryApi.getTrustedKeys());
-    await kvSet(KEYS_INFO_CACHE, JSON.stringify(keys));
-    return keys;
+    const merged = mergeTrustedKeyInfos(await loadCachedKeyInfos(), keys);
+    await kvSet(KEYS_INFO_CACHE, JSON.stringify(merged));
+    return merged;
   } catch {
     return loadCachedKeyInfos();
   }
@@ -110,6 +116,18 @@ export async function getTrustedRootKeys(): Promise<Record<string, string>> {
 /** 캐시된 회원 증서 루트만 (네트워크 없음) — 오프라인 지불 수령 검증 경로에서 사용. */
 export async function loadCachedTrustedRootKeys(): Promise<Record<string, string>> {
   return pickKeys(await loadCachedKeyInfos(), true);
+}
+
+/**
+ * 캐시된 신뢰 발행 키만 (네트워크 없음) — 오프라인 대면 수령 경로에서 사용.
+ *
+ * ★대면 수령이 이 목록을 **아예 넘기지 않고** 있었다. `verifyCoin`은 발행 키 목록이
+ * 없으면 GRANT 계보를 무조건 `UNTRUSTED_ISSUER`로 거부하므로(coin.ts), 엔젤 보너스·
+ * 보물·격려 코인은 대면으로 건네줄 수가 없었다. 캐시를 넘기면 아는 키로 발행된 것은
+ * 통과하고, 캐시가 비었을 때의 동작은 예전과 똑같다(모르면 거부 — fail-closed).
+ */
+export async function loadCachedTrustedIssuerKeys(): Promise<Record<string, string>> {
+  return pickKeys(await loadCachedKeyInfos(), false);
 }
 
 // ── 회원 증서 갱신 (온라인 전용·실패 무시 — 거래는 계속 오프라인) ──

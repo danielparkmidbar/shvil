@@ -35,6 +35,82 @@ export function resolveKek(devMode: boolean, optKek?: string): string {
   return DEV_FALLBACK_KEK;
 }
 
+// ── 공개키 이력 (★2026-07-26 — 키 회전이 옛 코인을 죽이지 않게) ──────────
+
+/**
+ * 이 서버가 지금까지 쓴 **모든** 발행·루트 공개키의 이력.
+ *
+ * ── 왜 필요한가 ────────────────────────────────────────────────────
+ * `/keys`가 **현행 키만** 내려보내고 있었다. 그래서 루트를 `membership-root-2026` →
+ * `membership-root-2027`로 한 번 회전하면:
+ *  · 지갑 — 캐시에서 옛 키가 사라져 보유 중인 옛 코인이 전부 `UNKNOWN_MEMBERSHIP_ROOT`.
+ *    (지갑 쪽은 `trustedKeys.ts`의 누적 병합으로 막았지만, 그것은 **이미 옛 키를 갖고
+ *    있던 지갑만** 구한다. 회전 이후 새로 설치한 지갑은 옛 키를 배울 길이 없었다.)
+ *  · 서버 자신 — `trustedRootKeys`에 루트가 하나뿐이라 신뢰 뱃지·스팟 예치에서
+ *    옛 코인이 INVALID가 된다.
+ *
+ * 즉 증서 만료라는 킬 스위치를 없애도 **루트 회전이라는 킬 스위치가 그대로 남아
+ * 있었다.** 제9조(무승인)의 실질은 "서버가 이미 만들어진 코인을 죽일 수 없다"이므로,
+ * 이 이력이 없으면 만료를 고친 의미가 절반이다.
+ *
+ * ── 왜 이것이 위조 여지를 만들지 않는가 ──────────────────────────────
+ * 키 회전은 유출 사건이 아니다. 옛 루트의 **개인키가 공격자에게 넘어간 것이 아니므로**,
+ * 옛 공개키를 계속 신뢰해도 공격자가 새로 만들 수 있는 것은 없다. 비대칭이 공짜로
+ * 성립하는 유일한 경로다.
+ *
+ * ── 이것이 못 하는 것 (정직화 · 제3조) ───────────────────────────────
+ * 키가 **실제로 유출**됐을 때는 이력에서 빼는 것으로 해결되지 않는다. 그건 서명된
+ * **폐기 목록**의 문제이며 아직 구현되어 있지 않다(docs/소급무효화_제거_2026-07-26.md).
+ */
+export interface ArchivedPublicKey {
+  keyId: string;
+  publicKey: string;
+  purpose: string;
+  /** 이 서버가 이 키를 처음 쓴 시각 — 공시·감사용. 판정에는 쓰이지 않는다. */
+  firstSeenAt: number;
+}
+
+const KEY_ARCHIVE_KV = 'publicKeyArchive';
+
+export function archivedPublicKeys(db: DatabaseSync): ArchivedPublicKey[] {
+  const raw = kvGet(db, KEY_ARCHIVE_KV);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as ArchivedPublicKey[];
+    return Array.isArray(parsed) ? parsed.filter((k) => k && typeof k.keyId === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 공개키를 이력에 **추가**한다 (append-only).
+ *
+ * 규칙은 지갑의 `mergeTrustedKeyInfos`와 같다 — 아는 keyId의 공개키는 절대 바꾸지
+ * 않는다. 같은 ID에 다른 키가 오는 것은 회전이 아니라 바꿔치기다. 실수로 keyId를
+ * 재사용해 옛 증서를 무효로 만드는 사고도 이 규칙이 막는다.
+ */
+export function recordPublicKey(
+  db: DatabaseSync,
+  entry: Omit<ArchivedPublicKey, 'firstSeenAt'>,
+  now: number = Date.now(),
+): void {
+  const archive = archivedPublicKeys(db);
+  if (archive.some((k) => k.keyId === entry.keyId)) return;
+  archive.push({ ...entry, firstSeenAt: now });
+  kvSet(db, KEY_ARCHIVE_KV, JSON.stringify(archive));
+}
+
+/** 이력 전체에서 이 용도의 키를 모은다 (keyId → publicKey) — verifyCoin에 그대로 넘긴다. */
+export function trustedKeysForPurposes(db: DatabaseSync, purposes: readonly string[]): Record<string, string> {
+  const wanted = new Set(purposes);
+  const keys: Record<string, string> = {};
+  for (const k of archivedPublicKeys(db)) {
+    if (wanted.has(k.purpose)) keys[k.keyId] = k.publicKey;
+  }
+  return keys;
+}
+
 /**
  * 봉인 키 저장소. loadOrCreateSigner로 발행 서명자를 얻는다 — 없으면 생성·봉인 저장,
  * 있으면 해제. 레거시 평문은 자동 재봉인.

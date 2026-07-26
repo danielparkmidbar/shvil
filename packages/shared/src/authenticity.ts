@@ -22,6 +22,11 @@
  * 2. **결정적 위반과 통계적 신호를 절대 섞지 않는다.** FATAL은 물리적으로 불가능한
  *    것만이다. 통계는 SIGNAL이며 **혼자서는 결코 위조 판정을 내리지 않는다.**
  *    정직한 사람을 위폐범으로 지목하는 것이 위조를 놓치는 것보다 나쁘다(제3조).
+ *    ★2026-07-26에 세 번째 등급 UNPROVEN이 생겼다 — "위조는 아니지만 자격이 증명되지
+ *    않았다". 증서가 오래된 코인·검사자가 모르는 키로 발행된 코인이 여기 들어간다.
+ *    이 등급은 **어떤 경우에도 FORGED가 되지 않는다.** 그 전에는 이 셋이 전부 위조와
+ *    같은 말로 나갔고, 그 결과 30일 지난 정상 코인이 "서명이 손상되었습니다"라는
+ *    판정을 받았다.
  * 3. **좌표를 보지 않는다.** 코인에 좌표가 없고, 이 검사도 요구하지 않는다(제10조).
  * 4. **거래를 막지 않는다.** 리포트를 낼 뿐이다(제9조). 무엇을 할지는 사람이 정한다.
  * 5. **코어 판정은 누구에게나 같다.** 코어 검사에는 사용자가 돌릴 손잡이가 없다 —
@@ -42,7 +47,7 @@ import {
   type HumanLimitProfile,
   type WalkFilterParams,
 } from './params';
-import { verifyCoin, type VerifyCoinOptions } from './coin';
+import { UNPROVEN_COIN_REASONS, verifyCoin, type VerifyCoinOptions } from './coin';
 import { hashObject } from './crypto';
 import { coinSerial, serialFromCoinId } from './serial';
 import {
@@ -52,13 +57,16 @@ import {
   validateRulePacks,
   type RulePack,
 } from './rulePack';
-import type { Coin, WalkSegmentProof } from './types';
+import type { Coin, CoinRejectReason, WalkSegmentProof } from './types';
 
 // ── 판정 ──────────────────────────────────────────────────────────────
 
 /**
  * FORGED  — 물리적으로 불가능한 것이 코인 안에 있다. 반박 불가.
- * SUSPECT — 결정적 위반은 없지만 사람의 걷기로 보기 어려운 통계적 신호가 여럿이다.
+ * SUSPECT — 결정적 위반은 없다. 둘 중 하나다: (a) 사람의 걷기로 보기 어려운 통계적
+ *           신호가 여럿이거나, (b) 발행 자격을 확인하지 못했다(UNPROVEN).
+ *           **"위조다"라는 뜻이 아니다. 그렇다고 "위조가 아니다"라는 뜻도 아니다** —
+ *           이 검사만으로는 판정하지 못했다는 뜻이다. 어느 쪽인지는 severity로 구분한다.
  * AUTHENTIC — 검사한 범위에서 위조 근거가 없다. (**"진짜임을 증명했다"가 아니다.**)
  * INCONCLUSIVE — 검사할 재료가 부족하다 (GRANT 계보만, 표본 1개 등).
  */
@@ -66,7 +74,10 @@ export type AuthenticityVerdict = 'FORGED' | 'SUSPECT' | 'AUTHENTIC' | 'INCONCLU
 
 export type AuthenticityCheckId =
   // ── 결정적 · 코인 한 장 안에서 ──
-  | 'LINEAGE' // 서명·ID·계보 (verifyCoin)
+  | 'LINEAGE' // 서명·ID·계보 (verifyCoin) — ★위조만. 증서 사정은 아래 둘로 갈라졌다.
+  | 'MEMBERSHIP_WINDOW' // ★증서가 증언 못 하는 시각의 정산 = 소급 발행 (위조 아님)
+  | 'MEMBERSHIP_UNVERIFIED' // ★서명한 키가 이 검사자의 신뢰 목록에 없다 (낡은 목록? 자작 서명?)
+  | 'MEMBERSHIP_ABSENT' // ★증서가 아예 없다 (증서 제도 이전의 옛 코인 / 증서를 뗀 코인)
   | 'TIME_WINDOW' // 창이 뒤집혔거나 미래다
   | 'SPEED_LIMIT' // 평균 속도가 사람 다리 힘을 넘는다
   | 'STRIDE' // 보폭이 인간 대역 밖
@@ -93,8 +104,15 @@ export const PACK_RULE_CHECK = 'PACK_RULE';
 
 export interface AuthenticityFinding {
   check: AuthenticityCheckId | typeof PACK_RULE_CHECK;
-  /** FATAL = 물리적 불가능(결정적). SIGNAL = 통계적 의심(정황). */
-  severity: 'FATAL' | 'SIGNAL';
+  /**
+   * FATAL — 물리적·암호학적으로 불가능하다. 반박 불가. 이것만이 위조를 말한다.
+   * UNPROVEN — ★위조는 아니지만 **자격이 증명되지 않았다**(2026-07-26 신설).
+   *   "증서가 증언 못 하는 시각의 정산", "이 검사자가 발행 루트를 모름" 같은 것.
+   *   서명과 계보는 온전하다. 혼자서도 SUSPECT로 올라가지만 **절대 FORGED가 아니다** —
+   *   "증서가 오래됐다"와 "위조다"는 완전히 다른 말이기 때문이다(제3조 정직화).
+   * SIGNAL — 통계적 정황. 혼자서는 아무 판정도 내리지 않는다.
+   */
+  severity: 'FATAL' | 'UNPROVEN' | 'SIGNAL';
   /** 사람이 읽는 한 줄 설명 (한국어). UI는 이것을 그대로 보여도 된다. */
   detail: string;
   /** 관련 증명의 해시 목록 — 어느 코인이 문제인지 짚어 준다. */
@@ -172,6 +190,94 @@ export interface AuthenticityOptions extends VerifyCoinOptions {
   rulePacks?: readonly unknown[];
 }
 
+// ── 계보 실패의 어휘 분리 (★2026-07-26 — 다니엘 쌤 원칙) ──────────────
+
+/**
+ * **위조가 아닌** 계보 실패 사유 (정의는 coin.ts `UNPROVEN_COIN_REASONS`).
+ *
+ * 나머지 사유(서명 손상·ID 불일치·체인 절단 등)는 코인 스스로 드러낸 암호학적 모순이라
+ * 반박이 불가능하다 = 위조. 이 넷은 성질이 다르다 — 코인의 서명·ID·이전 체인은 온전한데
+ * **검사자가 발행 자격을 확인하지 못한** 경우다. 그래서 `UNPROVEN` 등급으로 나가고,
+ * 혼자서는 SUSPECT까지만 올라가며 결코 FORGED가 되지 않는다.
+ *
+ * ── ★2026-07-26 적대 검증 후 시정 ────────────────────────────────────
+ * 처음 이 어휘를 나눌 때 문구가 **반대 방향으로 거짓말을 하고 있었다.** 검사자에게
+ * 진짜 발행 키 목록을 넘겼는데도 자작 서명 코인이 "위조가 아닙니다 … 검사자 쪽에서
+ * 키 목록을 갱신하면 사라집니다"라는 판정을 받았다(실측 재현). 즉 진짜 위조 코인의
+ * 소지자에게 시스템이 "당신 코인은 가짜가 아니다"라고 말해 준 것이다.
+ *
+ * 진실은 이렇다: 검사자 쪽에서는 (1) 내 키 목록이 낡았다 와 (2) 이 코인이 자작
+ * 서명이다 를 **구별할 수 없다.** 구별할 수 없으면 구별할 수 없다고 말해야 한다.
+ * 그래서 문구는 어느 쪽으로도 단정하지 않는다 — "위조다"라고도, "위조가 아니다"라고도.
+ * 판정은 그대로 SUSPECT다(옛 코인을 죽이지 않기 위해). 바뀐 것은 **말**이다(제3조).
+ */
+const UNPROVEN_LINEAGE_REASONS = UNPROVEN_COIN_REASONS;
+
+/**
+ * ★자격 미증명 사유는 성질이 둘로 갈린다 — 요약문(buildSummary)이 이 구분을 쓴다.
+ *
+ * · `MEMBERSHIP_WINDOW`(= `MEMBERSHIP_OUT_OF_WINDOW`) — 신뢰하는 루트가 실제로 서명한
+ *   증서를 손에 쥐고 있다. 무엇이 부족한지 코인 안에서 확인된다.
+ *   **"위조가 아니다"라고 말해도 되는 유일한 부류다.**
+ * · `MEMBERSHIP_UNVERIFIED`(모르는 루트·모르는 발행 키·증서 없음) — 신뢰할 수 있는
+ *   서명이 하나도 확인되지 않았다. 자작 서명일 수도 있다. **단정하면 안 된다.**
+ */
+
+/**
+ * 검사자가 이 키 목록을 실제로 **가지고 있는가.** coin.ts의 같은 이름 규칙과 맞춘다:
+ * `undefined`(안 줬다)와 `{}`(빈 목록)는 둘 다 "모른다"이며 반드시 같게 취급한다.
+ */
+function hasKeyList(keys: Record<string, string> | undefined): boolean {
+  return keys !== undefined && Object.keys(keys).length > 0;
+}
+
+/**
+ * 자격 미증명 사유 → 검사 id. 셋으로 나뉘고, 요약문·notes가 이 구분을 그대로 쓴다.
+ * 한 덩어리로 뭉치면 "증서가 아예 없는 옛 코인"에게 "서명한 키가 목록에 없습니다"라는
+ * 엉뚱한 설명이 붙는다.
+ */
+function unprovenCheckId(reason: CoinRejectReason): AuthenticityCheckId {
+  if (reason === 'MEMBERSHIP_OUT_OF_WINDOW') return 'MEMBERSHIP_WINDOW';
+  if (reason === 'MISSING_INTEGRITY_TOKEN') return 'MEMBERSHIP_ABSENT';
+  return 'MEMBERSHIP_UNVERIFIED';
+}
+
+/** 사람이 읽는 설명 — 위조라고도, 위조가 아니라고도 단정하지 않는다(제3조). */
+function unprovenDetail(reason: CoinRejectReason): string {
+  switch (reason) {
+    case 'MEMBERSHIP_OUT_OF_WINDOW':
+      return (
+        '회원 증서가 이 정산 시각의 발행을 증언하지 못합니다. ' +
+        '증서 자체는 신뢰하는 루트가 서명한 진짜이고 서명·계보도 온전합니다 — ' +
+        '위조가 아니라 **자격이 그 시각을 덮지 못하는** 경우입니다. ' +
+        '증서 발급 뒤 너무 오래 지나 정산했거나, 유출된 증서로 과거 시각에 소급 발행한 것일 수 있습니다.'
+      );
+    case 'UNKNOWN_MEMBERSHIP_ROOT':
+      return (
+        '이 회원 증서를 서명한 루트 키가 이 검사자의 신뢰 목록에 없습니다. ' +
+        '두 가지 가능성이 있고 **이 검사기로는 구별할 수 없습니다**: ' +
+        '(1) 검사자의 키 목록이 낡았다(키 회전 뒤 갱신 전·오프라인 첫 실행), ' +
+        '(2) 아무나 만들 수 있는 자기 키로 서명한 증서다. ' +
+        '먼저 온라인에서 키 목록을 갱신한 뒤 다시 검사하십시오 — 그래도 남으면 (2)를 의심할 근거가 됩니다.'
+      );
+    case 'UNTRUSTED_ISSUER':
+      return (
+        '이 보너스·보물 승인서를 서명한 발행 키가 이 검사자의 신뢰 목록에 없습니다. ' +
+        '두 가지 가능성이 있고 **이 검사기로는 구별할 수 없습니다**: ' +
+        '(1) 검사자의 키 목록이 낡았다, (2) 자기 키로 만든 가짜 승인서다. ' +
+        '키 목록을 갱신한 뒤 다시 검사하십시오 — 그래도 남으면 (2)를 의심할 근거가 됩니다.'
+      );
+    case 'MISSING_INTEGRITY_TOKEN':
+      return (
+        '무결성 증서가 없거나 무결성 수준이 낮습니다. ' +
+        '증서 제도가 생기기 전에 만들어진 코인이면 정상이고, 변조 앱이 증서를 빼고 만든 코인도 같은 모습입니다 — ' +
+        '이 둘은 코인만 보고 구별할 수 없습니다. 어느 쪽이든 **서명 위조의 근거는 아닙니다.**'
+      );
+    default:
+      return `자격을 확인하지 못했습니다 (${reason}).`;
+  }
+}
+
 // ── 증명 수집 ─────────────────────────────────────────────────────────
 
 interface ProofEntry {
@@ -223,6 +329,12 @@ const DAY_MS = 86_400_000;
  * 이 값은 **상수이지 옵션이 아니다.** 옵션으로 열면 사람마다 coreVerdict가 달라져
  * "이 코인이 진짜인가"의 공통 답이 사라진다. 더 엄격하게 보고 싶은 사람은 규칙 팩으로
  * `spanDays`에 자기 선을 그으면 된다(rulePacks/strictBuyer.ts의 span-over-14d 참조).
+ *
+ * ★2026-07-26: 이 상수를 넘는 창은 이제 **FATAL이 아니라 SIGNAL**이다. 이유는
+ * checkProofPhysics ①-b의 주석에 적었다 — 요약하면 이 검사는 발행액을 전혀 묶지
+ * 않으면서(그건 PROOF_CAP이 한다) 정산을 미룬 정직한 사용자만 소급해 위폐로 만든다.
+ * 상수 자체는 그대로 둔다: 여전히 볼 만한 정황이고, `maxProofAmountDshv`의 근거이며,
+ * 회원 증서 민팅 창의 유예 90일과 같은 뿌리(60일 종주 + 한 달)를 공유한다.
  */
 export const MAX_SEGMENT_SPAN_DAYS = 90;
 export const MAX_SEGMENT_SPAN_MS = MAX_SEGMENT_SPAN_DAYS * DAY_MS;
@@ -310,16 +422,42 @@ function checkProofPhysics(
     at(`정산 시각이 미래(${iso(proof.settledAt)})입니다. 아직 오지 않은 날의 걷기는 존재할 수 없습니다.`, 'TIME_WINDOW');
   }
 
-  // ①-b ★창 길이 상한 — 백데이팅의 정면 차단.
-  //     startedAt을 과거로 밀수록 속도·케이던스 검사는 오히려 쉬워지므로, 창 자체에
-  //     절대 상한을 걸지 않으면 남는 방어가 없다. 60일 종주는 통과, 3년은 차단.
+  // ①-b 창 길이 상한 — 백데이팅의 **정황**.
+  //
+  //  ★2026-07-26 재검토(다니엘 쌤 원칙): FATAL에서 SIGNAL로 내렸다. 두 가지를 확인했다.
+  //
+  //  (1) 이 검사는 **발행액을 전혀 묶지 않는다.** 증명 한 건의 총액은 PROOF_CAP
+  //      (90일 × 하루 상한 = 36,000 dSHV)이 절대량으로 묶고, 하루치는 DAILY_CAP이,
+  //      줄 수는 BREAKDOWN_TOO_MANY가 묶는다. 창을 3년으로 밀어도 총액은 여전히
+  //      36,000을 못 넘는다. 오히려 창을 길게 잡을수록 WINDOW_OVERLAP 때문에 한 사람이
+  //      쌓을 수 있는 증명 **개수가 줄어든다** — 90일씩 12장(432,000)보다 3년짜리
+  //      1장(36,000)이 공격자에게 불리하다. 즉 이 검사를 내려도 화폐 공급 상한은
+  //      1 dSHV도 늘지 않는다. (원본 공격 43,800 SHV는 PROOF_CAP이 잡는다.)
+  //
+  //  (2) 그런데 **정직한 사람은 실제로 걸린다.** 잠정 원장은 "며칠이고 계속" 쌓이는
+  //      것이 설계이고(ledger.ts), startedAt은 첫 샘플 시각으로 굳는다. 정산을 넉 달
+  //      미룬 사람의 창은 그냥 120일이다. 어제까지 정상이던 그 코인이 오늘 이 상수가
+  //      배포되는 순간 FORGED가 된다 — 이 작업이 고치려는 소급 무효화 그 자체다.
+  //
+  //  잡지도 못하면서 정직한 사람만 지목하는 결정적 판정은 두지 않는다(제3조).
+  //  정황으로는 남긴다 — 길게 밀린 창은 여전히 볼 만한 신호이고, 더 엄격히 보려는
+  //  사람은 규칙 팩으로 자기 선을 그으면 된다(rulePacks/strictBuyer.ts의 span-over-14d).
+  //
+  //  ★단정하지 않는 문장으로 바꾼 것도 중요하다. 예전 문장은 "시작 시각을 과거로 밀어
+  //  발행액을 키운 기록입니다"라고 **단정**했다. 정산을 미뤘을 뿐인 사람에게 시스템이
+  //  거짓을 말하는 것이고, 소지자는 반박할 방법이 없다.
   if (durationMs > MAX_SEGMENT_SPAN_MS) {
-    at(
-      `한 걷기 구간이 ${fmtDur(durationMs)}(${iso(proof.startedAt)} ~ ${iso(proof.settledAt)})에 걸쳐 있습니다. ` +
-        `잠정 원장은 며칠이고 쌓이지만 상한은 ${MAX_SEGMENT_SPAN_DAYS}일입니다(종주 60일에 한 달의 여유를 더한 값). ` +
-        `시작 시각을 과거로 밀어 발행액을 키운 기록입니다.`,
-      'WINDOW_TOO_LONG',
-    );
+    out.push({
+      check: 'WINDOW_TOO_LONG',
+      severity: 'SIGNAL',
+      detail:
+        `한 걷기 구간이 ${fmtDur(durationMs)}(${iso(proof.startedAt)} ~ ${iso(proof.settledAt)})에 걸쳐 있습니다. ` +
+        `잠정 원장은 며칠이고 쌓이는 것이 설계이지만, ${MAX_SEGMENT_SPAN_DAYS}일(종주 60일에 한 달의 여유)을 넘는 창은 드뭅니다. ` +
+        `정산을 오래 미룬 것일 수도, 시작 시각을 과거로 민 것일 수도 있습니다 — 이 창 길이만으로는 구분할 수 없습니다. ` +
+        `발행액 자체는 이 창과 무관하게 증명 한 건의 절대 상한(${(maxProofAmountDshv(opts.humanLimits) / 10).toFixed(0)} SHV)에 묶여 있습니다.`,
+      proofHashes: [hash],
+      source: CORE_SOURCE,
+    });
   }
 
   // ①-c ★일자별 내역 개수 상한 — "걷지 않은 날 수만큼 발행 항목이 있을 수 없다."
@@ -415,10 +553,55 @@ function checkProofPhysics(
 
 function checkAcrossProofs(
   entries: ProofEntry[],
-  opts: Required<Pick<AuthenticityOptions, 'bikeParams'>>,
+  opts: Required<Pick<AuthenticityOptions, 'bikeParams' | 'humanLimits'>>,
   out: AuthenticityFinding[],
 ): void {
   if (entries.length < 2) return;
+
+  // ⓪ ★하루 상한을 **증명들 사이에서도** 합산한다 (2026-07-26 적대 검증 시정).
+  //
+  //    예전에는 하루 상한이 `checkProofPhysics` ⑥에서 **증명 한 건 안에서만** 합산됐다.
+  //    그래서 같은 날에 서로 겹치지 않는 짧은 증명을 18~20건 쌓으면 하루 1,600 SHV가
+  //    전부 통과했다(실측: 216장 · 4.7일 · 7,805 SHV · coreVerdict AUTHENTIC).
+  //    창이 겹치지 않으니 WINDOW_OVERLAP도, 거리를 맞춰 두었으니 MINT_RATE도 걸리지
+  //    않는다. 하루 상한 40 SHV의 41배가 아무 발견 없이 지나간 것이다.
+  //
+  //    ★그런데 이것을 FATAL로 두면 안 된다. 정직한 사람도 걸릴 수 있기 때문이다:
+  //    잠정 원장의 `mintedByDate`가 하루 상한을 강제하지만(ledger.ts), 백업에는 원장
+  //    상태가 담기지 않는다(backup.ts는 확정 코인만 담는다). 같은 니모닉으로 앱을 다시
+  //    깔면 기기 키는 그대로인데 `mintedByDate`가 비어, 그날 이미 만든 몫을 시스템이
+  //    잊는다. 재설치한 사람을 위폐범으로 지목하는 것이 위조를 놓치는 것보다 나쁘다.
+  //    그래서 **정황(SIGNAL)**이다 — 혼자서는 아무 판정도 내리지 않고, 둘 이상 쌓이면
+  //    SUSPECT까지만 간다. 결정적으로 끊는 일은 증서 폐기 목록의 몫이다(docs 참조).
+  const dailyByMember = new Map<string, Map<string, { dshv: number; hashes: Set<string> }>>();
+  for (const e of entries) {
+    const byDate = dailyByMember.get(e.proof.memberId) ?? new Map();
+    for (const [date, dshv] of sumByDate(e.proof.dailyBreakdown)) {
+      const cell = byDate.get(date) ?? { dshv: 0, hashes: new Set<string>() };
+      cell.dshv += dshv;
+      cell.hashes.add(e.hash);
+      byDate.set(date, cell);
+    }
+    dailyByMember.set(e.proof.memberId, byDate);
+  }
+  for (const [memberId, byDate] of dailyByMember) {
+    for (const [date, cell] of byDate) {
+      // 증명 한 건 안의 초과는 이미 DAILY_CAP(FATAL)이 잡았다 — 여기서 다시 세지 않는다.
+      if (cell.hashes.size < 2) continue;
+      if (cell.dshv <= opts.humanLimits.dailyMaxDshv) continue;
+      out.push({
+        check: 'DAILY_CAP',
+        severity: 'SIGNAL',
+        detail:
+          `회원 ${memberId}의 ${date} 하루치가 증명 ${cell.hashes.size}건에 걸쳐 합계 ${(cell.dshv / 10).toFixed(1)} SHV입니다 ` +
+          `— 하루 상한 ${(opts.humanLimits.dailyMaxDshv / 10).toFixed(0)} SHV를 넘습니다. ` +
+          `한 원장은 하루 상한을 스스로 강제하므로 정상 지갑에서는 드뭅니다. ` +
+          `다만 앱을 다시 깔아 원장이 초기화된 경우에도 이렇게 보일 수 있어, 이것만으로 위조라 하지 않습니다.`,
+        proofHashes: [...cell.hashes],
+        source: CORE_SOURCE,
+      });
+    }
+  }
 
   // 회원별로 나눈다 — 시간 거리는 "한 몸"에 대한 제약이다.
   const byMember = new Map<string, ProofEntry[]>();
@@ -667,15 +850,28 @@ export function checkAuthenticity(coins: Coin[], options: AuthenticityOptions = 
     // 신뢰 키 목록이 **주어지지 않은** 환경(예: 오프라인 검사)에서는 발행자 신원을
     // 판정할 수 없다 — 그것을 위조 판정으로 바꾸면 정직한 보너스·보물 코인이 전부
     // 위폐가 된다. "확인 못 함"은 notes로 정직하게 남기고, FATAL로 삼지 않는다.
-    const reasons =
-      options.trustedIssuerKeys === undefined
-        ? verdict.reasons.filter((r) => r !== 'UNTRUSTED_ISSUER')
-        : verdict.reasons;
-    if (reasons.length > 0) {
+    const reasons = hasKeyList(options.trustedIssuerKeys)
+      ? verdict.reasons
+      : verdict.reasons.filter((r) => r !== 'UNTRUSTED_ISSUER');
+
+    // ★계보 실패를 세 어휘로 가른다 (2026-07-26). 예전에는 전부 한 덩어리 FATAL이라
+    //   "증서가 오래됐다"와 "서명이 위조됐다"가 똑같이 **FORGED**로 나갔다.
+    const forgery = reasons.filter((r) => !UNPROVEN_LINEAGE_REASONS.has(r));
+    const unproven = reasons.filter((r) => UNPROVEN_LINEAGE_REASONS.has(r));
+
+    if (forgery.length > 0) {
       findings.push({
         check: 'LINEAGE',
         severity: 'FATAL',
-        detail: `일련번호 ${coinSerial(coin)}: 계보 검증 실패 (${reasons.join(', ')}). 서명 또는 계보가 손상되었습니다.`,
+        detail: `일련번호 ${coinSerial(coin)}: 계보 검증 실패 (${forgery.join(', ')}). 서명 또는 계보가 손상되었습니다.`,
+        source: CORE_SOURCE,
+      });
+    }
+    for (const reason of unproven) {
+      findings.push({
+        check: unprovenCheckId(reason),
+        severity: 'UNPROVEN',
+        detail: `일련번호 ${coinSerial(coin)}: ${unprovenDetail(reason)}`,
         source: CORE_SOURCE,
       });
     }
@@ -696,18 +892,27 @@ export function checkAuthenticity(coins: Coin[], options: AuthenticityOptions = 
   for (const entry of list) checkProofPhysics(entry, opts, now, findings);
 
   // ③ 증명들 사이의 시간 거리 (★핵심).
-  checkAcrossProofs(list, { bikeParams: opts.bikeParams }, findings);
+  checkAcrossProofs(list, { bikeParams: opts.bikeParams, humanLimits: opts.humanLimits }, findings);
 
   // ④ 통계 — 정황일 뿐.
   const statisticsApplied = checkStatistics(list, minSamples, findings);
 
   // 검사하지 못한 범위를 정직하게 남긴다 (제3조).
   const notes: string[] = [];
-  if (grantCount > 0 && options.trustedIssuerKeys === undefined) {
+  if (grantCount > 0 && !hasKeyList(options.trustedIssuerKeys)) {
     notes.push(`보너스·보물 계보 ${grantCount}장의 발행자 신원은 확인하지 않았습니다 (신뢰 발행 키 목록 없음). 서명 자체의 정합만 검사했습니다.`);
   }
-  if (list.length > 0 && options.trustedRootKeys === undefined) {
+  if (list.length > 0 && !hasKeyList(options.trustedRootKeys)) {
     notes.push(`회원 증서(기기 무결성)는 확인하지 않았습니다 (신뢰 루트 키 없음). 걷기의 물리 정합만으로 판정했습니다.`);
+  }
+  // ★모르는 키로 서명된 부분이 있는 경우 — 여기서는 "낡은 목록"과 "자작 서명"이
+  //   구별되지 않는다. 어느 쪽인지 단정하지 않고, 무엇을 하면 갈리는지만 알려 준다.
+  //   (증서가 아예 없는 경우 `MEMBERSHIP_ABSENT`는 키 목록과 무관하므로 제외한다.)
+  if (coreFindings.some((f) => f.check === 'MEMBERSHIP_UNVERIFIED')) {
+    notes.push(
+      `신뢰 목록에 없는 키로 서명된 부분이 있습니다. 이 검사만으로는 "내 키 목록이 낡았다"와 ` +
+        `"자기 키로 서명한 가짜다"를 구별할 수 없습니다 — 온라인에서 키 목록을 갱신한 뒤 다시 검사하면 갈립니다.`,
+    );
   }
   if (list.length === 1) {
     notes.push(`코인 사이의 시간 거리 검사는 코인이 2장 이상일 때 작동합니다. 지갑 전체를 함께 검사하면 훨씬 정확해집니다.`);
@@ -809,6 +1014,9 @@ function decideVerdict(
   grantCount: number,
 ): AuthenticityVerdict {
   if (findings.some((f) => f.severity === 'FATAL')) return 'FORGED';
+  // ★자격 미증명은 혼자서도 의심까지 올라간다 — 그러나 **결코 FORGED가 되지 않는다.**
+  //   증서가 오래된 것과 서명이 위조된 것은 완전히 다른 말이기 때문이다.
+  if (findings.some((f) => f.severity === 'UNPROVEN')) return 'SUSPECT';
   const signals = findings.filter((f) => f.severity === 'SIGNAL');
   // 신호가 둘 이상 겹칠 때만 의심으로 올린다 — 하나는 우연일 수 있다.
   if (signals.length >= 2) return 'SUSPECT';
@@ -823,6 +1031,7 @@ function buildSummary(
   statisticsApplied: boolean,
 ): string {
   const fatal = findings.filter((f) => f.severity === 'FATAL');
+  const unproven = findings.filter((f) => f.severity === 'UNPROVEN');
   const signals = findings.filter((f) => f.severity === 'SIGNAL');
 
   if (fatal.length > 0) {
@@ -830,6 +1039,51 @@ function buildSummary(
   }
   if (proofCount === 0 && grantCount === 0) {
     return `검사할 코인이 없습니다.`;
+  }
+  // ★"위조다"와 "자격을 확인하지 못했다"를 절대 같은 말로 쓰지 않는다.
+  //   동시에 — 확인하지 못한 것을 "위조가 아니다"로 바꿔 말하지도 않는다(적대 검증 시정).
+  if (unproven.length > 0) {
+    const sealed = unproven.filter((f) => f.check === 'MEMBERSHIP_WINDOW').length;
+    const absent = unproven.filter((f) => f.check === 'MEMBERSHIP_ABSENT').length;
+    const unknownKey = unproven.length - sealed - absent;
+
+    // ★단정할 수 있는 경우와 없는 경우를 가른다.
+    //   `MEMBERSHIP_WINDOW`만 남았다면 신뢰하는 루트가 실제로 서명한 증서를 손에 쥐고
+    //   있으므로 "위조가 아니다"라고 말해도 된다. 모르는 키가 하나라도 섞이면
+    //   (낡은 목록인지 자작 서명인지 구별할 수 없으므로) 무죄를 선고하지 않는다.
+    const parts: string[] = [];
+    if (unknownKey > 0) {
+      parts.push(
+        `${unknownKey}건은 **서명한 키 자체가 이 검사기의 신뢰 목록에 없습니다** — ` +
+          `검사기의 키 목록이 낡았을 수도, 아무나 만들 수 있는 자기 키로 서명한 것일 수도 있고 ` +
+          `둘은 여기서 구별되지 않습니다. 온라인에서 키 목록을 갱신한 뒤 다시 검사하십시오.`,
+      );
+    }
+    if (sealed > 0) {
+      parts.push(
+        `${sealed}건은 증서 자체는 신뢰하는 루트가 서명한 진짜인데 **그 증서가 이 정산 시각까지는 ` +
+          `증언하지 못합니다** — 정산을 아주 오래 미뤘거나, 유출된 증서로 과거 시각에 소급 발행한 경우입니다. ` +
+          `소지자에게 소명을 요청할 사안입니다.`,
+      );
+    }
+    if (absent > 0) {
+      parts.push(
+        `${absent}건은 **무결성 증서가 아예 없습니다** — 증서 제도 이전에 만들어진 옛 코인이면 정상이고, ` +
+          `변조 앱이 증서를 빼고 만든 코인도 같은 모습입니다. 코인만 보고는 구별할 수 없습니다.`,
+      );
+    }
+    const head =
+      unknownKey > 0 || absent > 0
+        ? `**이 검사기로는 진위를 판정하지 못했습니다.** 서명·ID·이전 체인은 전부 온전하지만, ` +
+          `발행 자격을 확인할 수 없는 부분이 ${unproven.length}건 있습니다. `
+        : `**위조가 아닙니다.** 서명과 계보가 온전하고 회원 증서도 신뢰하는 루트가 서명한 진짜입니다. `;
+    // ★통계 신호를 삼키지 않는다. 예전에는 UNPROVEN이 하나라도 있으면 여기서 반환해 버려
+    //   "간격이 기계적으로 균일하다" 같은 정황이 요약에서 통째로 사라졌다.
+    const tail =
+      signals.length > 0
+        ? ` 여기에 더해 사람의 걷기로 보기 어려운 정황이 ${signals.length}건 함께 있습니다(정황은 증거가 아닙니다).`
+        : '';
+    return head + parts.join(' ') + tail;
   }
   if (proofCount === 0) {
     return `걷기 코인이 없습니다(전부 보너스·보물 계보 ${grantCount}장). 서명과 계보는 정상이지만, 걷기의 물리 검사는 적용할 대상이 없습니다.`;

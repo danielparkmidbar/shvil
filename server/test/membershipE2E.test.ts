@@ -18,7 +18,21 @@ import { buildApp, MEMBERSHIP_ROOT_KEY_ID } from '../src/app';
 import { register, type TestIdentity } from './utils';
 
 const app = buildApp({ dbPath: ':memory:', devMode: true });
-const T0 = Date.parse('2026-07-10T06:00:00Z');
+
+/**
+ * 걷기 시작 시각.
+ *
+ * ★2026-07-26: 예전에는 `Date.parse('2026-07-10T06:00:00Z')` 고정값이었다. 그런데
+ * 서버는 증서를 **실제 현재 시각**으로 발급하므로, 그 픽스처는 "증서가 생기기 2주 전에
+ * 정산된 코인"이라는 현실에 없는 물건이었다. 코인 검증이 검사 시각 대신
+ * **민팅 시각 ∈ 증서 창**을 보게 되면서 그 모순이 드러났다(`MEMBERSHIP_OUT_OF_WINDOW`).
+ *
+ * 실제 지갑에서는 이런 코인이 나올 수 없다: `settledAt`은 정산하는 순간의 시각이고,
+ * 그때 지갑이 들고 있는 증서는 이미 발급된 것이다. 그래서 픽스처를 현실에 맞춘다 —
+ * 증서 발급 직후에 걷는다. (하한을 없애는 것은 답이 아니다. 없애면 유출 증서로
+ * "증서 생기기 이전" 시각을 채우는 소급 발행이 무제한으로 열린다.)
+ */
+let T0 = 0;
 
 let honest: TestIdentity;
 let trustedRootKeys: Record<string, string> = {};
@@ -40,6 +54,8 @@ function mintWalk(id: TestIdentity, membership: MembershipCertificate | null): C
 beforeAll(async () => {
   await app.ready();
   honest = await register(app, '+972-50-c2', 'c2@example.org', '정직한워커', 'dev-verified');
+  // 증서 발급 1시간 뒤부터 걷는다 — 실제 지갑의 순서(가입 → 증서 → 걷기 → 정산) 그대로.
+  T0 = honest.cert!.issuedAt + 3600_000;
   const keys = ((await app.inject({ method: 'GET', url: '/keys' })).json() as { keys: { keyId: string; publicKey: string }[] }).keys;
   trustedRootKeys = Object.fromEntries(keys.map((k) => [k.keyId, k.publicKey]));
 });
@@ -49,7 +65,8 @@ afterAll(async () => {
 });
 
 describe('회원 증서 E2E — 무결성 필수 모드 (파일럿 전제)', () => {
-  const NOW = T0 + 86_400_000;
+  // ★검사 시각을 넘기지 않는다. 2026-07-26부터 코인 검증은 검사 시각과 무관하다 —
+  //   같은 코인이면 오늘 보든 30년 뒤에 보든 같은 답이 나온다(다니엘 쌤 원칙).
 
   it('서버가 가입 시 VERIFIED 증서를 발급하고 루트를 공개한다', () => {
     expect(honest.cert).toBeDefined();
@@ -61,14 +78,14 @@ describe('회원 증서 E2E — 무결성 필수 모드 (파일럿 전제)', () 
 
   it('정품 증서를 품은 코인은 필수 모드 검증을 통과한다', () => {
     const coin = mintWalk(honest, honest.cert!);
-    const verdict = verifyCoin(coin, { requireIntegrityToken: true, trustedRootKeys, now: NOW });
+    const verdict = verifyCoin(coin, { requireIntegrityToken: true, trustedRootKeys });
     expect(verdict.valid).toBe(true);
   });
 
   it('위조 시나리오: 변조 앱이 증서 없이 임의 회원 번호로 만든 코인은 거부', () => {
     const attacker = signerFromKeyPair(generateKeyPair());
     const forged = mintWalk({ memberId: 'SHV-000000', signer: attacker, msg: honest.msg }, null);
-    const verdict = verifyCoin(forged, { requireIntegrityToken: true, trustedRootKeys, now: NOW });
+    const verdict = verifyCoin(forged, { requireIntegrityToken: true, trustedRootKeys });
     expect(verdict.valid).toBe(false);
     expect(verdict.reasons).toContain('MISSING_INTEGRITY_TOKEN');
   });
@@ -77,7 +94,7 @@ describe('회원 증서 E2E — 무결성 필수 모드 (파일럿 전제)', () 
     const attacker = signerFromKeyPair(generateKeyPair());
     // 정직한 사용자의 증서(honest.cert)를 그대로 붙이되 서명은 attacker 기기 키로
     const coin = mintWalk({ memberId: honest.memberId, signer: attacker, msg: honest.msg }, honest.cert!);
-    const verdict = verifyCoin(coin, { requireIntegrityToken: true, trustedRootKeys, now: NOW });
+    const verdict = verifyCoin(coin, { requireIntegrityToken: true, trustedRootKeys });
     expect(verdict.valid).toBe(false);
     // 증서의 devicePublicKey(정직한 사용자)와 증명 서명 키(attacker)가 불일치
     expect(verdict.reasons).toContain('MEMBERSHIP_MISMATCH');

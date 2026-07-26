@@ -93,6 +93,15 @@ export default function VerifyPage() {
     AUTHENTIC: 'verdict-authentic',
     INCONCLUSIVE: 'verdict-inconclusive',
   };
+  /**
+   * UNPROVEN(자격 미증명)은 위조가 아니다 — 붉은 경고 색을 쓰지 않는다.
+   * "증서가 오래됐다"와 "위조다"는 완전히 다른 말이기 때문이다(제3조).
+   */
+  const findingClass: Record<AuthenticityReport['findings'][number]['severity'], string> = {
+    FATAL: 'finding-fatal',
+    UNPROVEN: 'finding-unproven',
+    SIGNAL: 'finding-signal',
+  };
 
   return (
     <>
@@ -194,9 +203,13 @@ export default function VerifyPage() {
               <h2>{v.findingsTitle}</h2>
               <ul className="verify-findings">
                 {report.findings.map((f, i) => (
-                  <li key={i} className={f.severity === 'FATAL' ? 'finding-fatal' : 'finding-signal'}>
+                  <li key={i} className={findingClass[f.severity]}>
                     <span className={`badge ${f.severity === 'FATAL' ? 'badge-warn' : ''}`}>
-                      {f.severity === 'FATAL' ? v.fatalBadge : v.signalBadge}
+                      {f.severity === 'FATAL'
+                        ? v.fatalBadge
+                        : f.severity === 'UNPROVEN'
+                          ? v.unprovenBadge
+                          : v.signalBadge}
                     </span>{' '}
                     <span lang="ko" dir="ltr">{f.detail}</span>
                   </li>

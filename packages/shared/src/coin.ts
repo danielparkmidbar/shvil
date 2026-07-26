@@ -8,7 +8,7 @@
  */
 import { addressFromPublicKey, hashObject, signObject, verifyObject, type Signer } from './crypto';
 import { verifyWalkSegmentProof } from './proof';
-import { verifyMembershipCertificate } from './membership';
+import { verifyMembershipForMint } from './membership';
 import type {
   Coin,
   CoinRejectReason,
@@ -191,6 +191,44 @@ export function splitCoin(coin: Coin, ownerSigner: Signer, amountsDshv: number[]
 
 // ── 검증 (수신 기기의 로컬 위조 검사) ─────────────────────────────
 
+/**
+ * **위조가 아닌** 거부 사유 — "이 코인은 가짜다"가 아니라 "이 검사자가 자격을
+ * 확인하지 못했다"는 뜻이다 (2026-07-26 · 다니엘 쌤 원칙).
+ *
+ * 여기에 담긴 사유만 나왔다면 그 코인의 서명·ID·이전 체인은 **전부 온전하다.**
+ * 수령은 여전히 fail-closed로 막되(모르는 것을 통과시키지 않는다), 사람에게는
+ * "위조"라고 말하면 안 된다. UI 문구·위폐 감지기 판정이 이 집합을 기준으로 갈린다.
+ *
+ * ★단, "위조가 아님이 증명되었다"는 뜻도 **아니다.** 예컨대
+ * `UNKNOWN_MEMBERSHIP_ROOT`는 (1) 검사자의 키 목록이 낡았거나 (2) 공격자가 자기 키로
+ * 자작 서명했거나 — 검사자 쪽에서는 이 둘을 구별할 방법이 **없다.** 그래서 문구는
+ * 어느 쪽으로도 단정하지 않아야 한다(제3조 정직화).
+ */
+export const UNPROVEN_COIN_REASONS: ReadonlySet<CoinRejectReason> = new Set<CoinRejectReason>([
+  'MEMBERSHIP_OUT_OF_WINDOW',
+  'UNKNOWN_MEMBERSHIP_ROOT',
+  'UNTRUSTED_ISSUER',
+  'MISSING_INTEGRITY_TOKEN',
+]);
+
+/** 거부 사유가 전부 "자격 미증명"인가 — 하나라도 위조 사유가 있으면 false. */
+export function isUnprovenOnly(reasons: readonly CoinRejectReason[]): boolean {
+  return reasons.length > 0 && reasons.every((r) => UNPROVEN_COIN_REASONS.has(r));
+}
+
+/**
+ * 검사자가 이 키 목록을 **가지고 있는가.**
+ *
+ * ★`undefined`(안 줬다)와 `{}`(빈 목록)를 반드시 같게 취급해야 한다. 예전에는
+ * `if (!roots)`로만 봐서 빈 객체가 truthy로 통과했고, 그 결과 **신뢰 루트 캐시가 빈
+ * 지갑이 정상 코인을 하나도 받지 못했다** — 설치 직후 산에서 첫 수령을 하는 엔젤이
+ * 정확히 그 상태다(캐시는 온라인 화면에 들어가야 채워진다). 같은 "모른다"인데 답이
+ * 정반대인 것은 0층("설치하고 걸으면 끝")을 깨는 버그였다.
+ */
+function hasKeys(keys: Record<string, string> | undefined): keys is Record<string, string> {
+  return keys !== undefined && Object.keys(keys).length > 0;
+}
+
 export interface VerifyCoinOptions {
   /** 신뢰하는 발행 키 목록 (keyId → publicKeyHex). GRANT 계보 검증용. */
   trustedIssuerKeys?: Record<string, string>;
@@ -204,7 +242,21 @@ export interface VerifyCoinOptions {
    * true면 WALK 코인은 유효한 회원 증서(integrity=VERIFIED)를 반드시 품어야 한다.
    */
   requireIntegrityToken?: boolean;
-  /** 증서 만료 판정 기준 시각. 기본 Date.now(). */
+  /**
+   * 검사 시각.
+   *
+   * ★**증서 만료 판정에는 쓰이지 않는다** (2026-07-26 — 다니엘 쌤 원칙).
+   * 코인의 유효성은 언제 검사하든 같아야 한다. 그래서 verifyCoin은 이 값을 회원 증서
+   * 판정에 일절 쓰지 않는다 — 증서는 `proof.settledAt`(민팅 시각)이 자기 창 안인지로만
+   * 검사된다(membership.ts `verifyMembershipForMint`).
+   *
+   * "만료를 옵션 하나로 켜고 끄는" 설계를 일부러 **만들지 않았다.** 그런 스위치가
+   * 존재하면 언젠가 누가 켜고, 그날 세상의 옛 코인이 전부 죽는다. 만료가 필요한 용도는
+   * 갱신 판정 하나뿐이고, 그것은 verifyCoin이 아니라
+   * `verifyMembershipCertificate(cert, roots, now)`를 직접 부른다.
+   *
+   * 이 값은 위폐 감지기(authenticity.ts)의 "미래 정산" 같은 검사가 쓴다.
+   */
   now?: number;
   /**
    * 마지막 링크의 수령자 서명 부재를 허용 — 수령자가 역스캔 확인 전에
@@ -273,6 +325,19 @@ function verifyProvenance(coin: Coin, options: VerifyCoinOptions, reasons: CoinR
  * 회원 증서 검증 (보안 감사 C-2) — 회원 번호↔기기 키 결속 + 무결성 담보.
  * - requireIntegrityToken: 증서가 필수이며 integrity=VERIFIED여야 한다.
  * - trustedRootKeys만 주어진 경우: 증서가 있으면 검증하되, 없으면 통과(점진 전환).
+ *
+ * ★2026-07-26: 판정 기준이 **검사 시각 → 민팅 시각**으로 바뀌었다.
+ * 예전에는 `now >= cert.expiresAt`이라 같은 코인이 30일 뒤 저절로 위폐가 되었다.
+ * 이제는 `proof.settledAt`이 증서의 창 안인지만 본다:
+ *   · 옛 코인 — 만들어질 때 창 안이었으므로 **영원히** 창 안이다. 죽지 않는다.
+ *   · 소급 발행 — 유출된 증서(+ 기기 개인키)로 창 밖 시각을 적으면 거부된다.
+ * `settledAt`이 공격자 제어 필드인데도 이것이 성립하는 이유: 창의 두 끝이 전부
+ * **서버가 서명한 값**(issuedAt·expiresAt)에서만 나오기 때문이다. 공격자는 시각을
+ * 고를 수 있어도 **창을 넓힐 수는 없다.**
+ *
+ * 실패 사유도 셋으로 갈라진다 — "증서가 오래됐다"와 "위조다"는 완전히 다른 말이다:
+ *   BAD_MEMBERSHIP(서명 손상=위조) / MEMBERSHIP_OUT_OF_WINDOW(소급 발행) /
+ *   UNKNOWN_MEMBERSHIP_ROOT(이 검사자가 루트를 모름).
  */
 function verifyMembership(
   proof: WalkSegmentProof,
@@ -289,14 +354,22 @@ function verifyMembership(
 
   // 증서가 첨부되었으면 신뢰 루트로 검증한다. 루트 미지정 + 비필수면 검사 생략.
   const roots = options.trustedRootKeys;
-  if (!roots) {
-    if (required) reasons.push('BAD_MEMBERSHIP');
+  if (!hasKeys(roots)) {
+    // 루트 목록이 아예 없다 = 검사자가 판정할 재료가 없다. 코인의 흠이 아니다.
+    // (빈 객체 `{}`도 여기다 — hasKeys 주석 참조. 0층을 지키는 지점이다.)
+    if (required) reasons.push('UNKNOWN_MEMBERSHIP_ROOT');
     return;
   }
 
-  const verdict = verifyMembershipCertificate(cert, roots, options.now ?? Date.now());
+  const verdict = verifyMembershipForMint(cert, roots, proof.settledAt);
   if (!verdict.valid) {
-    reasons.push('BAD_MEMBERSHIP');
+    reasons.push(
+      verdict.reason === 'UNTRUSTED_ROOT'
+        ? 'UNKNOWN_MEMBERSHIP_ROOT'
+        : verdict.reason === 'OUT_OF_MINT_WINDOW'
+          ? 'MEMBERSHIP_OUT_OF_WINDOW'
+          : 'BAD_MEMBERSHIP',
+    );
     return;
   }
   // 결속 검사: 증서가 이 회원 번호·기기 키를 증언해야 한다.

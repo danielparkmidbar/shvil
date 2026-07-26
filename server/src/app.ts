@@ -41,7 +41,7 @@ import {
   type SignedGrant,
 } from '@shvil/shared';
 import { createDb } from './db';
-import { SealedKeystore } from './keystore';
+import { SealedKeystore, archivedPublicKeys, recordPublicKey, trustedKeysForPurposes } from './keystore';
 import {
   issueIntegrityChallenge,
   verifyIntegrityAsync,
@@ -216,6 +216,30 @@ export function buildApp(
   // 배포 서명 키 — /keys·/courses·/limits/flagged 응답 본문에 _sig를 붙여 MITM의
   // 발행키 교체·소명 목록 조작·코스 주입을 차단한다 (보안 감사 H-3). KEK로 봉인 저장.
   const distSigner = keystore.loadOrCreateSigner('distKey');
+
+  /**
+   * ★공개키 이력 등재 (2026-07-26) — 키를 회전해도 옛 코인이 죽지 않게.
+   *
+   * 여기서 한 번 적어 두면 그 공개키는 이 서버가 사는 동안 `/keys`에서 사라지지 않고,
+   * 서버 자신의 `trustedRootKeys`·`trustedIssuerKeys`에도 계속 들어간다. 회전은 새
+   * keyId로 이루어지므로(이름에 연도가 있다) 그때 새 항목이 하나 더 붙을 뿐이다.
+   * 옛 개인키가 유출된 것이 아니므로 위조 여지는 늘지 않는다 — keystore.ts 주석 참조.
+   */
+  for (const [keyId, signer, purpose] of [
+    [PROMO_KEY_ID, promoSigner, 'ANGEL_BONUS'],
+    [CLAIM_KEY_ID, claimSigner, 'COMMUNITY_CLAIM'],
+    [REWARD_KEY_ID, rewardSigner, 'COMMUNITY_REWARD'],
+    [TREASURE_KEY_ID, treasureSigner, 'TREASURE'],
+    [MEMBERSHIP_ROOT_KEY_ID, membershipRootSigner, 'MEMBERSHIP_ROOT'],
+    [DISTRIBUTION_KEY_ID, distSigner, 'DISTRIBUTION'],
+  ] as const) {
+    recordPublicKey(db, { keyId, publicKey: signer.publicKeyHex, purpose });
+  }
+  /** GRANT 계보 검증용 신뢰 발행 키 — **은퇴 키를 포함한 이력 전체.** */
+  const issuerKeyHistory = (): Record<string, string> =>
+    trustedKeysForPurposes(db, ['ANGEL_BONUS', 'COMMUNITY_CLAIM', 'COMMUNITY_REWARD', 'TREASURE']);
+  /** 회원 증서 신뢰 루트 — 마찬가지로 이력 전체. 회전해도 옛 증서가 계속 검증된다. */
+  const rootKeyHistory = (): Record<string, string> => trustedKeysForPurposes(db, ['MEMBERSHIP_ROOT']);
 
   /** 무결성 검증 통과 시 회원 번호↔기기 키를 결속한 증서를 발급한다. */
   function issueMembershipCertificate(
@@ -644,7 +668,17 @@ export function buildApp(
       return reply.code(409).send({ error: 'coin already used as evidence' });
     }
     // 증빙 검사: 완결된 이전 체인 + 소유자 = 이 엔젤 + 타인이 생성한 코인.
-    const verdict = verifyCoin(coin, { trustedIssuerKeys: { [PROMO_KEY_ID]: promoSigner.publicKeyHex } });
+    //
+    // ★2026-07-26: `trustedRootKeys`를 넘긴다. 예전에는 넘기지 않아 회원 증서 블록
+    //   **전체**가 건너뛰어졌고(coin.ts `hasKeys` 분기), 그 결과 유출 증서로 소급
+    //   발행한 코인을 공모 계정으로 이전해 제출하면 첫 접대 보너스 30 SHV가 그대로
+    //   나갔다(실측 재현). 서버가 최종 관문인 자리에서 민팅 창을 안 보고 있었다.
+    //   증서가 없는 옛 코인은 그대로 통과한다(requireIntegrityToken을 켜지 않는다) —
+    //   막으려는 것은 "증서가 있는데 그 증서가 이 시각을 못 덮는" 경우뿐이다.
+    const verdict = verifyCoin(coin, {
+      trustedIssuerKeys: { [PROMO_KEY_ID]: promoSigner.publicKeyHex },
+      trustedRootKeys: rootKeyHistory(),
+    });
     if (!verdict.valid) return reply.code(400).send({ error: `invalid coin: ${verdict.reasons.join(',')}` });
     if (coin.transferChain.length < 1) return reply.code(400).send({ error: 'coin was not received via transfer' });
     if (currentOwnerAddress(coin) !== addressFromPublicKey(member.device_public_key)) {
@@ -708,21 +742,17 @@ export function buildApp(
 
   app.get('/keys/promo', async () => ({ keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex }));
 
-  /** 신뢰 발행 키 전체 목록 — 지갑이 캐시해 GRANT 계보 검증에 사용. 배포 서명(_sig). */
+  /**
+   * 신뢰 발행 키 목록 — 지갑이 캐시해 GRANT 계보·회원 증서 검증에 사용. 배포 서명(_sig).
+   *
+   * ★2026-07-26: 현행 키만 내려보내던 것을 **이력 전체**로 바꿨다. 은퇴한 키도 계속
+   * 실린다 — 빼는 순간 그 키로 서명된 옛 코인이 세상에서 위폐가 되기 때문이다.
+   * 회전 이후 새로 설치한 지갑이 옛 코인을 검증할 수 있는 유일한 통로가 여기다.
+   */
   app.get('/keys', async () =>
     signDistribution(
       {
-        keys: [
-          { keyId: PROMO_KEY_ID, publicKey: promoSigner.publicKeyHex, purpose: 'ANGEL_BONUS' },
-          { keyId: CLAIM_KEY_ID, publicKey: claimSigner.publicKeyHex, purpose: 'COMMUNITY_CLAIM' },
-          { keyId: REWARD_KEY_ID, publicKey: rewardSigner.publicKeyHex, purpose: 'COMMUNITY_REWARD' },
-          // 보물 발행 키 (M9) — 지갑이 TREASURE 계보 grant 검증에 사용.
-          { keyId: TREASURE_KEY_ID, publicKey: treasureSigner.publicKeyHex, purpose: 'TREASURE' },
-          // 회원 증서 신뢰 루트 — 지갑이 핀해 수신 코인의 회원 증서를 검증 (보안 감사 C-2).
-          { keyId: MEMBERSHIP_ROOT_KEY_ID, publicKey: membershipRootSigner.publicKeyHex, purpose: 'MEMBERSHIP_ROOT' },
-          // 배포 서명 공개키 — 지갑이 TOFU 핀 후 자기 일관성 확인용 (핀 기준은 _sig.distPublicKey).
-          { keyId: DISTRIBUTION_KEY_ID, publicKey: distSigner.publicKeyHex, purpose: 'DISTRIBUTION' },
-        ],
+        keys: archivedPublicKeys(db).map(({ keyId, publicKey, purpose }) => ({ keyId, publicKey, purpose })),
       },
       distSigner,
       DISTRIBUTION_KEY_ID,
@@ -744,12 +774,8 @@ export function buildApp(
     ...spotTransparency(db),
   }));
 
-  const trustedIssuerKeys = {
-    [PROMO_KEY_ID]: promoSigner.publicKeyHex,
-    [CLAIM_KEY_ID]: claimSigner.publicKeyHex,
-    [REWARD_KEY_ID]: rewardSigner.publicKeyHex,
-    [TREASURE_KEY_ID]: treasureSigner.publicKeyHex,
-  };
+  // ★은퇴 키를 포함한 이력 전체 (2026-07-26). 회전해도 옛 보너스·보물 코인이 살아 있다.
+  const trustedIssuerKeys = issuerKeyHistory();
 
   /**
    * C 신뢰 지표(안 A) 검증 크레딧 정책 — 어떤 걷기 코인을 "실적"으로 인정할지.
@@ -759,7 +785,9 @@ export function buildApp(
    */
   const trustCredit = {
     trustedIssuerKeys,
-    trustedRootKeys: { [MEMBERSHIP_ROOT_KEY_ID]: membershipRootSigner.publicKeyHex },
+    // ★루트도 이력 전체 — 예전에는 현행 루트 하나뿐이라 회전하는 순간 서버 자신이
+    //   옛 코인을 INVALID로 판정했다(신뢰 뱃지·스팟 예치).
+    trustedRootKeys: rootKeyHistory(),
     requireIntegrity: !devMode,
   };
 
@@ -771,6 +799,7 @@ export function buildApp(
     feeBps: options.feeBps ?? 250,
     devMode,
     trustedIssuerKeys,
+    trustedRootKeys: rootKeyHistory(),
   });
 
   // ── 커뮤니티: 코스 등록부·클레임·격려 코인·탑 100·소명 목록 (M4) ──

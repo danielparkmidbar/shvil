@@ -430,6 +430,8 @@ export interface Strings {
     serialsTitle: string;
     statsLine: (proofs: number, grants: number, totalShv: string) => string;
     fatalBadge: string;
+    /** 자격 미증명 — 위조가 아니다. "증서가 오래됐다"와 "위조다"는 다른 말이다. */
+    unprovenBadge: string;
     signalBadge: string;
     /** 비한국어 로케일용: 상세 설명이 한국어로 표시된다는 안내. */
     detailsLangNote: string;

@@ -173,7 +173,24 @@ export type CoinRejectReason =
   | 'INCOMPLETE_TRANSFER'
   | 'HUMAN_LIMIT_EXCEEDED'
   | 'MISSING_INTEGRITY_TOKEN'
-  | 'BAD_MEMBERSHIP' // 회원 증서 서명·루트·만료 무효 (보안 감사 C-2)
+  /**
+   * 회원 증서의 **서명·형식이 깨졌다** (보안 감사 C-2).
+   * ★2026-07-26부터 이 사유는 위조만을 뜻한다. 예전에는 "만료"와 "이 검사자가 루트를
+   * 모름"까지 여기로 뭉뚱그려져서, 증서가 오래됐을 뿐인 정직한 코인이 위폐 판정을
+   * 받았다. 그 둘은 아래 두 사유로 분리되었다.
+   */
+  | 'BAD_MEMBERSHIP'
+  /**
+   * 정산 시각이 증서가 증언할 수 있는 창 밖이다 = **소급 발행 시도**.
+   * 위조(서명 손상)와 다른 말이다 — 서명은 온전하지만 자격이 그 시각을 못 덮는다.
+   */
+  | 'MEMBERSHIP_OUT_OF_WINDOW'
+  /**
+   * 이 검사자가 그 증서 발행 루트를 알지 못한다 (키 회전·오프라인 첫 실행 등).
+   * **코인의 성질이 아니라 검사자의 사정이다.** 수령은 fail-closed로 막되,
+   * 위폐 감지기는 이것을 위조로 부르지 않는다.
+   */
+  | 'UNKNOWN_MEMBERSHIP_ROOT'
   | 'MEMBERSHIP_MISMATCH' // 증서의 회원 번호·기기 키가 증명과 불일치
   | 'MALFORMED';
 
