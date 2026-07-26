@@ -360,6 +360,45 @@ export const es: Strings = {
     intro:
       'Sube una moneda para saber si se formó de verdad o fue clonada. Más allá de las firmas, comprobamos si los hechos físicos que lleva la moneda — distancia, pasos, tiempo — se contradicen entre sí, y si realmente pasó tiempo entre las monedas. Un programa de clonación no puede fabricar el tiempo entre formaciones de monedas.',
     privacyNote: 'Todo se ejecuta dentro de este navegador. Tus monedas no se envían a ninguna parte.',
+    download: {
+      title: 'Descarga el verificador',
+      body:
+        'El verificador es un solo archivo. Descárgalo y guárdalo en tu propio dispositivo. Aunque ' +
+        'este sitio desaparezca, y aunque no tengas internet, abrir ese archivo te da la misma ' +
+        'verificación. No verificamos monedas por ti: te entregamos la herramienta que verifica.',
+      cta: 'Descargar el verificador (un archivo HTML)',
+      offlineHint:
+        'Guarda el archivo y ábrelo en cualquier navegador. Funciona en modo avión, y eso es la ' +
+        'prueba de que esta verificación termina en tu propio dispositivo.',
+      communityNote:
+        'Las reglas del veredicto son públicas y cualquiera puede leerlas. El verificador no es un ' +
+        'servicio que nosotros operemos: es una herramienta que pertenece a la comunidad; quien ' +
+        'descubra una nueva técnica de falsificación puede añadir una regla y reforzar su propio ' +
+        'verificador.',
+      langNote: 'El verificador descargable está actualmente en coreano.',
+    },
+    effort: {
+      title: 'Cuán a fondo verificar lo decides tú',
+      body:
+        'No te obligamos a verificar ni decidimos por ti. Si no pierdes nada por no verificar, no ' +
+        'verifiques. Cuanto mayor sea la pérdida posible, más a fondo conviene verificar; ese ' +
+        'umbral es tuyo.',
+      lowStake: 'Cantidades pequeñas: acéptalas sin más. Verificar no es una obligación.',
+      highStake:
+        'Si pagas dinero real o recibes una cantidad grande, no mires una sola moneda: verifica ' +
+        'juntas todas las monedas de la otra parte. La distancia de tiempo entre monedas solo ' +
+        'aparece cuando se examinan varias a la vez.',
+    },
+    limits: {
+      title: 'Lo que este verificador no puede hacer',
+      items: [
+        '«Sin contradicciones» no prueba que sea auténtica: significa que nada quedó atrapado por las comprobaciones que este verificador conoce.',
+        'No verifica la identidad del emisor ni la integridad del dispositivo: funciona sin lista de claves de confianza, así que solo comprueba que las firmas sean coherentes entre sí.',
+        'La comprobación de la distancia de tiempo entre monedas solo funciona con dos o más monedas. Una sola moneda reduce mucho el alcance del análisis.',
+        'No puede saber si esta moneda ya se gastó en otro lugar. Solo detecta que una misma moneda se bifurque dentro del lote que has enviado.',
+        'Los indicios estadísticos nunca suman un veredicto de falsificación, por muchos que se acumulen. Un indicio es motivo para pedir una explicación, nunca para condenar a una persona.',
+      ],
+    },
     pastePlaceholder: 'Pega el JSON de una moneda, una exportación de billetera o un QR de pago (SHV1.…)',
     uploadLabel: 'Subir archivo',
     checkButton: 'Verificar',

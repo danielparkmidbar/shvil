@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>쉬빌 위폐 감지기 (오프라인)</title>
+<!--
+  이 파일은 커뮤니티가 소유하는 도구다. 다니엘 쌤 2026-07-26:
+  "내가 중앙에서 시스템을 유지하며 뭘 하는 것이 아니다."
+
+  · 네트워크 요청이 0이다. 외부 스크립트·폰트·이미지·CSS 링크가 하나도 없다.
+  · 비행기 모드에서, USB 로 옮겨서, 서버 없이 열린다.
+  · 코인은 이 파일 밖으로 한 걸음도 나가지 않는다.
+  · 검사 강도는 각자 정한다. 이 도구는 리포트를 낼 뿐, 거래를 막지 않는다(제9조).
+-->
+<style>
+  :root { color-scheme: light dark; --bg:#fbfaf7; --fg:#1a1815; --muted:#6b6560; --line:#e0dcd4; --card:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#151412; --fg:#eceae6; --muted:#9b948c; --line:#2e2b27; --card:#1e1c19; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.65 system-ui,-apple-system,"Malgun Gothic",sans-serif; }
+  main { max-width: 780px; margin: 0 auto; padding: 28px 18px 80px; }
+  h1 { font-size: 21px; margin: 0 0 4px; letter-spacing:-.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  textarea { width:100%; min-height:190px; padding:12px; border:1px solid var(--line); border-radius:10px;
+             background:var(--card); color:var(--fg); font:12px/1.5 ui-monospace,Menlo,Consolas,monospace; resize:vertical; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:12px 0 0; }
+  button { font:inherit; font-weight:600; padding:9px 18px; border-radius:9px; border:1px solid var(--fg);
+           background:var(--fg); color:var(--bg); cursor:pointer; }
+  button.ghost { background:transparent; color:var(--fg); border-color:var(--line); font-weight:500; }
+  #report { margin-top:26px; }
+  .verdict { border:1px solid var(--line); border-left-width:5px; border-radius:10px; background:var(--card); padding:16px 18px; }
+  .v-FORGED { border-left-color:#c0392b; } .v-SUSPECT { border-left-color:#c98a1b; }
+  .v-AUTHENTIC { border-left-color:#2e7d4f; } .v-INCONCLUSIVE { border-left-color:#7b7b7b; }
+  .verdict h2 { margin:0 0 6px; font-size:17px; }
+  .meta { color:var(--muted); font-size:13px; }
+  ul { padding-left:20px; margin:14px 0 0; } li { margin:5px 0; }
+  .FATAL { color:#c0392b; font-weight:600; } .SIGNAL { color:#c98a1b; font-weight:600; }
+  .err { color:#c0392b; }
+  h3 { font-size:13px; text-transform:none; color:var(--muted); margin:20px 0 4px; font-weight:600; }
+  code { font:12px ui-monospace,Menlo,Consolas,monospace; background:var(--card); border:1px solid var(--line);
+         border-radius:4px; padding:1px 5px; }
+  footer { margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+  footer p { margin:6px 0; }
+  #netstat { font:12px ui-monospace,Menlo,Consolas,monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>쉬빌 위폐 감지기 · 오프라인판</h1>
+  <p class="sub">이 파일 하나가 감지기 전부다. 인터넷을 끊고 써도 된다 — 아니, 끊고 쓰는 편이 낫다.</p>
+
+  <textarea id="input" spellcheck="false" placeholder="코인 JSON, 코인 배열, 지갑의 &quot;검사용 내보내기&quot; 파일 내용, 또는 지불 QR 문자열(SHV1....)을 붙여넣으세요."></textarea>
+  <div class="row">
+    <button id="run">검사</button>
+    <button class="ghost" id="pick">파일 열기</button>
+    <input type="file" id="file" accept=".json,.txt" hidden>
+    <span class="meta" id="netstat"></span>
+  </div>
+
+  <div id="report"></div>
+
+  <footer>
+    <p>번들 지문(SHA-256): <code>__BUNDLE_HASH__</code> · 빌드 <code>__BUILT_AT__</code></p>
+    <p>같은 파일을 받은 사람끼리 이 지문을 맞춰 보라. 다르면 당신이 받은 파일은 다른 파일이다.</p>
+    <p>이 도구는 판정을 서버에 묻지 않는다. 서버가 사라져도, 만든 사람이 사라져도 같은 답을 낸다.
+       AUTHENTIC은 "위조 근거를 못 찾았다"는 뜻이지 "진짜임을 증명했다"는 뜻이 아니다.</p>
+  </footer>
+</main>
+
+<script>__BUNDLE__</script>
+<script>
+(function () {
+  var C = globalThis.ShvilChecker;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;' })[c]; }); };
+
+  // 네트워크를 쓰지 않는다는 것을 말로만 하지 않는다 — 통로를 실제로 막는다.
+  var blocked = 0;
+  var block = function (name) {
+    try {
+      Object.defineProperty(globalThis, name, {
+        configurable: false,
+        get: function () { blocked++; throw new Error('이 감지기는 네트워크를 쓰지 않는다: ' + name); },
+      });
+    } catch (e) { /* 막을 수 없는 환경이면 그냥 둔다 — 어차피 쓰지 않는다 */ }
+  };
+  ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'].forEach(block);
+  $('netstat').textContent = '네트워크 통로 차단됨 (fetch / XHR / WebSocket / EventSource)';
+
+  function render(report) {
+    var f = report.findings;
+    var html = ''
+      + '<div class="verdict v-' + report.verdict + '">'
+      + '<h2>' + report.verdict + '</h2>'
+      + '<div>' + esc(report.summary) + '</div>'
+      + '<div class="meta" style="margin-top:10px">'
+      + '코인 ' + report.serials.length + '장 · 걷기 증명 ' + report.proofCount + '개 · 보너스 계보 ' + report.grantCount + '개 · 합계 '
+      + (report.totalDshv / 10).toFixed(1) + ' SHV · 통계검사 ' + (report.statisticsApplied ? '적용' : '미적용')
+      + '</div></div>';
+
+    if (f.length) {
+      html += '<h3>발견</h3><ul>' + f.map(function (x) {
+        return '<li><span class="' + x.severity + '">' + x.severity + '</span> · ' + esc(x.check) + ' — ' + esc(x.detail) + '</li>';
+      }).join('') + '</ul>';
+    }
+    html += '<h3>검사하지 못한 범위 (정직화 · 제3조)</h3><ul>'
+      + report.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>';
+    html += '<h3>일련번호</h3><ul>' + report.serials.map(function (s) { return '<li><code>' + esc(s) + '</code></li>'; }).join('') + '</ul>';
+    $('report').innerHTML = html;
+  }
+
+  function run(text) {
+    try {
+      var parsed = C.parseCheckerInput(text);
+      render(C.checkAuthenticity(parsed.coins));
+    } catch (e) {
+      $('report').innerHTML = '<p class="err">' + esc(e && e.message ? e.message : e) + '</p>';
+    }
+  }
+
+  $('run').addEventListener('click', function () { run($('input').value); });
+  $('pick').addEventListener('click', function () { $('file').click(); });
+  $('file').addEventListener('change', function (ev) {
+    var file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    var r = new FileReader();
+    r.onload = function () { $('input').value = r.result; run(r.result); };
+    r.readAsText(file);
+  });
+})();
+</script>
+</body>
+</html>

@@ -375,12 +375,50 @@ export interface Strings {
     /** ISO 국가 코드 → 로케일별 국가명 (없으면 코드 표기로 폴백). */
     countries: Record<string, string>;
   };
-  /** 위폐 감지기 (M16) — 코인 업로드 진위 검사. 판정 상세(detail)는 코어가 한국어로 생성한다. */
+  /**
+   * 위폐 감지기 (M16) — 코인 업로드 진위 검사. 판정 상세(detail)는 코어가 한국어로 생성한다.
+   *
+   * ★다니엘 쌤 2026-07-26: 이 페이지는 **검사를 대행하는 서비스가 아니라 도구를 나눠주는
+   * 곳**이다. "내가 중앙에서 시스템을 유지하며 뭘 하는 것이 아니다." 그래서 download·
+   * effort·limits 세 묶음이 검사기 자체만큼 중요하다 —
+   *  · download: 감지기를 각자 내려받아 보관한다 (이 사이트가 사라져도 쓴다)
+   *  · effort:   검사 강도는 각자의 손실 위험에 비례해 각자 정한다 (강요하지 않는다)
+   *  · limits:   못 하는 것을 함께 밝힌다 (헌법 제3조 정직화 — 과장 금지)
+   */
   verify: {
     title: string;
     intro: string;
     /** 개인정보 안내 — 검사는 브라우저 안에서만, 서버 전송 없음. */
     privacyNote: string;
+    /** 감지기 내려받기 — 사이트는 도구를 나눠줄 뿐이다. */
+    download: {
+      title: string;
+      body: string;
+      cta: string;
+      /** 받은 파일을 브라우저로 열면 인터넷 없이 동작한다는 안내. */
+      offlineHint: string;
+      /** 커뮤니티가 규칙을 더해 감지기를 스스로 키운다는 안내. */
+      communityNote: string;
+      /**
+       * 비한국어 로케일용: 내려받는 감지기 파일이 아직 한국어라는 정직화 안내
+       * (detailsLangNote와 같은 규칙 — ko에서는 빈 문자열).
+       */
+      langNote: string;
+    };
+    /** 검사 강도는 당신이 정한다 — 손해가 클수록 철저히. */
+    effort: {
+      title: string;
+      body: string;
+      /** 잃을 것이 적을 때 — 검사는 의무가 아니다. */
+      lowStake: string;
+      /** 실제 돈을 주고 살 때 — 지갑 전체를 한꺼번에 검사하라. */
+      highStake: string;
+    };
+    /** 제3조 정직화 — 이 감지기가 하지 못하는 것. */
+    limits: {
+      title: string;
+      items: readonly string[];
+    };
     pastePlaceholder: string;
     uploadLabel: string;
     checkButton: string;

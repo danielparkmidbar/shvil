@@ -354,6 +354,44 @@ export const en: Strings = {
     intro:
       'Upload a coin to tell whether it was genuinely formed or cloned. Beyond signature checks, we test whether the physical facts a coin carries — distance, steps, time — contradict each other, and whether real time actually passed between coins. A cloning program cannot manufacture the time between coin formations.',
     privacyNote: 'Everything runs inside this browser. Your coins are never sent anywhere.',
+    download: {
+      title: 'Download the checker',
+      body:
+        'The checker is a single file. Download it and keep it on your own device. Even if this ' +
+        'site disappears, even with no internet, opening that file gives you the same check. We ' +
+        'are not checking coins for you — we are handing you the tool that does the checking.',
+      cta: 'Download the checker (one HTML file)',
+      offlineHint:
+        'Save the file, then open it in any browser. It works in airplane mode — which is the ' +
+        'proof that this check ends on your own device.',
+      communityNote:
+        'The rules behind the verdict are open and anyone can read them. The checker is not a ' +
+        'service we run; it is a tool the community owns — whoever finds a new forgery trick can ' +
+        'add a rule and make their own checker stronger.',
+      langNote: 'The downloadable checker is currently in Korean.',
+    },
+    effort: {
+      title: 'How thoroughly you check is your call',
+      body:
+        'We do not require you to check, and we do not decide for you. If you lose nothing by not ' +
+        'checking, do not check. The more you stand to lose, the more thoroughly you should ' +
+        'check — that threshold is yours to set.',
+      lowStake: 'Small amounts — just accept them. Checking is not an obligation.',
+      highStake:
+        'Paying real money, or receiving a large amount — do not look at a single coin. Check all ' +
+        'of the other side’s coins together. The time distance between coins only shows up ' +
+        'when several are examined at once.',
+    },
+    limits: {
+      title: 'What this checker cannot do',
+      items: [
+        '“No contradictions” is not proof of authenticity. It means nothing was caught by the checks this checker knows.',
+        'It does not verify the issuer’s identity or device integrity — it runs without a trusted-key list, so it only checks that the signatures are internally consistent.',
+        'The time-distance check between coins only works with two or more coins. A single coin narrows the check sharply.',
+        'It cannot tell whether this coin was already spent somewhere else. It only catches the same coin forking inside the batch you submitted.',
+        'Statistical indications never add up to a forged verdict, however many stack up. An indication is grounds to ask for an explanation, never grounds to condemn a person.',
+      ],
+    },
     pastePlaceholder: 'Paste coin JSON, a wallet export, or a payment QR payload (SHV1.…)',
     uploadLabel: 'Upload file',
     checkButton: 'Check',

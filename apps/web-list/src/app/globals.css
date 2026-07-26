@@ -961,3 +961,62 @@ h2 {
   padding: 0.15rem 0.45rem;
   font-size: 0.85rem;
 }
+
+/* ── 감지기 배포 · 검사 강도 · 한계 (다니엘 쌤 2026-07-26) ──────────
+   "커뮤니티에게 툴을 주고 커뮤니티가 스스로 확인한다."
+   ★논리 속성(margin-inline / border-inline-start)만 쓴다 — he(RTL)에서 좌우가
+   자동으로 뒤집혀야 하고, 물리 속성(left/right)을 쓰면 그때 깨진다. */
+
+.checker-download {
+  background: var(--green-50);
+  border-color: var(--green-700);
+}
+
+.checker-download h2 {
+  margin-top: 0;
+}
+
+.checker-download-actions {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0.9rem 0;
+}
+
+/* 파일명 — dir="ltr"로 고정되므로 RTL에서도 글자 순서가 뒤집히지 않는다. */
+.checker-file-name {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+}
+
+.checker-effort-list {
+  margin: 0.5rem 0;
+  padding-inline-start: 1.2rem;
+}
+
+.checker-effort-list li {
+  margin: 0.4rem 0;
+  line-height: 1.55;
+}
+
+.checker-limits {
+  margin-top: 1.6rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.4rem;
+}
+
+.checker-limits ul {
+  padding-inline-start: 1.2rem;
+}
+
+.checker-limits li {
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  margin: 0.4rem 0;
+  line-height: 1.55;
+}
