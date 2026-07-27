@@ -9,7 +9,6 @@
 import { useSyncExternalStore } from 'react';
 import {
   PendingWalkLedger,
-  acceptPayment,
   acknowledgeTransfer,
   buildCharge,
   buildPayment,
@@ -41,7 +40,10 @@ import {
 import type { LiveWalkStatus } from '../walk/corridorEngine';
 import type { SpotDepositResult } from './api';
 import { planCoinSelection, type CoinSelectionPlan } from './coinSelection';
-import { FLAGGED_CACHE_KEY, findFlaggedProducer, parseFlaggedCache } from './flagged';
+import { planPayment, type PaymentPlan } from './paymentPlan';
+import { FLAGGED_CACHE_KEY, parseFlaggedCache } from './flagged';
+import { acceptReviewedPayment, buildReceiveReview, type ReceiveReview } from './receiveReview';
+import { loadRulePacks } from './rulePackStore';
 import {
   isProvisionalMemberId,
   loadOrCreateIdentity,
@@ -81,6 +83,8 @@ const SALES_KEY = 'market.sales.v1';
  * integrity≠VERIFIED) WALK 코인 수령이 거부된다 (결정 대기 3번 — 필수화 확정).
  */
 const REQUIRE_INTEGRITY_KEY = 'requireIntegrity';
+/** 수령 빠른 길 (제8조) — 기본 켜짐. 끄면 모든 수령이 검토 화면에서 멈춘다. */
+const RECEIVE_FAST_PATH_KEY = 'receiveFastPath.v1';
 
 /** 내 마켓 판매 기록 (로컬 kv) — 리스팅 → 승인 → 에스크로 → 완료 추적용. */
 export interface SaleRecord {
@@ -118,6 +122,24 @@ export interface WalletState {
   bonusBalanceDshv: number;
   liveStatus: LiveWalkStatus | null;
   walkTracking: boolean;
+  /**
+   * ★걷기 시작이 실패한 사유 (2026-07-27). 예전에는 `console.warn`으로만 흘려서
+   * 위치 권한을 거부한 사용자의 화면에는 **아무 일도 일어나지 않았다** — 버튼 라벨도
+   * 그대로였다. 실패를 화면에 내보내지 않는 것은 제3조 위반이다.
+   */
+  walkStartError: string | null;
+  /**
+   * ★만보기(걸음 센서)를 쓸 수 있는가. null = 아직 모름(걷기 시작 전).
+   * false면 걸어도 창이 전부 NO_STEPS로 기각되어 **하루 걷고 0 SHV**가 된다.
+   * 그 사실이 화면 어디에도 없었다.
+   */
+  pedometerAvailable: boolean | null;
+  /**
+   * ★수령 빠른 길 (제8조). true(기본)면 검토에서 아무것도 걸리지 않은 평범한 지불은
+   * 확인 화면 없이 바로 완결한다. false면 언제나 검토 화면에서 멈춘다.
+   * 어느 쪽이든 **결정은 엔젤의 것**이다 — 이 스위치 자체가 그 결정이다(제9조).
+   */
+  receiveFastPath: boolean;
   /**
    * ★마지막 정산에서 회원 증서를 붙이지 못했는가 (2026-07-26).
    *
@@ -168,6 +190,9 @@ class WalletService {
     bonusBalanceDshv: 0,
     liveStatus: null,
     walkTracking: false,
+    walkStartError: null,
+    pedometerAvailable: null,
+    receiveFastPath: true,
     lastMintMissedCertificate: false,
   };
 
@@ -177,6 +202,12 @@ class WalletService {
   #outgoing: { charge: ChargeMessage; payment: PaymentMessage; spentCoinIds: string[] } | null = null;
   /** 진행 중인 들어오는 청구 (엔젤 수령 테스트용). */
   #incomingCharge: ChargeMessage | null = null;
+  /**
+   * ★검토는 끝났지만 **아직 아무것도 서명하지 않은** 들어오는 지불 (제9조).
+   * 여기 머무는 동안 지불자의 코인은 그의 지갑에서 OWNED 그대로다 — 거부해도 죽지 않는다.
+   */
+  #incomingReview: { charge: ChargeMessage; payment: PaymentMessage; review: ReceiveReview } | null = null;
+  #lastPaymentPlan: PaymentPlan | null = null;
 
   subscribe = (fn: () => void): (() => void) => {
     this.#listeners.add(fn);
@@ -205,14 +236,24 @@ class WalletService {
     await this.#reloadCoins();
     const savedMode = await kvGet(MODE_KEY);
     const savedTravelMode = await kvGet(TRAVEL_MODE_KEY);
+    const savedFastPath = await kvGet(RECEIVE_FAST_PATH_KEY);
+    // 규칙 팩을 미리 읽어 둔다 — 수령은 광야에서 일어나므로 그때 kv를 기다리지 않는다.
+    await loadRulePacks().catch(() => ({ packs: [], errors: [] }));
     this.#set({
       ready: true,
       memberId: this.#identity.memberId,
       address: this.#identity.address,
       mode: savedMode === 'ANGEL' ? 'ANGEL' : 'LIST',
       travelMode: savedTravelMode === 'BIKE' ? 'BIKE' : 'WALK',
+      receiveFastPath: savedFastPath !== 'false',
       pending: this.#ledger.getPending(),
     });
+  }
+
+  /** 수령 빠른 길 on/off — 엔젤이 스스로 정하는 검사 강도(제9조). */
+  async setReceiveFastPath(on: boolean): Promise<void> {
+    await kvSet(RECEIVE_FAST_PATH_KEY, on ? 'true' : 'false');
+    this.#set({ receiveFastPath: on });
   }
 
   /** 모드 전환 — 토글 한 번. 걷기 추적·지갑 상태는 그대로 유지된다. */
@@ -366,6 +407,19 @@ class WalletService {
     this.#set({ liveStatus, walkTracking });
   }
 
+  /**
+   * ★걷기 추적 상태를 화면에 그대로 내보낸다 (2026-07-27).
+   * 시작 실패·만보기 부재는 조용히 넘어가면 안 되는 것들이다 — 사용자는 하루를 걷고
+   * 나서야 0 SHV를 발견하게 된다(제3조).
+   */
+  setWalkRuntime(partial: {
+    walkTracking?: boolean;
+    walkStartError?: string | null;
+    pedometerAvailable?: boolean | null;
+  }): void {
+    this.#set(partial);
+  }
+
   // ── 정산 (사용 또는 본인 선언뿐 — 자동 정산 없음) ─────────────
 
   /** "여기서 정산" — 본인 선언 수동 정산. */
@@ -416,40 +470,62 @@ class WalletService {
   /**
    * 청구 QR 스캔 후 지불 생성. 잠정 누적을 이 지불로 정산(사용 시 정산)하고,
    * 부족분은 기존 코인에서 채운다 (필요 시 분할).
+   *
+   * ★순서가 중요하다: **재 보고 나서 자른다.** 예전에는 먼저 분할을 DB에 커밋한 뒤
+   * 화면이 QR을 그려 보고 "용량 초과"를 띄웠는데, 분할은 되돌릴 수 없고 코인 병합
+   * 기능도 없어서 **재시도할수록 코인이 잘게 부서졌다.** 지금은 후보를 전부 만들어
+   * 재 본 뒤, 고른 하나만 커밋한다. 실패해도 지갑은 그대로다.
    */
   async payCharge(charge: ChargeMessage, now: number): Promise<PaymentMessage> {
     // 1) 사용 시 정산 — 이 엔젤로의 우회 잠정분도 여기서 확정된다.
     await this.#settleOnSpend(now, charge.angelMemberId);
 
-    // 2) 코인 선택 (오래된 것부터) + 필요 시 잔돈 분할
-    const owned = [...this.getState().coins];
-    const picked: Coin[] = [];
-    let total = 0;
-    for (const { coin } of owned) {
-      if (total >= charge.amountDshv) break;
-      picked.push(coin);
-      total += coin.amountDshv;
-    }
-    if (total < charge.amountDshv) {
-      throw new Error(`잔액 부족: ${total / 10} SHV < ${charge.amountDshv / 10} SHV`);
-    }
-    if (total > charge.amountDshv) {
-      const last = picked.pop()!;
-      const excess = total - charge.amountDshv;
-      const needed = last.amountDshv - excess;
-      const [pay, change] = splitCoin(last, this.identity.signer, [needed, excess], now);
-      await setCoinStatus(last.id, 'SPLIT_CONSUMED');
-      const origin = rootOriginOf(last, this.identity.memberId);
-      await saveCoin(pay!, origin, now);
-      await saveCoin(change!, origin, now);
-      picked.push(pay!);
+    // 2) 계획 (서명은 하되 저장하지 않는다). 잔액이 모자라면 여기서 던진다.
+    const plan = planPayment({
+      owned: this.getState().coins.map((c) => c.coin),
+      charge,
+      payerMemberId: this.identity.memberId,
+      signer: this.identity.signer,
+      now,
+    });
+
+    // 3) 고른 계획만 커밋한다.
+    if (plan.split) {
+      const { parent, pay, change } = plan.split;
+      await setCoinStatus(parent.id, 'SPLIT_CONSUMED');
+      const origin = rootOriginOf(parent, this.identity.memberId);
+      await saveCoin(pay, origin, now);
+      await saveCoin(change, origin, now);
     }
 
-    // 3) 지불 서명 (엔젤 앞 미완결 이전 링크)
-    const payment = buildPayment(charge, picked, this.identity.memberId, this.identity.signer, now);
-    this.#outgoing = { charge, payment, spentCoinIds: picked.map((c) => c.id) };
+    this.#outgoing = { charge, payment: plan.payment, spentCoinIds: plan.coins.map((c) => c.id) };
+    this.#lastPaymentPlan = plan;
     await this.#reloadCoins();
-    return payment;
+    return plan.payment;
+  }
+
+  /** 방금 만든 지불의 계획 (화면이 QR 장수·선택 근거를 보여 주는 데 쓴다). */
+  get lastPaymentPlan(): PaymentPlan | null {
+    return this.#lastPaymentPlan;
+  }
+
+  /**
+   * 아직 완결되지 않은 내 지불 (화면 복원용).
+   *
+   * ★거래 탭의 지불/수령 세그먼트는 조건부 렌더라, 세그먼트를 한 번 누르면 PayScreen이
+   * 언마운트되고 화면 단계가 초기화된다. 그때 이 값이 없으면 사람은 "지불이 사라졌다"고
+   * 느끼고 **처음부터 다시 낸다** — 그런데 엔젤 쪽은 이미 확인 서명을 만들었을 수 있다.
+   * 화면이 이 값을 보고 제자리로 돌아오게 해서 그 갈림을 줄인다.
+   * (앱을 완전히 껐다 켜면 메모리 전용이라 사라진다 — 남는 위험으로 문서에 적어 두었다.)
+   */
+  get outgoingPayment(): { charge: ChargeMessage; payment: PaymentMessage } | null {
+    return this.#outgoing ? { charge: this.#outgoing.charge, payment: this.#outgoing.payment } : null;
+  }
+
+  /** 지불 제시를 그만둔다 — 확인 서명을 받지 않았으므로 코인은 그대로 남는다. */
+  cancelOutgoingPayment(): void {
+    this.#outgoing = null;
+    this.#lastPaymentPlan = null;
   }
 
   /** 엔젤의 확인 QR 스캔 → 지불 완결 처리 (코인 제거 + 영수증). */
@@ -476,58 +552,96 @@ class WalletService {
     return charge;
   }
 
-  /** 지불 QR 역스캔 → 로컬 위조 검사 → 확인 서명. 승인이 아니라 밀리초 위조 검사다. */
-  async acceptIncomingPayment(paymentText: string, now: number): Promise<ConfirmMessage> {
+  /**
+   * ★1단계 (검증): 지불 QR 역스캔 → 로컬 검사 → **리포트만** 만든다.
+   *
+   * 여기서는 아무것도 서명하지 않고 아무것도 저장하지 않는다. 그래서 이 시점에
+   * 엔젤이 등을 돌려도 지불자의 코인은 그의 지갑에 그대로 살아 있다 —
+   * `createTransfer`가 만든 서명은 지불 QR 안의 **사본**에만 붙어 있고, 지불자의 DB
+   * 원본은 손대지 않았기 때문이다. 그것이 "거부해도 코인이 죽지 않는다"의 근거다.
+   *
+   * 검사는 승인이 아니다 — 밀리초 단위 로컬 위조 검사이고, 결과를 보고 결정하는 것은
+   * 사람이다(헌법 제9조).
+   */
+  async reviewIncomingPayment(paymentText: string, now: number): Promise<ReceiveReview> {
     if (!this.#incomingCharge) throw new Error('진행 중인 청구가 없습니다');
     const msg = decodeQr(paymentText);
     if (msg.type !== 'shvil/payment') throw new Error('지불 QR이 아닙니다');
 
-    // 이중지불 로컬 차단: 이미 아는 코인 ID는 거부
+    // 이중 수령 대조 — 이미 아는 코인 ID.
+    const knownCoinIds = new Set<string>();
     for (const coin of msg.coins) {
-      if (await isKnownCoinId(coin.id)) throw new Error('이미 수령한 코인입니다 (이중 사용 의심)');
+      if (await isKnownCoinId(coin.id)) knownCoinIds.add(coin.id);
     }
-    // 소명 대기 목록 대조 (지시서 3장 5절): 소명 대기 중인 회원이 "생성한" 코인은
-    // 수령 보류. 이미 보유한 코인·타인의 거래는 영향받지 않는다 — 새 수령만 막는다.
+    // 소명 대기 목록 (지시서 3장 5절): 소명 대기 중인 회원이 "생성한" 코인.
+    // ★이제 자동 거절이 아니라 **엔젤에게 보여 주고 결정하게 한다**(제9조).
+    //   이미 보유한 코인·타인의 거래는 여전히 영향받지 않는다.
     const flagged = parseFlaggedCache(await kvGet(FLAGGED_CACHE_KEY));
-    const flaggedProducer = findFlaggedProducer(
-      msg.coins,
-      flagged.map((f) => f.memberId),
-    );
-    if (flaggedProducer) {
-      throw new Error(`생성 회원 ${flaggedProducer}는 소명 대기 중입니다 — 소명 통과 후 수령할 수 있습니다`);
-    }
-    // 인간 한계 프로파일 검증 (지시서 3장): 같은 생성자의 기존 보유 코인과 합산 대조
-    const knownCoins = this.getState().coins.map((c) => c.coin);
-    for (const coin of msg.coins) {
-      const limits = checkHumanLimits(coin, knownCoins);
-      if (!limits.ok) {
-        const v = limits.violations[0]!;
-        throw new Error(`인간 한계 초과 코인 거부: ${v.date} ${v.totalDshv / 10} SHV (${v.kind})`);
-      }
-    }
 
     // 회원 증서 검증 (보안 감사 C-2): 캐시된 신뢰 루트로 WALK 코인의 증서를 검증한다.
-    // 오프라인 지불 수령 경로이므로 네트워크 없이 캐시만 읽는다. requireIntegrity 게이트가
-    // 켜지면 증서 없는(또는 integrity≠VERIFIED) 코인 수령을 거부한다 (기본 off — 점진 전환).
+    // 오프라인 지불 수령 경로이므로 네트워크 없이 캐시만 읽는다.
     const { loadCachedTrustedRootKeys, loadCachedTrustedIssuerKeys } = await import('./directory');
     const trustedRootKeys = await loadCachedTrustedRootKeys();
     // ★발행 키 캐시도 넘긴다: 넘기지 않으면 verifyCoin이 GRANT 계보를 무조건
     //   UNTRUSTED_ISSUER로 거부해, 엔젤 보너스·보물 코인을 대면으로 받을 수 없었다.
     const trustedIssuerKeys = await loadCachedTrustedIssuerKeys();
     const requireIntegrityToken = await this.#requireIntegrity();
+    const { packs } = await loadRulePacks();
 
-    const result = acceptPayment(this.#incomingCharge, msg, this.identity.signer, {
+    const review = buildReceiveReview({
+      charge: this.#incomingCharge,
+      payment: msg,
+      angelAddress: this.identity.address,
+      knownCoinIds,
+      flaggedMemberIds: flagged.map((f) => f.memberId),
+      knownCoins: this.getState().coins.map((c) => c.coin),
       trustedRootKeys,
       trustedIssuerKeys,
       requireIntegrityToken,
+      rulePacks: packs,
       now,
     });
-    for (const coin of result.coins) {
+    this.#incomingReview = { charge: this.#incomingCharge, payment: msg, review };
+    return review;
+  }
+
+  /** 검토 중인 지불 (화면 복원용). */
+  get pendingReview(): ReceiveReview | null {
+    return this.#incomingReview?.review ?? null;
+  }
+
+  /**
+   * ★2단계 (확정): 엔젤이 "받는다"를 고른 뒤에만 확인 서명을 만들고 저장한다.
+   * 수령을 막는 발견(BLOCK)이 하나라도 있으면 여기까지 오지 못한다.
+   */
+  async acceptReviewedPayment(now: number): Promise<ConfirmMessage> {
+    const pending = this.#incomingReview;
+    if (!pending) throw new Error('검토 중인 지불이 없습니다');
+    // BLOCK 검사와 "검토한 그 지불인가" 대조는 acceptReviewedPayment 안에 있다 —
+    // 호출부의 관습이 아니라 함수 자신이 지키게 해 두었다.
+    const { coins, confirm } = acceptReviewedPayment(
+      pending.review,
+      pending.charge,
+      pending.payment,
+      this.identity.signer,
+    );
+    for (const coin of coins) {
       await saveCoin(coin, rootOriginOf(coin, this.identity.memberId), now);
     }
     this.#incomingCharge = null;
+    this.#incomingReview = null;
     await this.#reloadCoins();
-    return result.confirm;
+    return confirm;
+  }
+
+  /**
+   * ★2단계 (거부): 엔젤이 "안 받겠다"를 골랐다.
+   *
+   * 아무것도 서명하지 않고 아무것도 저장하지 않으므로 **지불자의 코인은 그대로 산다.**
+   * 청구는 유지한다 — 같은 자리에서 다른 코인으로 다시 받을 수 있어야 한다.
+   */
+  declineReviewedPayment(): void {
+    this.#incomingReview = null;
   }
 
   // ── 마켓 (M3): 리스팅·에스크로 코인 커스터디 (지시서 0-8, 5장 4절) ──

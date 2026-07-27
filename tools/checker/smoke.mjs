@@ -52,4 +52,29 @@ if (정직?.verdict !== 'AUTHENTIC' || 위조?.verdict !== 'FORGED') {
   console.error('점검 실패');
   process.exit(1);
 }
+
+/**
+ * ★2026-07-27 적대검증에서 잡힌 것 — **배포본은 멀쩡한데 공개본이 낡아 있었다.**
+ *
+ * `apps/web-list/public/checker.html`은 이 파일의 손복사본이고(verify/page.tsx 주석),
+ * 실제로 마지막 복사 이후 두 번의 커밋을 놓쳐 **압축 지불 QR(SHV2.)을 못 읽는 감지기가
+ * 사이트에 걸려 있었다.** 사람이 기억해야만 지켜지는 규칙은 지켜지지 않는다 —
+ * 빌드 점검이 대신 기억한다.
+ */
+const 공개본 = new URL('../../apps/web-list/public/checker.html', import.meta.url);
+try {
+  const 사본 = readFileSync(공개본, 'utf8');
+  if (사본 !== html) {
+    console.error(
+      '점검 실패: apps/web-list/public/checker.html 이 배포본과 다르다 (사이트에 낡은 감지기가 걸린다).\n' +
+        '  고치는 법: cp "tools/checker/배포/쉬빌_위폐감지기.html" apps/web-list/public/checker.html',
+    );
+    process.exit(1);
+  }
+  console.log('공개 사본 일치: apps/web-list/public/checker.html');
+} catch (e) {
+  if (e.code !== 'ENOENT') throw e;
+  console.warn('주의: apps/web-list/public/checker.html 이 없다 — /checker.html 내려받기 버튼이 404가 된다.');
+}
+
 console.log('점검 통과');

@@ -21,6 +21,7 @@ const MENU: { screen: keyof MoreStackParamList; icon: string; title: string; des
   { screen: '스팟 보물', icon: '🎁', title: '스팟 보물 받기', desc: '트레일 근처 사업장이 숨긴 코인 · QR 스캔·선착순 1인 1회 · 코인 없으면 스탬프' },
   { screen: '스팟 운영', icon: '🏪', title: '스팟 보물 운영 (사업자)', desc: '내 코인을 예치(소각)해 손님에게 재배포 · 발행 아님, 총량 보존' },
   { screen: '내 포인트', icon: '🏠', title: '내 포인트 (엔젤)', desc: '엔젤 모드 전환 · 위치·서비스 등록 · 등록 보너스' },
+  { screen: '규칙 팩', icon: '🔎', title: '위폐 감지 규칙 팩', desc: '수령 검사에 내 기준을 더한다 · 팩이 무엇을 보는지 한국어로 확인 · 코어 판정은 못 건드린다' },
   { screen: '마켓', icon: '🪙', title: '코인 마켓', desc: '무정가 리스팅 · 가격 제시 · 에스크로 USDC 정산 (온라인 전용)' },
   { screen: '커뮤니티', icon: '🤝', title: '커뮤니티', desc: '클레임 구제 · 완주 인증 격려 코인 · 인정 투표 (온라인 전용)' },
   { screen: '복구 문구', icon: '🔑', title: '복구 문구 · 백업', desc: '12단어 복구 문구 확인 · 폰 분실 시 확정 코인 복구' },

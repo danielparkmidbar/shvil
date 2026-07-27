@@ -16,6 +16,8 @@ export * from './membership';
 export * from './coin';
 export * from './humanLimits';
 export * from './qr';
+export * from './qrCompress';
+export * from './qrFrames';
 export * from './encoding';
 export * from './courses';
 // 실물 세계 트레일 폴리라인 (생성 파일). 지갑도 오프라인 폴백으로 쓰므로

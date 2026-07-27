@@ -32,19 +32,27 @@ class WalkService {
     return this.#windowTimer !== null;
   }
 
-  /** 걷기 추적 시작. 반환: 실패 사유 (성공 시 null). */
+  /** 걷기 추적 시작. 반환: 실패 사유 (성공 시 null). 사유는 지갑 상태로도 내보낸다. */
   async start(): Promise<string | null> {
     if (this.running) return null;
+    wallet.setWalkRuntime({ walkStartError: null });
 
     const fg = await Location.requestForegroundPermissionsAsync();
-    if (fg.status !== 'granted') return '위치 권한이 필요합니다 (정밀 위치).';
+    if (fg.status !== 'granted') {
+      const reason = '위치 권한이 없어 걷기를 시작하지 못했습니다 (정밀 위치 필요).';
+      wallet.setWalkRuntime({ walkTracking: false, walkStartError: reason });
+      return reason;
+    }
     // 백그라운드 권한은 선택 — 거부해도 포그라운드 추적은 동작한다.
     await Location.requestBackgroundPermissionsAsync().catch(() => null);
 
+    // ★만보기 유무를 상태로 내보낸다. 없으면 걸어도 창이 전부 NO_STEPS로 기각되어
+    //   하루를 걷고 0 SHV가 된다 — 그 사실이 화면 어디에도 없었다.
     const pedometerAvailable = await Pedometer.isAvailableAsync().catch(() => false);
     if (pedometerAvailable) {
       await Pedometer.requestPermissionsAsync().catch(() => null);
     }
+    wallet.setWalkRuntime({ pedometerAvailable });
 
     // 코스·엔젤 포인트: 디렉토리 캐시 우선, 없으면 내장 데이터 (오프라인 동작 필수).
     // 캐시는 공개 지도 데이터다 — 사용자 이동 궤적 좌표가 아니다.
@@ -74,6 +82,11 @@ class WalkService {
     this.#locationSub = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
+        // ★`timeInterval`은 Expo SDK 57 문서상 **Android 전용**이다
+        //   (https://docs.expo.dev/versions/v57.0.0/sdk/location/). iOS에서는
+        //   distanceInterval만 살아 있어 픽스가 "이동 5 m마다" 나오고, GPS 흔들림 자체가
+        //   픽스를 추가로 만들어낸다. 그래서 iOS에서는 haversine 누적이 안드로이드보다 더
+        //   부푼다 — 회랑 안 창을 폴리라인 투영으로 재는 이번 변경이 그 차이도 함께 없앤다.
         timeInterval: 5_000,
         distanceInterval: 5,
       },
@@ -112,6 +125,9 @@ class WalkService {
       if (this.#engine) wallet.setLiveStatus(this.#engine.getLiveStatus(), true);
     }, STATUS_MS);
 
+    // ★즉시 true로 올린다. 예전에는 상태 타이머의 첫 틱(5초) 뒤에야 바뀌어서,
+    //   버튼을 누른 사람이 5초 동안 아무 반응도 못 봤다.
+    wallet.setWalkRuntime({ walkTracking: true, walkStartError: null });
     return null;
   }
 

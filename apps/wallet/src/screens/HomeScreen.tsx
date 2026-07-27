@@ -73,13 +73,22 @@ export function HomeScreen() {
         color={w.walkTracking ? colors.danger : colors.primary}
         onPress={() => {
           if (w.walkTracking) walkService.stop();
-          else {
-            void walkService.start().then((err) => {
-              if (err) console.warn(err);
-            });
-          }
+          else void walkService.start();
         }}
       />
+      {/* ★실패를 화면에 낸다 — 예전에는 console.warn뿐이라 권한을 거부한 사용자에게
+          아무 일도 일어나지 않았다(제3조). */}
+      {w.walkStartError && <Text style={styles.error}>⚠ {w.walkStartError}</Text>}
+      {w.walkTracking && w.pedometerAvailable === false && (
+        <Text style={styles.error}>
+          ⚠ 이 기기에서 만보기를 쓸 수 없습니다 — 걸음 수가 0이면 코스 위를 걸어도 생성이 0이 됩니다.
+        </Text>
+      )}
+      {w.lastMintMissedCertificate && (
+        <Text style={styles.warnText}>
+          ⚠ 마지막 정산에 회원 증서를 붙이지 못했습니다. 온라인에 한 번 연결하면 다음 정산부터 붙습니다.
+        </Text>
+      )}
       <Muted>회원 번호 {w.memberId} · 좌표는 판정 즉시 폐기됩니다 (남는 것은 거리뿐)</Muted>
     </ScrollView>
   );
@@ -98,6 +107,8 @@ const styles = StyleSheet.create({
   joinSub: { color: '#DCE7F5', fontSize: 12, marginTop: 2 },
   big: { fontSize: 28, fontWeight: '800', marginBottom: 6 },
   medium: { fontSize: 18, fontWeight: '600' },
+  error: { color: colors.danger, fontWeight: '700', marginTop: 8 },
+  warnText: { color: colors.warn, fontWeight: '700', marginTop: 8 },
   barTrack: {
     height: 10,
     backgroundColor: '#DDE3DD',

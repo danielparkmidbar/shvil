@@ -36,18 +36,27 @@ function mint(samples: Parameters<PendingWalkLedger['recordSample']>[0][]): {
 }
 
 heavy('6. 정확도 게이트 — 협곡·도시에서 창이 통째로 사라지는가', () => {
-  it('6-A 모든 픽스 accuracy=55 m (>50) → 창이 아예 생기지 않는다', async () => {
+  /**
+   * ★2026-07-27 수정 후 기대값이 뒤집혔다.
+   * 예전: accuracy > 50 이면 픽스를 통째로 버려 창이 0개가 됐다(1 m 차이의 절벽).
+   * 지금: 50 초과분만큼 회랑을 넓히고(상한 100 m), 200 m 초과만 버린다.
+   * 그래서 55 m 픽스로도 창이 살아남아야 한다 — 이 테스트가 그 회귀를 지킨다.
+   */
+  it('6-A 모든 픽스 accuracy=55 m (>50) → 이제는 창이 살아남는다', async () => {
     const path = rawTrail().slice(0, 400);
     const good = await simulateWalk(COURSES, path, { accuracyM: 45 });
     const bad = await simulateWalk(COURSES, path, { accuracyM: 55 });
+    const dropped = await simulateWalk(COURSES, path, { accuracyM: 250 });
     log(
       `6-A accuracy 45 m: 창 ${good.windows} / 방출거리 ${(good.measuredMeters / 1000).toFixed(2)} km → ${mint(good.samples).shv} SHV\n` +
         `6-A accuracy 55 m: 창 ${bad.windows} / 방출거리 ${(bad.measuredMeters / 1000).toFixed(2)} km → ${mint(bad.samples).shv} SHV ` +
-        `(maxAccuracyM=${DEFAULT_CORRIDOR_PARAMS.maxAccuracyM} 이므로 전 픽스 폐기)`,
+        `(신뢰 정확도 ${DEFAULT_CORRIDOR_PARAMS.maxAccuracyM} m 초과분 5 m 만큼 회랑 확대)\n` +
+        `6-A accuracy 250 m: 창 ${dropped.windows} (폐기 임계 ${DEFAULT_CORRIDOR_PARAMS.hardMaxAccuracyM} m 초과 — 여전히 버린다)`,
     );
     expect(good.windows).toBeGreaterThan(0);
-    expect(bad.windows).toBe(0);
-    expect(mint(bad.samples).shv).toBe(0);
+    expect(bad.windows).toBeGreaterThan(0);
+    expect(mint(bad.samples).shv).toBeGreaterThan(0);
+    expect(dropped.windows).toBe(0);
   }, 300_000);
 
   it('6-B 창의 일부 픽스만 정확도 미달 — 거리가 얼마나 남는가', () => {

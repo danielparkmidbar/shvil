@@ -950,6 +950,229 @@ function checkGeometry({ sectionGapsM, wayJumpM, totalM, droppedM, gapSegments =
   return { problems, totalJumpM, ratio, worstSectionGapM: worst, dropRatio };
 }
 
+// ── 구간 지형 자동 분할 (OSM highway 태그) ────────────────────────
+//
+// ★2026-07-27까지 이 스크립트는 코스 전체에 매니페스트의 `defaultTerrain` 하나를
+//  통째로 찍었다. 그래서 쉬빌 이스라엘 1,055.3 km 전 구간이 회랑 메타 **1개**
+//  (OPEN 50 m)였다. 사람이 손으로 구간을 나누게 하는 것은 답이 아니다 — 어디를
+//  URBAN(150 m)으로 정하느냐가 곧 **어디서 코인이 더 쉽게 생성되는가**이고,
+//  그것을 사람의 눈대중에 맡기면 화폐 규칙이 권력이 된다(제3조).
+//
+// 그래서 OSM 자신의 `highway` 태그가 나누게 한다. 우리는 태그를 읽을 뿐이다.
+//
+// ── 왜 URBAN만 넓히고 나머지는 그대로 두는가 ──────────────────────────
+// 실측(2026-07-27): 이스라엘 관계 282071의 way 2,468개에 highway 태그가 있고,
+// 배포 폴리라인 5,568선분에 매핑하면 track 51.1% / path 38.1% / footway 3.6% /
+// unclassified 2.1% / residential 1.6% / tertiary 1.5% / service 0.9% … 이다.
+// ★"텔아비브~하이파 도시대 148.6 km"라는 통설은 틀렸다 — 그 위도대 259.6 km 중
+//  실제 시가지 태그는 **26 km(2.5%)뿐**이다. 이스라엘 국립 트레일은 도시를 피해 간다.
+//  148 km에 150 m 회랑을 주면 근거 없이 발행 회랑 면적이 3배가 된다.
+//
+// 시가지(residential/service/living_street/pedestrian)만 URBAN(150 m)으로 올린다.
+// 근거: 단순화 오차 최대 20.3 m + 도심 다중경로 횡방향 p95 22.8~34.1 m ≈ 55 m가
+// 필요한데 OPEN 50 m로는 모자란다(실측). 나머지(트레일·차도)는 **건드리지 않는다** —
+// 태그만으로 FOREST/MOUNTAIN을 가를 근거가 없고(고도 데이터 필요), 근거 없이 넓히면
+// 그만큼 발행이 늘어난다. 모르는 것은 넓히지 않는다.
+//
+// ★회랑은 **넓히는 방향으로만** 바꾼다. 좁히면 그 코스에서 이미 발행된 코인이
+//  소급해서 "규칙 밖"이 된다(docs/소급무효화_경로.md). 아래 widerTerrain가 강제한다.
+
+/** 시가지 표식 — 이 태그가 붙은 길 옆은 건물·차량이 있다고 본다. */
+const URBAN_HIGHWAY = new Set(['residential', 'living_street', 'pedestrian', 'service']);
+
+/** 회랑 반폭 순위 (좁은 → 넓은). packages/shared/src/courses.ts 의 표와 같은 순서다. */
+const TERRAIN_RANK = { OPEN: 0, FOREST: 1, MOUNTAIN: 2, URBAN: 3 };
+
+/** 두 지형 중 **회랑이 넓은 쪽**. 자동 분할이 기존 값을 좁히지 못하게 한다. */
+function widerTerrain(a, b) {
+  return (TERRAIN_RANK[a] ?? 0) >= (TERRAIN_RANK[b] ?? 0) ? a : b;
+}
+
+function terrainFromHighway(tag) {
+  if (!tag) return null;
+  return URBAN_HIGHWAY.has(tag) ? 'URBAN' : 'OPEN';
+}
+
+/**
+ * way 태그 질의 — 기하 질의(`out geom`)와 **캐시를 따로 둔다.**
+ * 관계 멤버 기하에는 way 태그가 실려 오지 않으므로 한 번 더 물어야 하는데,
+ * 같은 캐시 파일에 넣으면 기존 기하 캐시가 통째로 무효가 된다(1,000km 재취득).
+ * 태그 질의는 응답이 작아 따로 받는 편이 싸다.
+ */
+async function fetchWayTags(relationId) {
+  const cachePath = join(CACHE_DIR, `waytags-${relationId}.json`);
+  if (existsSync(cachePath)) {
+    const cached = JSON.parse(readFileSync(cachePath, 'utf-8'));
+    console.log(`    (태그 캐시 사용 — way ${(cached.elements ?? []).length}개)`);
+    return cached;
+  }
+  const query =
+    `[out:json][timeout:900];` +
+    `rel(${relationId})->.a;rel(r.a)->.b;rel(r.b)->.c;(.a;.b;.c;)->.rels;` +
+    `way(r.rels);out tags;`;
+  let lastErr = '';
+  for (const ep of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(ep, {
+        method: 'POST',
+        headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ data: query }),
+        signal: AbortSignal.timeout(15 * 60_000),
+      });
+      if (!res.ok) { lastErr = `${ep} → HTTP ${res.status}`; continue; }
+      const text = await res.text();
+      if (!text.trimStart().startsWith('{')) { lastErr = `${ep} → JSON이 아닌 응답`; continue; }
+      const json = JSON.parse(text);
+      const bad = validateOverpass(json);
+      if (bad) { lastErr = `${ep} → ${bad}`; continue; }
+      try {
+        const { mkdirSync } = await import('node:fs');
+        mkdirSync(CACHE_DIR, { recursive: true });
+        writeFileSync(cachePath, JSON.stringify(json), 'utf-8');
+      } catch { /* 캐시 실패는 무해 */ }
+      console.log(`    ← 태그 ${ep} / way ${(json.elements ?? []).length}개`);
+      return json;
+    } catch (e) {
+      lastErr = `${ep} → ${e.name}: ${e.message}`;
+    }
+  }
+  console.log(`    ⚠ way 태그 취득 실패 (${lastErr}) — 지형 자동 분할을 건너뛴다`);
+  return null;
+}
+
+/**
+ * 원본 way 선분을 격자(약 1.1 km)에 담아 최근접 조회를 상수 시간에 가깝게 만든다.
+ * 격자 없이 하면 5,568선분 × 44,161점 = 2.5억 회다.
+ */
+function buildWaySegmentIndex(overpassJson) {
+  const grid = new Map();
+  const cell = (lat, lon) => `${Math.floor(lat * 100)}:${Math.floor(lon * 100)}`;
+  let segCount = 0;
+  for (const el of overpassJson.elements ?? []) {
+    if (el.type !== 'relation') continue;
+    for (const mem of el.members ?? []) {
+      if (mem.type !== 'way' || !Array.isArray(mem.geometry)) continue;
+      const g = mem.geometry;
+      for (let i = 0; i + 1 < g.length; i++) {
+        const rec = { wayId: mem.ref, a: g[i], b: g[i + 1] };
+        segCount++;
+        for (const k of new Set([cell(g[i].lat, g[i].lon), cell(g[i + 1].lat, g[i + 1].lon)])) {
+          let bucket = grid.get(k);
+          if (!bucket) grid.set(k, (bucket = []));
+          bucket.push(rec);
+        }
+      }
+    }
+  }
+  return {
+    segCount,
+    nearestWayId(p) {
+      const ci = Math.floor(p.lat * 100);
+      const cj = Math.floor(p.lon * 100);
+      let best = Infinity;
+      let bestId = null;
+      for (let di = -1; di <= 1; di++) {
+        for (let dj = -1; dj <= 1; dj++) {
+          const bucket = grid.get(`${ci + di}:${cj + dj}`);
+          if (!bucket) continue;
+          for (const rec of bucket) {
+            const d = perpDistanceM(p, rec.a, rec.b);
+            if (d < best) { best = d; bestId = rec.wayId; }
+          }
+        }
+      }
+      return { wayId: bestId, distanceM: best };
+    },
+  };
+}
+
+/**
+ * 선분별 지형 → 런렝스 구간 메타.
+ *
+ * ── 왜 "짧은 런 흡수"가 아니라 "팽창"인가 (실측으로 갈아엎었다) ─────────
+ * 처음에는 짧은 런을 이웃에 흡수시키되 **넓은 쪽 지형을 남기게** 했다. 그것이
+ * 이스라엘에서 URBAN을 25.9 km → **226.3 km로 부풀렸다**(실측). 60 m짜리 서비스
+ * 도로 하나가 옆의 5 km 트레일을 통째로 URBAN(회랑 150 m)으로 만들었기 때문이다.
+ * 즉 잡음 하나가 발행 회랑을 3배로 여는 지렛대가 됐다 — 정확히 반대의 실패다.
+ *
+ * 그래서 흡수를 버리고 **팽창(dilation)** 을 쓴다: URBAN 선분의 앞뒤 dilateM 만큼을
+ * 함께 URBAN으로 본다. 근거는 물리다 — 주택가 도로 옆을 지나면 그 직전·직후에도
+ * 건물 반사(다중경로)가 남는다. 부작용도 예측 가능하다: 늘어나는 양이 URBAN 런 수 ×
+ * 2 × dilateM 로 **상한이 있다**(흡수는 상한이 없었다).
+ * 팽창이 끝나면 인접한 같은 지형이 자연히 합쳐져 구간 수도 함께 준다.
+ */
+function runLengthSegments(terrains, polyline, difficultyTenths, dilateM = 150) {
+  const n = terrains.length;
+  const segLenM = new Array(n);
+  for (let i = 0; i < n; i++) segLenM[i] = haversineM(polyline[i], polyline[i + 1]);
+
+  // 좁은 지형 위에 넓은 지형을 dilateM 만큼 번지게 한다 (넓히는 방향으로만 바뀐다).
+  const out = terrains.slice();
+  for (let i = 0; i < n; i++) {
+    if ((TERRAIN_RANK[terrains[i]] ?? 0) <= 0) continue;
+    let d = 0;
+    for (let j = i - 1; j >= 0 && d < dilateM; j--) {
+      out[j] = widerTerrain(out[j], terrains[i]);
+      d += segLenM[j];
+    }
+    d = 0;
+    for (let j = i + 1; j < n && d < dilateM; j++) {
+      out[j] = widerTerrain(out[j], terrains[i]);
+      d += segLenM[j];
+    }
+  }
+
+  const runs = [];
+  for (let i = 0; i < n; i++) {
+    const last = runs[runs.length - 1];
+    if (last && last.terrain === out[i]) last.toIdx = i + 1;
+    else runs.push({ fromIdx: i, toIdx: i + 1, terrain: out[i] });
+  }
+  return runs.map((r) => ({ fromIdx: r.fromIdx, toIdx: r.toIdx, terrain: r.terrain, difficultyTenths }));
+}
+
+/**
+ * 배포 폴리라인의 구간 메타를 만든다.
+ * 태그를 못 받았거나 매핑이 실패하면 **종전 그대로** defaultTerrain 하나를 낸다.
+ */
+async function buildTerrainSegments(t, geomJson, polyline) {
+  const single = [{ fromIdx: 0, toIdx: polyline.length - 1, terrain: t.defaultTerrain, difficultyTenths: t.difficultyTenths }];
+  const tagsJson = await fetchWayTags(t.relationId);
+  if (!tagsJson) return { segments: single, note: '태그 미취득 — 단일 구간' };
+  const tagById = new Map();
+  for (const el of tagsJson.elements ?? []) {
+    if (el.type === 'way' && el.tags) tagById.set(el.id, el.tags.highway ?? null);
+  }
+  if (tagById.size === 0) return { segments: single, note: 'highway 태그 없음 — 단일 구간' };
+
+  const index = buildWaySegmentIndex(geomJson);
+  const terrains = [];
+  const dists = [];
+  let matched = 0;
+  for (let i = 0; i + 1 < polyline.length; i++) {
+    const mid = { lat: (polyline[i].lat + polyline[i + 1].lat) / 2, lon: (polyline[i].lon + polyline[i + 1].lon) / 2 };
+    const { wayId, distanceM } = index.nearestWayId(mid);
+    const auto = wayId != null ? terrainFromHighway(tagById.get(wayId)) : null;
+    if (auto) { matched++; dists.push(distanceM); }
+    // ★자동 판정은 매니페스트 기본값을 **넓히기만** 한다.
+    terrains.push(widerTerrain(t.defaultTerrain, auto ?? t.defaultTerrain));
+  }
+  if (matched === 0) return { segments: single, note: '매핑 실패 — 단일 구간' };
+  const segments = runLengthSegments(terrains, polyline, t.difficultyTenths);
+  const counts = {};
+  for (const s of segments) {
+    let m = 0;
+    for (let i = s.fromIdx; i < s.toIdx && i + 1 < polyline.length; i++) m += haversineM(polyline[i], polyline[i + 1]);
+    counts[s.terrain] = (counts[s.terrain] ?? 0) + m;
+  }
+  dists.sort((a, b) => a - b);
+  const note =
+    `구간 ${segments.length}개 / 매핑 ${matched}/${terrains.length}선분 ` +
+    `(중앙 ${dists.length ? dists[dists.length >> 1].toFixed(1) : '?'} m) / ` +
+    Object.entries(counts).map(([k, m]) => `${k} ${(m / 1000).toFixed(1)}km`).join(' · ');
+  return { segments, note };
+}
+
 // ── 본체 ──────────────────────────────────────────────────────────
 
 const only = process.argv[2];
@@ -1072,9 +1295,15 @@ for (const t of targets) {
       }
     }
 
+    // ── 구간 지형 자동 분할 (사람이 손으로 정하지 않는다) ────────────────
+    const terrain = await buildTerrainSegments(t, json, simplified);
+    console.log(`    지형: ${terrain.note}`);
+
     built.push({
       ...t,
       polyline: simplified,
+      segments: terrain.segments,
+      terrainNote: terrain.note,
       actualKm: km,
       rawKm,
       wayCount,
@@ -1191,13 +1420,22 @@ const body = emitted
     if (!e.fresh) return e.code; // 이번 실행이 만들지 않은 코스 — 있는 그대로 보존
     const b = e.fresh;
     const pts = b.polyline.map((p) => `{lat:${p.lat.toFixed(5)},lon:${p.lon.toFixed(5)}}`).join(',');
-    return `/** ${b.name} — 약 ${b.actualKm.toFixed(0)}km, ${b.polyline.length}점 (OSM rel ${b.relationId}). */
+    const segs = (b.segments ?? [
+      { fromIdx: 0, toIdx: b.polyline.length - 1, terrain: b.defaultTerrain, difficultyTenths: b.difficultyTenths },
+    ])
+      .map(
+        (s) =>
+          `{fromIdx:${s.fromIdx},toIdx:${s.toIdx},terrain:${JSON.stringify(s.terrain)},difficultyTenths:${s.difficultyTenths}}`,
+      )
+      .join(',');
+    // ★doc 주석은 **한 줄**로 유지한다 — extractCourseBlocks가 한 줄짜리만 보존한다.
+    return `/** ${b.name} — 약 ${b.actualKm.toFixed(0)}km, ${b.polyline.length}점 (OSM rel ${b.relationId}) / 지형: ${b.terrainNote ?? '단일 구간'} */
 export const ${e.varName}: CourseData = {
   courseId: ${JSON.stringify(b.courseId)},
   name: ${JSON.stringify(b.name)},
   version: 1,
   polyline: [${pts}],
-  segments: [{ fromIdx: 0, toIdx: ${b.polyline.length - 1}, terrain: ${JSON.stringify(b.defaultTerrain)}, difficultyTenths: ${b.difficultyTenths} }],
+  segments: [${segs}],
 };
 `;
   })

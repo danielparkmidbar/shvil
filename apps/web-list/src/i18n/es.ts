@@ -399,7 +399,7 @@ export const es: Strings = {
         'Los indicios estadísticos nunca suman un veredicto de falsificación, por muchos que se acumulen. Un indicio es motivo para pedir una explicación, nunca para condenar a una persona.',
       ],
     },
-    pastePlaceholder: 'Pega el JSON de una moneda, una exportación de billetera o un QR de pago (SHV1.…)',
+    pastePlaceholder: 'Pega el JSON de una moneda, una exportación de billetera o un QR de pago (SHV1.… o SHV2.…)',
     uploadLabel: 'Subir archivo',
     checkButton: 'Verificar',
     clearButton: 'Limpiar',

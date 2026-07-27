@@ -94,6 +94,50 @@ export function WalkScreen() {
         )}
       </Card>
 
+      {/*
+        ★GPS 상태 (2026-07-27) — "왜 안 쌓이는지"를 사용자가 볼 수 있어야 한다.
+        예전에는 정확도가 나쁘면 픽스가 조용히 버려지고 창이 통째로 사라졌는데,
+        화면은 여전히 "코스 위 — 인정 중"을 띄우고 있었다.
+      */}
+      <Card>
+        <Title>GPS 상태</Title>
+        {!w.walkTracking ? (
+          <Muted>걷기 추적을 시작하면 표시됩니다.</Muted>
+        ) : !w.liveStatus ? (
+          <Muted>첫 위치를 기다리는 중…</Muted>
+        ) : (
+          <>
+            <Text style={w.liveStatus.lastFixAccepted ? styles.gpsOk : styles.warn}>
+              {w.liveStatus.accuracyM === null
+                ? '정확도 정보 없음'
+                : `정확도 ±${w.liveStatus.accuracyM} m — ${
+                    w.liveStatus.lastFixAccepted ? '판정에 반영 중' : '너무 부정확해 이 위치는 제외'
+                  }`}
+            </Text>
+            {w.liveStatus.corridorSlackM > 0 && (
+              <Muted>
+                정확도가 낮아 회랑을 {w.liveStatus.corridorSlackM} m 넓혀 판정합니다 (버리지 않습니다).
+              </Muted>
+            )}
+            <Muted>
+              이번 창 위치 {w.liveStatus.windowFixes}개 (최소 {w.liveStatus.minFixesPerWindow}개 필요)
+              {w.liveStatus.droppedFixes > 0 ? ` · 제외 ${w.liveStatus.droppedFixes}개` : ''}
+            </Muted>
+            <Muted>
+              {w.liveStatus.distanceMeasure === 'PROJECTED'
+                ? '거리 계측: 코스 선 위 진행량 (GPS 흔들림이 상쇄됩니다)'
+                : '거리 계측: 위치 사이 직선 합 (회랑 밖이라 기준 선이 없습니다)'}
+            </Muted>
+          </>
+        )}
+        {w.pedometerAvailable === false && (
+          <Text style={styles.warn}>
+            ⚠ 만보기를 쓸 수 없습니다 — 걸음 수가 0이면 창이 전부 기각되어 생성이 0이 됩니다.
+          </Text>
+        )}
+        {w.walkStartError && <Text style={styles.warn}>⚠ {w.walkStartError}</Text>}
+      </Card>
+
       {/* 보물 마이닝 (M9) — 존 근접 시에만 나타나는 선택 계층. 보물이 없으면 null. */}
       <TreasureSection />
 
@@ -147,6 +191,7 @@ const styles = StyleSheet.create({
   modeTextActive: { color: 'white' },
   bikeTag: { color: colors.detour, fontWeight: '700', marginBottom: 6 },
   warn: { color: colors.danger, fontWeight: '700', marginTop: 6 },
+  gpsOk: { color: colors.primary, fontWeight: '700', marginBottom: 4 },
   claimLink: { backgroundColor: colors.card, borderRadius: 12, padding: 14, marginTop: 12, gap: 4 },
   claimLinkText: { fontWeight: '700', color: colors.detour },
 });

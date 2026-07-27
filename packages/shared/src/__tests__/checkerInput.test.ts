@@ -38,16 +38,38 @@ describe('parseCheckerInput', () => {
     expect(r.coins).toHaveLength(1);
   });
 
-  it('지불 QR(SHV1.)에서 코인을 꺼낸다', () => {
+  /**
+   * ★2026-07-27 적대검증에서 재현된 결함의 회귀 시험.
+   *
+   * 이 시험의 이름은 원래 "지불 QR(SHV1.)에서 코인을 꺼낸다"였는데, 정작 검사하는 것은
+   * `encodeQr`가 실제로 내는 형식(짧은 쪽 = 거의 언제나 SHV2)이었다. 이름이 SHV1을
+   * 가리키고 있으니 **SHV2가 깨졌을 때 무엇이 깨진 것인지 이름이 말해 주지 않았다.**
+   * 두 형식을 각각 못박아, 어느 쪽이 끊겨도 그 이름이 화면에 뜨게 한다.
+   */
+  function paymentQrPair() {
     const c = coin(12);
     const charge = buildCharge(
       { chargeId: 'ch-1', angelMemberId: 'm-angel', amountDshv: c.amountDshv, serviceType: 'BED', createdAt: Date.now() },
       angel,
     );
     const payment = buildPayment(charge, [c], 'm-alice', alice, Date.now());
-    const r = parseCheckerInput(encodeQr(payment));
+    return { coinId: c.id, current: encodeQr(payment), legacy: encodeQr(payment, { format: 'legacy' }) };
+  }
+
+  it('★지갑이 실제로 만드는 지불 QR(압축 SHV2.)에서 코인을 꺼낸다', () => {
+    const { coinId, current } = paymentQrPair();
+    expect(current.startsWith('SHV2.')).toBe(true); // 이 전제가 깨지면 아래 시험의 의미도 바뀐다
+    const r = parseCheckerInput(current);
     expect(r.source).toBe('QR_PAYMENT');
-    expect(r.coins[0]!.id).toBe(c.id);
+    expect(r.coins[0]!.id).toBe(coinId);
+  });
+
+  it('옛 형식 지불 QR(SHV1.)도 영원히 읽는다', () => {
+    const { coinId, legacy } = paymentQrPair();
+    expect(legacy.startsWith('SHV1.')).toBe(true);
+    const r = parseCheckerInput(legacy);
+    expect(r.source).toBe('QR_PAYMENT');
+    expect(r.coins[0]!.id).toBe(coinId);
   });
 
   it('청구 QR에는 코인이 없다 — 명확한 안내로 거절', () => {

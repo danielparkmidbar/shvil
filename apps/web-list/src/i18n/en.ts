@@ -392,7 +392,7 @@ export const en: Strings = {
         'Statistical indications never add up to a forged verdict, however many stack up. An indication is grounds to ask for an explanation, never grounds to condemn a person.',
       ],
     },
-    pastePlaceholder: 'Paste coin JSON, a wallet export, or a payment QR payload (SHV1.…)',
+    pastePlaceholder: 'Paste coin JSON, a wallet export, or a payment QR payload (SHV1.… or SHV2.…)',
     uploadLabel: 'Upload file',
     checkButton: 'Check',
     clearButton: 'Clear',

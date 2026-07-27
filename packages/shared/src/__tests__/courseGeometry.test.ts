@@ -12,6 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_CORRIDOR_HALF_WIDTH_M,
   MAX_CORRIDOR_HALF_WIDTH_M,
   MIN_CORRIDOR_HALF_WIDTH_M,
   MAX_COURSE_POLYLINE_POINTS,
@@ -75,7 +76,53 @@ describe('회랑 반폭 클램프 — 데이터가 화폐 규칙을 정하지 �
       }
     }
     expect(corridorHalfWidthAt(SHVIL_ISRAEL, 0)).toBe(50); // 전 구간 OPEN
-    expect(corridorHalfWidthAt(BUNDANG_BULGOKSAN_SAMPLE, 3)).toBe(120); // 명시값 유지
+    expect(corridorHalfWidthAt(BUNDANG_BULGOKSAN_SAMPLE, 0)).toBe(150); // 시가지 구간 = URBAN 기본
+    expect(corridorHalfWidthAt(BUNDANG_BULGOKSAN_SAMPLE, 40)).toBe(120); // 산악 구간 명시값 유지
+  });
+});
+
+/**
+ * ★회랑 반폭을 **좁히는 변경을 막는 바닥선**.
+ *
+ * docs/소급무효화_경로.md 의 확인된 경로: 회랑을 좁히면 그 코스에서 이미 발행된
+ * 코인이 "지금 규칙으로는 만들어질 수 없는 코인"이 된다. 검증기가 기하를 다시 보지
+ * 않으므로 오늘 당장 무효가 되지는 않지만, 사후 감사·소명 절차가 옛 코인을 의심하게
+ * 만든다 — 새 규칙이 옛 화폐를 가짜로 만드는 방향이다.
+ *
+ * 그래서 **표의 값과 배포 코스의 명시값을 여기 못박는다.** 넓히는 변경(값이 커지는
+ * 방향)은 이 시험을 고치면서 통과시키면 되고, 좁히는 변경은 반드시 여기서 걸린다.
+ * 지형 표를 늘리는 것(새 TerrainType)도 여기서 알아차리게 된다.
+ */
+describe('회랑 반폭 바닥선 — 좁히는 변경은 여기서 걸린다 (소급무효화 방지)', () => {
+  /** 2026-07-27 기준값. 값을 **내리는** 수정은 하지 마라. */
+  const FLOOR: Record<string, number> = { OPEN: 50, FOREST: 75, MOUNTAIN: 100, URBAN: 150 };
+
+  it('지형별 기본 회랑이 기준값 이상이다', () => {
+    for (const [terrain, floor] of Object.entries(FLOOR)) {
+      const actual = DEFAULT_CORRIDOR_HALF_WIDTH_M[terrain as keyof typeof DEFAULT_CORRIDOR_HALF_WIDTH_M];
+      expect(actual, `${terrain} 회랑이 ${floor}m 아래로 내려갔다 — 옛 코인이 소급 의심을 받는다`).toBeGreaterThanOrEqual(
+        floor,
+      );
+    }
+    // 표에 지형이 추가·삭제되면 바닥선을 다시 정해야 한다.
+    expect(Object.keys(DEFAULT_CORRIDOR_HALF_WIDTH_M).sort()).toEqual(Object.keys(FLOOR).sort());
+  });
+
+  it('대역 상한/하한 자체도 좁아지지 않았다', () => {
+    expect(MAX_CORRIDOR_HALF_WIDTH_M).toBeGreaterThanOrEqual(150);
+    expect(MIN_CORRIDOR_HALF_WIDTH_M).toBeLessThanOrEqual(10);
+  });
+
+  it('배포 중인 코스의 실효 회랑이 기준값 이상이다', () => {
+    // 2026-07-27 실효값. 코스 데이터를 고치다가 조용히 좁아지는 것을 막는다.
+    const expected: [CourseData, number, number][] = [
+      [SHVIL_ISRAEL, 0, 50],
+      [BUNDANG_BULGOKSAN_SAMPLE, 0, 150],
+      [BUNDANG_BULGOKSAN_SAMPLE, 40, 120],
+    ];
+    for (const [c, idx, floor] of expected) {
+      expect(corridorHalfWidthAt(c, idx), `${c.courseId} 선분 ${idx}의 회랑이 좁아졌다`).toBeGreaterThanOrEqual(floor);
+    }
   });
 });
 

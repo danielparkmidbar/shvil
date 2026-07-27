@@ -35,6 +35,7 @@ import { SpotSponsorScreen } from './src/screens/SpotSponsorScreen';
 import { GuestsScreen } from './src/screens/GuestsScreen';
 import { GuestbookScreen } from './src/screens/GuestbookScreen';
 import { MyAngelPointScreen } from './src/screens/MyAngelPointScreen';
+import { RulePackScreen } from './src/screens/RulePackScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
 import { CommunityScreen } from './src/screens/CommunityScreen';
 import { RecoveryScreen } from './src/screens/RecoveryScreen';
@@ -88,6 +89,7 @@ function MoreStackScreen() {
       <MoreStack.Screen name="스팟 보물" component={SpotScreen} options={{ headerTitle: '스팟 보물 받기' }} />
       <MoreStack.Screen name="스팟 운영" component={SpotSponsorScreen} options={{ headerTitle: '스팟 보물 운영 (사업자)' }} />
       <MoreStack.Screen name="내 포인트" component={MyAngelPointScreen} options={{ headerTitle: '내 포인트 (엔젤)' }} />
+      <MoreStack.Screen name="규칙 팩" component={RulePackScreen} options={{ headerTitle: '위폐 감지 규칙 팩' }} />
       <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
       <MoreStack.Screen name="커뮤니티" component={CommunityScreen} options={{ headerTitle: '커뮤니티' }} />
       <MoreStack.Screen name="복구 문구" component={RecoveryScreen} options={{ headerTitle: '복구 문구 · 백업' }} />

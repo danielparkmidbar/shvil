@@ -38,6 +38,8 @@ export type MoreStackParamList = {
   /** M12: 스팟 보물 운영 (사업자) — 스팟 생성·코인 예치(소각)·회계. */
   '스팟 운영': undefined;
   '내 포인트': undefined;
+  /** M16 배선: 위폐 감지 규칙 팩 — 내 기준을 얹고 뺀다 (코어 판정은 못 건드린다). */
+  '규칙 팩': undefined;
   마켓: undefined;
   커뮤니티: undefined;
   '복구 문구': undefined;

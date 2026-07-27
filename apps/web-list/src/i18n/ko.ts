@@ -382,7 +382,7 @@ export const ko: Strings = {
         '통계적 정황은 몇 개가 겹쳐도 위조 판정이 되지 않습니다. 정황은 소명을 요청할 근거일 뿐, 사람을 단정하는 근거가 아닙니다.',
       ],
     },
-    pastePlaceholder: '코인 JSON, 지갑 내보내기, 또는 지불 QR 내용(SHV1.…)을 붙여넣으세요',
+    pastePlaceholder: '코인 JSON, 지갑 내보내기, 또는 지불 QR 내용(SHV1.… 또는 SHV2.…)을 붙여넣으세요',
     uploadLabel: '파일 업로드',
     checkButton: '검사하기',
     clearButton: '지우기',

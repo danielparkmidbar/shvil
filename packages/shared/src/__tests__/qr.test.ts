@@ -145,3 +145,55 @@ describe('QR 왕복 지불 — 서버 개입 0회, 통신 불요 (지시서 2.3)
     expect(() => decodeQr('https://evil.example/qr')).toThrow(/unknown prefix/);
   });
 });
+
+describe('QR 전송 형식 — 압축 도입 후에도 옛 것을 계속 읽는다', () => {
+  /**
+   * ★2026-07-27 압축(`SHV2.`) 도입 **이전**에 만들어진 실제 청구 QR 문자열이다.
+   *  이 문자열은 새 코드가 존재하지 않던 시절의 산출물이므로, 이것이 계속 읽힌다는
+   *  것이 곧 "새 규칙이 옛 화폐를 가짜로 만들지 않는다"의 증거다.
+   *  ⚠이 상수를 새로 만들어 갱신하지 마라 — 갱신하는 순간 시험의 의미가 사라진다.
+   */
+  const LEGACY_CHARGE_QR =
+    'SHV1.eyJ2IjoxLCJ0eXBlIjoic2h2aWwvY2hhcmdlIiwiY2hhcmdlSWQiOiJjaGdfbGVnYWN5X2ZpeHR1cmUiLCJhbmdlbE1lbWJlcklkIjoiU0hWLTIwMjYtMDAwOTk5IiwiYW5nZWxQdWJsaWNLZXkiOiJhMDlhYTVmNDdhNjc1OTgwMmZmOTU1ZjhkYzJkMmExNGE1Yzk5ZDIzYmU5N2Y4NjQxMjdmZjkzODM0NTVhNGYwIiwiYW1vdW50RHNodiI6MzAsInNlcnZpY2VUeXBlIjoiU0hPV0VSIiwiY3JlYXRlZEF0IjoxNzc3NzAxNjAwMDAwLCJzaWduYXR1cmUiOiJjMGE2N2UxMGU4MzQ1M2Y4NDJhMjRmNWFhYmQzN2NhYjNjMDNhZWExZDFiMTQ4ZTMzZGZkOTRiZDIzY2M4ZDAzMDU4OTc0NzY5ZWI4ZDU3M2UxMzliZDg0ZDljN2NkOTA3MmEyYWYyYzk1N2EyNjVhMzNhMzM5MjExZGY3Y2QwMyJ9';
+
+  it('★옛 형식(SHV1.) 청구 QR이 그대로 읽히고 서명도 그대로 검증된다', () => {
+    const decoded = decodeQr(LEGACY_CHARGE_QR);
+    if (decoded.type !== 'shvil/charge') throw new Error('unexpected');
+    expect(decoded.chargeId).toBe('chg_legacy_fixture');
+    expect(decoded.angelMemberId).toBe('SHV-2026-000999');
+    expect(decoded.amountDshv).toBe(30);
+    // 서명 검증까지 통과해야 한다 — 전송 인코딩이 서명 대상을 건드리지 않았다는 증거.
+    expect(verifyCharge(decoded)).toBe(true);
+  });
+
+  it('옛 형식으로 강제 인코딩한 결과도 그대로 왕복한다 (옛 지갑 호환 시험용)', () => {
+    const charge = buildCharge(
+      { chargeId: 'chg-legacy-2', angelMemberId: 'm-angel', amountDshv: 50, serviceType: '샤워 🚿', createdAt: T0 },
+      angel,
+    );
+    const legacy = encodeQr(charge, { format: 'legacy' });
+    expect(legacy.startsWith('SHV1.')).toBe(true);
+    expect(decodeQr(legacy)).toEqual(charge);
+  });
+
+  it('손상된 압축 QR은 조용히 다른 메시지가 되지 않고 거부된다', () => {
+    const charge = buildCharge(
+      { chargeId: 'chg-corrupt', angelMemberId: 'm-angel', amountDshv: 50, createdAt: T0 },
+      angel,
+    );
+    const wallet = mintCoinFor('m-list', list);
+    const [pay] = splitCoin(wallet, list, [50, wallet.amountDshv - 50], T0);
+    const qr = encodeQr(buildPayment(charge, [pay!], 'm-list', list, T0 + 1000));
+    expect(qr.startsWith('SHV2.')).toBe(true);
+    // 뒤를 잘라 낸다 → 반드시 던진다(멈추거나 엉뚱한 메시지를 만들지 않는다).
+    let rejected = 0;
+    for (const cut of [10, 50, 200, qr.length - 1]) {
+      try {
+        decodeQr(qr.slice(0, cut));
+      } catch {
+        rejected += 1;
+      }
+    }
+    expect(rejected).toBe(4);
+  });
+});

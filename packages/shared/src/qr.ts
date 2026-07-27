@@ -5,8 +5,15 @@
  * 엔젤 역스캔·확인 서명 → 완결. 서버 개입 0회, 통신 불요, 승인 불요.
  * 광야 한복판에서도 동작한다.
  *
- * M1 참고: 코인 수가 많으면 QR 용량을 넘을 수 있다 — 앱 계층에서 분할 프레임
- * (animated QR) 또는 BLE/NFC 폴백을 얹는다. 스키마 자체는 전송 수단 중립.
+ * ★용량 (2026-07-27 실측으로 갱신):
+ *  - 청구·확인 QR은 원래 여유롭다(515~591자).
+ *  - 지불 QR만 넘쳤다. `SHV2.` 압축 전송으로 45~81% 줄어, 불곡산 이전 3회까지,
+ *    이스라엘 60일 코인, 소액 코인 4개 묶음(식사 5 SHV)까지 **한 장에 들어간다**.
+ *  - 그래도 **상한이 사라진 것은 아니다.** 이전 5회 이상 / 코인 5개 이상 묶음은
+ *    여전히 한 장을 넘는다. 헌법 제7조(순환)는 손바뀜이 계속되는 것을 전제하므로,
+ *    **분할 프레임 QR(animated QR)이 유일한 영구 해법이다 — 아직 미구현.**
+ *  - BLE/NFC 폴백은 조사 결과 플랫폼이 막고 있다(iOS HCE 비공개·ble-plx 폰↔폰 불가).
+ *    스키마 자체는 전송 수단 중립이므로 언제든 다른 전송 위에 얹을 수 있다.
  */
 import { addressFromPublicKey, signObject, verifyObject, type Signer } from './crypto';
 import {
@@ -60,16 +67,77 @@ export type QrMessage = ChargeMessage | PaymentMessage | ConfirmMessage;
 // ── 인코딩 (전송 수단 중립 텍스트) ───────────────────────────────
 
 import { base64urlDecode, base64urlEncode, utf8Decode, utf8Encode } from './encoding';
+import { compressPayload, decompressPayload } from './qrCompress';
 
-const QR_PREFIX = 'SHV1.';
+/**
+ * 옛 형식 — `SHV1.` + base64url(JSON). **읽기는 영원히 지원한다.**
+ *
+ * base64url이 JSON을 33% 부풀리기만 할 뿐 아무것도 줄이지 않아, 증서를 받은
+ * 정상 지갑의 지불 QR이 이전 0회에도 2,941자였다(실측). QR 바이트 모드 상한
+ * 2,953자 바로 아래이고 version 40이라 폰 화면에서 사실상 스캔되지 않는다.
+ */
+const QR_PREFIX_V1 = 'SHV1.';
 
-export function encodeQr(message: QrMessage): string {
-  return QR_PREFIX + base64urlEncode(utf8Encode(JSON.stringify(message)));
+/**
+ * 새 형식 — `SHV2.` + base64url(압축(JSON)).
+ *
+ * ★바뀐 것은 **전송 인코딩뿐**이다. 서명 대상 바이트(정준 직렬화)도, 코인 구조도,
+ *  필드 이름도 그대로다. 그래서 이미 발행된 코인은 한 개도 무효가 되지 않는다.
+ *  옛 형식 QR도 계속 읽히므로, 새 지갑은 옛 지갑이 띄운 QR을 그대로 받는다.
+ *  (반대 방향 — 옛 지갑이 새 지갑의 SHV2 QR을 읽는 것 — 은 앱 갱신이 필요하다.
+ *   코인의 유효성 문제가 아니라 앱 버전 문제이며, 배포 전에 정리해야 한다.)
+ */
+const QR_PREFIX_V2 = 'SHV2.';
+
+/**
+ * QR 바이트 모드 한 장의 실제 수용 상한 (문자 수, 오류정정 L).
+ * node-qrcode 이진 탐색 실측값 — version 40에서 2,953자다.
+ * ※이 값을 통과한다고 실기기에서 스캔된다는 뜻이 아니다. 2,900자대는 version 40
+ *  (177×177 모듈)이라 280dp 화면에서 모듈당 1.6dp뿐이다. 크기 검사는 필요조건일 뿐이다.
+ */
+export const QR_BYTE_MODE_MAX_CHARS = 2953;
+
+export interface EncodeQrOptions {
+  /**
+   * 'auto'(기본) — 두 형식을 다 만들어 **짧은 쪽**을 낸다. 압축이 이론상 데이터를
+   *   늘릴 수 있으므로(압축 불가능한 입력), 이 선택이 "새 형식이 절대 손해가 아니다"를
+   *   보장한다. 결정적이다 — 같은 메시지는 언제나 같은 문자열이 된다.
+   * 'legacy' — 옛 형식 강제. 옛 지갑과의 호환 시험용.
+   */
+  format?: 'auto' | 'legacy';
+}
+
+export function encodeQr(message: QrMessage, options: EncodeQrOptions = {}): string {
+  const bytes = utf8Encode(JSON.stringify(message));
+  const legacy = QR_PREFIX_V1 + base64urlEncode(bytes);
+  if (options.format === 'legacy') return legacy;
+  const compressed = QR_PREFIX_V2 + base64urlEncode(compressPayload(bytes));
+  return compressed.length <= legacy.length ? compressed : legacy;
+}
+
+/**
+ * QR 페이로드처럼 생겼는가 — **접두사 판정의 단일 출처.**
+ *
+ * ★2026-07-27 적대검증에서 잡힌 것: `checkerInput.ts`가 `'SHV1.'`을 자기 손으로 적어
+ *  두고 있어서, 여기에 `SHV2.`가 생기자 **오프라인 위폐 감지기가 새 지불 QR을 아예
+ *  못 읽게 됐다.** 게다가 사용자에게는 "JSON을 읽을 수 없습니다 … 지불 QR 내용을
+ *  붙여넣어 주세요"라고 떴다 — 방금 붙여넣은 것이 바로 그 지불 QR인데도.
+ *  접두사를 두 군데 적어 두면 반드시 이렇게 갈라진다. 이 함수만 보게 한다.
+ */
+export function isQrPayload(text: string): boolean {
+  return text.startsWith(QR_PREFIX_V1) || text.startsWith(QR_PREFIX_V2);
 }
 
 export function decodeQr(text: string): QrMessage {
-  if (!text.startsWith(QR_PREFIX)) throw new Error('qr: unknown prefix');
-  const parsed = JSON.parse(utf8Decode(base64urlDecode(text.slice(QR_PREFIX.length)))) as QrMessage;
+  let json: string;
+  if (text.startsWith(QR_PREFIX_V2)) {
+    json = utf8Decode(decompressPayload(base64urlDecode(text.slice(QR_PREFIX_V2.length))));
+  } else if (text.startsWith(QR_PREFIX_V1)) {
+    json = utf8Decode(base64urlDecode(text.slice(QR_PREFIX_V1.length)));
+  } else {
+    throw new Error('qr: unknown prefix');
+  }
+  const parsed = JSON.parse(json) as QrMessage;
   if (parsed.v !== 1) throw new Error('qr: unsupported version');
   if (parsed.type !== 'shvil/charge' && parsed.type !== 'shvil/payment' && parsed.type !== 'shvil/confirm') {
     throw new Error('qr: unknown message type');
