@@ -39,6 +39,7 @@ import { RulePackScreen } from './src/screens/RulePackScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
 import { CommunityScreen } from './src/screens/CommunityScreen';
 import { RecoveryScreen } from './src/screens/RecoveryScreen';
+import { ServerKeyChangeScreen } from './src/screens/ServerKeyChangeScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import type { MoreStackParamList } from './src/screens/navTypes';
 
@@ -93,6 +94,11 @@ function MoreStackScreen() {
       <MoreStack.Screen name="마켓" component={MarketScreen} options={{ headerTitle: '코인 마켓' }} />
       <MoreStack.Screen name="커뮤니티" component={CommunityScreen} options={{ headerTitle: '커뮤니티' }} />
       <MoreStack.Screen name="복구 문구" component={RecoveryScreen} options={{ headerTitle: '복구 문구 · 백업' }} />
+      <MoreStack.Screen
+        name="서버 열쇠"
+        component={ServerKeyChangeScreen}
+        options={{ headerTitle: '서버 열쇠 확인' }}
+      />
       <MoreStack.Screen name="가입/설정" component={OnboardingScreen} />
     </MoreStack.Navigator>
   );

@@ -1,10 +1,11 @@
 /**
  * 더보기 — 엔젤 지도·메시지·내 포인트(엔젤)·가입/설정 진입 (M2 탭 재구성).
  */
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { loadPinChangeNotice } from '../core/directory';
 import { isProvisionalMemberId } from '../core/identity';
 import { useWallet } from '../core/walletService';
 import { Muted, colors } from '../ui/common';
@@ -25,15 +26,44 @@ const MENU: { screen: keyof MoreStackParamList; icon: string; title: string; des
   { screen: '마켓', icon: '🪙', title: '코인 마켓', desc: '무정가 리스팅 · 가격 제시 · 에스크로 USDC 정산 (온라인 전용)' },
   { screen: '커뮤니티', icon: '🤝', title: '커뮤니티', desc: '클레임 구제 · 완주 인증 격려 코인 · 인정 투표 (온라인 전용)' },
   { screen: '복구 문구', icon: '🔑', title: '복구 문구 · 백업', desc: '12단어 복구 문구 확인 · 폰 분실 시 확정 코인 복구' },
+  { screen: '서버 열쇠', icon: '🔐', title: '서버 열쇠 확인', desc: '서버 서명 열쇠가 바뀌었는지 확인 · 바뀌었다면 지문을 보고 사람이 결정 (자동으로 믿지 않음)' },
   { screen: '가입/설정', icon: '⚙️', title: '가입 / 설정', desc: '정식 회원 번호 발급 (전화+이메일) · 서버 주소' },
 ];
 
 export function MoreScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const w = useWallet();
+  // 배포 키 변경 대기 — 있으면 맨 위에 띄운다. 조용히 갱신이 끊긴 채로 두지 않는다.
+  const [keyChanged, setKeyChanged] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      loadPinChangeNotice()
+        .then((n) => {
+          if (alive) setKeyChanged(n !== null);
+        })
+        .catch(() => {});
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {keyChanged && (
+        <Pressable style={styles.alertRow} onPress={() => navigation.navigate('서버 열쇠')}>
+          <Text style={styles.icon}>⚠</Text>
+          <View style={styles.textCol}>
+            <Text style={styles.alertTitle}>서버 열쇠가 바뀌었습니다 — 확인이 필요합니다</Text>
+            <Text style={styles.alertDesc}>
+              새 코스·발행자 목록을 받지 않고 있습니다. 걷기·지불은 그대로 됩니다. 눌러서 지문을
+              확인하세요.
+            </Text>
+          </View>
+        </Pressable>
+      )}
       {MENU.map((m) => (
         <Pressable key={m.title} style={styles.row} onPress={() => navigation.navigate(m.screen as never)}>
           <Text style={styles.icon}>{m.icon}</Text>
@@ -66,4 +96,16 @@ const styles = StyleSheet.create({
   icon: { fontSize: 26 },
   textCol: { flex: 1 },
   title: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FDECEA',
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  alertTitle: { fontSize: 16, fontWeight: '700', color: colors.danger, marginBottom: 2 },
+  alertDesc: { fontSize: 13, lineHeight: 19 },
 });

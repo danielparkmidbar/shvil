@@ -43,6 +43,11 @@ export type MoreStackParamList = {
   마켓: undefined;
   커뮤니티: undefined;
   '복구 문구': undefined;
+  /**
+   * 배포 키 TOFU 핀이 어긋났을 때 사람이 결정하는 화면 (자동 해제 없음).
+   * 평소에는 "그대로입니다"만 보여준다 — 진입점은 항상 있어야 사용자가 확인할 수 있다.
+   */
+  '서버 열쇠': undefined;
   '가입/설정': undefined;
 };
 

@@ -16,8 +16,16 @@ import {
   type TreasureListEntry,
   type TrustedKeyInfo,
 } from './api';
-import { DIST_PIN_KEY, guardDistribution } from './distributionGuard';
-import { kvGet, kvSet, loadCoinsForSync } from './db';
+import { DIST_PIN_KEY, DistributionPinMismatchError, guardDistribution } from './distributionGuard';
+import { kvDelete, kvGet, kvSet, loadCoinsForSync } from './db';
+import {
+  PIN_AT_KEY,
+  PIN_PENDING_KEY,
+  buildPinChangeNotice,
+  mergePendingPinChange,
+  parsePendingPinChange,
+  type PinChangeNotice,
+} from './pinRecovery';
 import { FLAGGED_CACHE_KEY, parseFlaggedCache } from './flagged';
 import { getIntegrityToken } from './integrity';
 import { isProvisionalMemberId } from './identity';
@@ -63,9 +71,84 @@ export const directoryApi = new DirectoryApi({
  */
 async function verifyAndPin<T extends object>(response: Signed<T>): Promise<T> {
   const pinned = await kvGet(DIST_PIN_KEY);
-  const { body, pinToStore } = guardDistribution(response, pinned);
-  if (pinToStore) await kvSet(DIST_PIN_KEY, pinToStore);
-  return body;
+  try {
+    const { body, pinToStore } = guardDistribution(response, pinned);
+    if (pinToStore) {
+      await kvSet(DIST_PIN_KEY, pinToStore);
+      // 핀한 시각을 함께 남긴다 — 나중에 "언제부터 이 서버를 믿고 있었는지"를
+      // 사람이 볼 수 있어야 키 변경이 정상인지 판단할 수 있다.
+      await kvSet(PIN_AT_KEY, String(Date.now()));
+    }
+    return body;
+  } catch (e) {
+    // ★핀 불일치는 **기록만** 하고 그대로 다시 던진다. 갱신은 여전히 거부된다 —
+    //   달라진 것은 "무슨 일이 일어났는지 사람이 볼 수 있다"는 것뿐이다.
+    if (e instanceof DistributionPinMismatchError && e.candidate) {
+      await recordPinChangeCandidate(e.candidate, Date.now());
+    }
+    throw e;
+  }
+}
+
+async function recordPinChangeCandidate(
+  candidate: NonNullable<DistributionPinMismatchError['candidate']>,
+  now: number,
+): Promise<void> {
+  const prev = parsePendingPinChange(await kvGet(PIN_PENDING_KEY));
+  await kvSet(PIN_PENDING_KEY, JSON.stringify(mergePendingPinChange(prev, candidate, now)));
+}
+
+// ── 배포 키 변경 — 사람이 결정한다 (자동 해제 없음) ────────────────
+
+/**
+ * 대기 중인 배포 키 변경 알림. 없으면 null (= 평소 상태).
+ * 화면(`ServerKeyChangeScreen`)과 더보기 배너가 이것만 본다.
+ */
+export async function loadPinChangeNotice(): Promise<PinChangeNotice | null> {
+  const pending = parsePendingPinChange(await kvGet(PIN_PENDING_KEY));
+  if (!pending) return null;
+  const pinnedPublicKey = await kvGet(DIST_PIN_KEY);
+  // 이미 핀이 새 키와 같아졌다면(사용자가 받은 뒤 정리가 덜 된 경우) 알릴 것이 없다.
+  if (pinnedPublicKey === pending.newPublicKey) {
+    await kvDelete(PIN_PENDING_KEY);
+    return null;
+  }
+  const pinnedAtRaw = await kvGet(PIN_AT_KEY);
+  return buildPinChangeNotice({
+    pinnedPublicKey,
+    pinnedAt: pinnedAtRaw ? Number(pinnedAtRaw) : null,
+    pending,
+  });
+}
+
+/**
+ * ★사용자가 새 키를 받기로 했다 — **여기가 유일한 핀 교체 경로다.**
+ *
+ * 자동 호출 금지. 화면에서 사람이 지문을 보고 누른 것만 여기로 온다. 누르지 않으면
+ * 아무 일도 일어나지 않는다(= 예전과 동일한 거부 상태 유지).
+ *
+ * ★신뢰 키 캐시는 **지우지 않는다.** 옛 서버에서 배운 발행 키·루트 키를 지우면 그 키로
+ * 발행된 내 코인이 그 순간 위폐가 된다. 새 서버의 키는 다음 동기화에서 **누적**된다
+ * (`mergeTrustedKeyInfos` — 아는 keyId는 불변, 사라진 keyId도 유지).
+ */
+export async function acceptPinChange(): Promise<boolean> {
+  const pending = parsePendingPinChange(await kvGet(PIN_PENDING_KEY));
+  if (!pending) return false;
+  // ★이름 검산에 실패한 후보는 화면이 수락 단추를 띄우지 않지만, 여기서도 막는다.
+  //   화면은 바뀔 수 있고 이 함수는 **핀을 바꾸는 유일한 경로**이므로, 관문은 경로에 둔다.
+  if (!pending.nameVerified) return false;
+  await kvSet(DIST_PIN_KEY, pending.newPublicKey);
+  await kvSet(PIN_AT_KEY, String(Date.now()));
+  await kvDelete(PIN_PENDING_KEY);
+  return true;
+}
+
+/**
+ * 사용자가 거절했다 — 옛 핀을 그대로 두고 알림만 지운다.
+ * 그 서버가 또 오면 후보가 다시 쌓인다(횟수가 1부터 다시 센다).
+ */
+export async function rejectPinChange(): Promise<void> {
+  await kvDelete(PIN_PENDING_KEY);
 }
 
 // ── 신뢰 키 (GET /keys) — 발행 키 + 회원 증서 루트 (보안 감사 C-2) ──

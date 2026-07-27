@@ -151,6 +151,22 @@ export function tryDeriveKeyId(purpose: string, publicKeyHex: string): string | 
   return deriveKeyId(purpose, publicKeyHex);
 }
 
+/**
+ * ★사람이 눈으로 대조하는 공개키 지문 — **한 화폐 안에서 형식은 하나뿐이어야 한다.**
+ *
+ * 폰 화면(「서버 열쇠」), 서버 `/health`, 시드 생성기가 전부 이 함수를 쓴다. 형식이
+ * 갈리면(한쪽은 소문자 64자, 다른 쪽은 대문자 16자) 사람이 대조를 **포기하고** 옆에 있는
+ * 쉬운 값(서버가 주장하는 이름)을 본다 — 적대검증 2026-07-28 ①-b가 재현한 실패다.
+ *
+ * 앞 16 hex(64비트)를 4자씩 끊어 대문자로 보여준다. 판정에는 절대 쓰이지 않는다 —
+ * 코드의 검증은 언제나 공개키 전체로 한다.
+ */
+export function publicKeyFingerprint(publicKeyHex: string | null | undefined): string {
+  if (typeof publicKeyHex !== 'string' || publicKeyHex.length < 16) return '(없음)';
+  const head = publicKeyHex.slice(0, 16).toUpperCase();
+  return `${head.slice(0, 4)} ${head.slice(4, 8)} ${head.slice(8, 12)} ${head.slice(12, 16)}`;
+}
+
 // ── I-2 옛 이름 (2026-07-26 이전에 발급된 것) ─────────────────────
 
 /**

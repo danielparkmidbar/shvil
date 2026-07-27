@@ -11,6 +11,12 @@
  *
  * 자동 마이그레이션: 기존 평문 키가 kv에 있으면 로드 후 봉인해 재저장한다.
  *
+ * ★루트 시드(2026-07-27 추가): 무료 호스팅의 디스크는 휘발성이라 재배포 한 번이면 아래
+ * `#loadOrCreateKey`가 **조용히 새 키를 만들었다** — 그것이 이번 사고의 원인이다. 이제
+ * `SHVIL_ROOT_SEED`가 있으면 키를 시드에서 **결정적으로 유도**하고 kv를 쓰지 않는다
+ * (`packages/shared/src/keyDerivation.ts` — 유도식은 규격의 일부). 시드가 없으면 예전
+ * 동작(무작위)이 남지만, `keySource`가 `EPHEMERAL_RANDOM`으로 드러나고 `/health`에 실린다.
+ *
  * 키 회전(2026-07-26 갱신): 새 키를 만들면 **이름이 그 키에서 유도되어 저절로 새
  * 이름이 된다**(`deriveKeyId` — 규격 9.2 I-1). 새 항목이 아래 공개키 이력에 하나 더
  * 붙고 옛 항목은 그대로 남으므로, 회전해도 옛 코인이 죽지 않는다. 남은 운영 절차는
@@ -18,13 +24,19 @@
  * 목록 — docs/소급무효화_제거_2026-07-26.md).
  */
 import {
+  MAX_KEY_GENERATION,
+  MIN_ROOT_SEED_LENGTH,
+  deploymentPublicKeyHistory,
+  deriveDeploymentKeyPair,
   generateKeyPair,
+  isAcceptableRootSeed,
   isSealed,
   isSelfDerivedKeyId,
   legacyAliasPurpose,
   openSecret,
   sealSecret,
   signerFromKeyPair,
+  type DeploymentKeySlot,
   type KeyPair,
   type Signer,
 } from '@shvil/shared';
@@ -48,6 +60,80 @@ export function resolveKek(devMode: boolean, optKek?: string): string {
     );
   }
   return DEV_FALLBACK_KEK;
+}
+
+// ── ★루트 시드 (2026-07-27 — 재배포가 발행 권위를 죽이지 않게) ──────────
+
+/**
+ * 이 배포의 발행 키가 **어디서 왔는가.**
+ *  · `SEED` — `SHVIL_ROOT_SEED`(또는 주입)에서 결정적으로 유도. 재배포해도 같은 키.
+ *  · `EPHEMERAL_RANDOM` — 시드가 없어 kv에서 읽거나 무작위 생성. **재배포하면 사라진다.**
+ *
+ * 이 값은 `/health`로 공개된다. 사고의 원인이 "조용히 무작위 키를 만든 것"이었으므로,
+ * 어느 쪽인지가 **밖에서 보여야** 한다 (제3조 정직화).
+ */
+export type KeySource = 'SEED' | 'EPHEMERAL_RANDOM';
+
+export interface RootSeedResolution {
+  /** 유도에 쓸 시드. 없으면 null(= EPHEMERAL_RANDOM). */
+  seed: string | null;
+  source: KeySource;
+  /** 시드가 어디서 왔는지 — 진단용. 시드 값 자체는 절대 밖으로 내보내지 않는다. */
+  origin: 'ENV' | 'OPTION' | null;
+}
+
+/**
+ * 루트 시드 해석. 직접 주입(optSeed)이 `SHVIL_ROOT_SEED` 환경변수보다 우선한다
+ * (테스트가 환경변수 오염 없이 결정적 서버를 세우기 위한 것 — `resolveKek`과 같은 패턴).
+ *
+ * ★**여기서는 던지지 않는다.** 시드가 없으면 `EPHEMERAL_RANDOM`을 돌려주고, 기동을 막는
+ * 판단은 `server/src/main.ts`(실제 부팅 경로)가 한다. 이유:
+ *  · `buildApp`은 테스트가 수백 번 세우는 라이브러리다. 여기서 fail-closed로 만들면
+ *    모든 테스트가 시드를 들고 다녀야 하고, 그러면 사람들이 아무 시드나 상수로 박게 된다.
+ *  · 반면 운영 기동은 한 곳(main.ts)뿐이므로, 관문을 거기 두면 **운영에서 조용히 무작위
+ *    키가 생기는 일**을 확실히 막으면서 테스트는 자유롭다.
+ *
+ * @throws 시드가 있는데 하한 미만이면 — 이건 실수이고, 조용히 약한 시드를 쓰면 안 된다.
+ */
+export function resolveRootSeed(optSeed?: string): RootSeedResolution {
+  const raw = optSeed ?? process.env.SHVIL_ROOT_SEED;
+  const origin: 'ENV' | 'OPTION' | null = optSeed ? 'OPTION' : raw ? 'ENV' : null;
+  if (raw === undefined || raw.trim() === '') {
+    return { seed: null, source: 'EPHEMERAL_RANDOM', origin: null };
+  }
+  if (!isAcceptableRootSeed(raw)) {
+    throw new Error(
+      `SHVIL_ROOT_SEED가 너무 짧습니다 (최소 ${MIN_ROOT_SEED_LENGTH}자). ` +
+        '난수로 만든 값을 넣으세요 — `node tools/시드생성.mjs`',
+    );
+  }
+  return { seed: raw.trim(), source: 'SEED', origin };
+}
+
+/**
+ * 키 세대 해석 (`SHVIL_KEY_GENERATION`, 기본 0).
+ *
+ * 세대를 올리면 **모든 발행 키가 새로 유도된다**(= 회전). 옛 세대 공개키는 기동 때마다
+ * 0..N을 전부 다시 유도해 이력에 실으므로 옛 코인은 죽지 않는다.
+ *
+ * @throws 정수가 아니거나 범위를 벗어나면 — 오타로 키가 통째로 바뀌는 사고를 막는다.
+ */
+export function resolveKeyGeneration(optGeneration?: number): number {
+  if (optGeneration !== undefined) {
+    if (!Number.isInteger(optGeneration) || optGeneration < 0 || optGeneration > MAX_KEY_GENERATION) {
+      throw new Error(`키 세대가 범위를 벗어났습니다: ${optGeneration}`);
+    }
+    return optGeneration;
+  }
+  const raw = process.env.SHVIL_KEY_GENERATION;
+  if (raw === undefined || raw.trim() === '') return 0;
+  const n = Number(raw.trim());
+  if (!Number.isInteger(n) || n < 0 || n > MAX_KEY_GENERATION) {
+    throw new Error(
+      `SHVIL_KEY_GENERATION은 0 이상 ${MAX_KEY_GENERATION} 이하의 정수여야 합니다: ${raw}`,
+    );
+  }
+  return n;
 }
 
 // ── 공개키 이력 (★2026-07-26 — 키 회전이 옛 코인을 죽이지 않게) ──────────
@@ -175,19 +261,92 @@ export function trustedKeysForPurposes(db: DatabaseSync, purposes: readonly stri
   return keys;
 }
 
+export interface SealedKeystoreOptions {
+  /** KEK 직접 주입 (테스트용). 지정 시 SHVIL_KEK보다 우선. */
+  kek?: string;
+  /** 루트 시드 직접 주입 (테스트용). 지정 시 SHVIL_ROOT_SEED보다 우선. */
+  rootSeed?: string;
+  /** 키 세대 직접 주입 (테스트용). 지정 시 SHVIL_KEY_GENERATION보다 우선. */
+  generation?: number;
+}
+
 /**
- * 봉인 키 저장소. loadOrCreateSigner로 발행 서명자를 얻는다 — 없으면 생성·봉인 저장,
- * 있으면 해제. 레거시 평문은 자동 재봉인.
+ * 봉인 키 저장소.
+ *
+ * ── 두 경로 ──────────────────────────────────────────────────────────
+ * **시드 경로 (`keySource === 'SEED'`)** — 키를 `SHVIL_ROOT_SEED`에서 유도한다. kv는 읽지도
+ * 쓰지도 않는다. 재배포로 DB가 비어도 같은 키가 나온다. 이 경로가 이번 작업의 목적이다.
+ *
+ * **휘발 경로 (`keySource === 'EPHEMERAL_RANDOM'`)** — 시드가 없을 때. kv에 있으면 열고
+ * 없으면 만들어 봉인 저장한다(= 이 파일의 원래 동작 그대로). 재배포하면 사라진다.
+ *
+ * ── ★kv의 옛 키를 지우지 않는 이유 ───────────────────────────────────
+ * 시드를 도입해도 kv에 남아 있는 **옛 무작위 키**는 그대로 둔다(`retiredPublicKey`로 읽기만
+ * 한다). 그 공개키를 이력에 실어야 그 키로 서명된 옛 증서·옛 GRANT가 계속 검증되기
+ * 때문이다. 개인키는 더 이상 서명에 쓰이지 않는다 — 은퇴이지 폐기가 아니다.
  */
 export class SealedKeystore {
   #db: DatabaseSync;
   #kek: string;
+  #seed: string | null;
+  readonly keySource: KeySource;
+  readonly seedOrigin: 'ENV' | 'OPTION' | null;
+  readonly generation: number;
 
-  constructor(db: DatabaseSync, devMode: boolean, optKek?: string) {
+  constructor(db: DatabaseSync, devMode: boolean, opts?: string | SealedKeystoreOptions) {
+    const o: SealedKeystoreOptions = typeof opts === 'string' ? { kek: opts } : (opts ?? {});
     this.#db = db;
-    this.#kek = resolveKek(devMode, optKek);
+    this.#kek = resolveKek(devMode, o.kek);
+    const seed = resolveRootSeed(o.rootSeed);
+    this.#seed = seed.seed;
+    this.keySource = seed.source;
+    this.seedOrigin = seed.origin;
+    this.generation = resolveKeyGeneration(o.generation);
   }
 
+  /**
+   * 이 배포가 **서명에 쓰는** 키.
+   *
+   * @param slot  유도 슬롯 (시드 경로에서 쓰인다)
+   * @param kvKey 옛 저장 자리 (휘발 경로에서 쓰인다 — 'promoKey' 등)
+   */
+  signerForSlot(slot: DeploymentKeySlot, kvKey: string): Signer {
+    if (this.#seed !== null) {
+      return signerFromKeyPair(deriveDeploymentKeyPair(this.#seed, slot, this.generation));
+    }
+    return this.loadOrCreateSigner(kvKey);
+  }
+
+  /**
+   * 세대 0..현재의 공개키 (오름차순). 시드가 없으면 빈 배열.
+   * 기동 시 이것을 이력에 다시 적어 **이력을 휘발성 DB에서 독립시킨다.**
+   */
+  publicKeyGenerations(slot: DeploymentKeySlot): { generation: number; publicKeyHex: string }[] {
+    if (this.#seed === null) return [];
+    return deploymentPublicKeyHistory(this.#seed, slot, this.generation);
+  }
+
+  /**
+   * kv에 남아 있는 옛 키의 **공개키만** (시드 도입 전에 만들어진 것). 없으면 null.
+   * 읽기 전용 — 없는 키를 만들지 않는다(그러면 휘발 경로가 되살아난다).
+   */
+  retiredPublicKey(kvKey: string): string | null {
+    if (this.#seed === null) return null; // 휘발 경로에서는 그 키가 곧 현행 키다.
+    const saved = kvGet(this.#db, kvKey);
+    if (!saved) return null;
+    try {
+      const pair = (isSealed(saved) ? JSON.parse(openSecret(saved, this.#kek)) : JSON.parse(saved)) as KeyPair;
+      return typeof pair.publicKeyHex === 'string' && /^[0-9a-f]{64}$/.test(pair.publicKeyHex)
+        ? pair.publicKeyHex
+        : null;
+    } catch {
+      // KEK가 바뀌었거나 손상된 항목 — 여기서 터지면 서버가 아예 못 뜬다. 옛 키를
+      // 못 살리는 것은 손실이지만, 그 때문에 현행 발행이 멈추는 것이 더 큰 손실이다.
+      return null;
+    }
+  }
+
+  /** 휘발 경로의 원래 동작 — kv에 있으면 열고, 없으면 만들어 봉인 저장. */
   loadOrCreateSigner(kvKey: string): Signer {
     return signerFromKeyPair(this.#loadOrCreateKey(kvKey));
   }

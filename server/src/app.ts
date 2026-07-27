@@ -32,6 +32,7 @@ import {
   deriveKeyId,
   ISSUER_KEY_PURPOSES,
   ROOT_KEY_PURPOSE,
+  publicKeyFingerprint,
   sha256Hex,
   signDistribution,
   snapToPrivacyGrid,
@@ -142,6 +143,18 @@ export interface AppOptions {
    */
   kek?: string;
   /**
+   * ★루트 시드 직접 주입 — 모든 발행 키가 여기서 결정적으로 유도된다.
+   * 지정 시 `SHVIL_ROOT_SEED` 환경변수보다 우선한다. 테스트가 "재배포해도 같은 키"를
+   * 환경변수 오염 없이 재현하기 위한 주입 지점 — 운영은 환경변수로 넣는다.
+   */
+  rootSeed?: string;
+  /**
+   * ★키 세대 — 올리면 모든 발행 키가 새로 유도된다(회전). 옛 세대 공개키는 기동 시
+   * 0..N을 전부 다시 유도해 이력에 실으므로 옛 코인은 죽지 않는다.
+   * 지정 시 `SHVIL_KEY_GENERATION` 환경변수보다 우선한다.
+   */
+  keyGeneration?: number;
+  /**
    * R-스팟-현장결속: 걸음당 최소 소요 시간(ms). 기본은 운영 상수(0.3초/걸음).
    * 테스트가 실시간 대기 없이 현장 결속 흐름을 검증하기 위한 주입 지점이다 —
    * 운영은 이 값을 넘기지 않는다(기본값이 물리적 하한).
@@ -223,20 +236,32 @@ export function buildApp(
   // 발행 서명 키들 — 프로모션(엔젤 보너스)·클레임·격려 코인·회원 증서 루트.
   // 전부 기간·수량/규칙 한정 발급 키이며, 지갑들은 GET /keys로 신뢰 목록에 넣는다.
   // 보안 감사 H-2: 개인키는 KEK로 봉인해 저장한다(평문 저장 금지). KEK는 DB에 없다.
-  const keystore = new SealedKeystore(db, devMode, options.kek);
-  const promoSigner = keystore.loadOrCreateSigner('promoKey');
-  const claimSigner = keystore.loadOrCreateSigner('claimKey');
-  const rewardSigner = keystore.loadOrCreateSigner('rewardKey');
-  // 보물 발행 키 (M9) — 기존 promo 키 패턴과 동일하게 KEK로 봉인 저장.
-  const treasureSigner = keystore.loadOrCreateSigner('treasureKey');
+  //
+  // ★2026-07-27 — 키의 출처가 **DB가 아니라 시드**가 된다. `SHVIL_ROOT_SEED`가 있으면
+  // 모든 키를 거기서 결정적으로 유도하므로, 무료 티어의 휘발성 디스크가 몇 번 초기화돼도
+  // 같은 키가 나온다. 시드가 없으면 예전 동작(kv·무작위)이 남지만 `/health`가 그 사실을
+  // 드러낸다 — 조용히 새 발행자가 되는 일은 이제 없다.
+  const keystore = new SealedKeystore(db, devMode, {
+    ...(options.kek !== undefined ? { kek: options.kek } : {}),
+    ...(options.rootSeed !== undefined ? { rootSeed: options.rootSeed } : {}),
+    ...(options.keyGeneration !== undefined ? { generation: options.keyGeneration } : {}),
+  });
+  const promoSigner = keystore.signerForSlot('ANGEL_BONUS', 'promoKey');
+  const claimSigner = keystore.signerForSlot('COMMUNITY_CLAIM', 'claimKey');
+  const rewardSigner = keystore.signerForSlot('COMMUNITY_REWARD', 'rewardKey');
+  // 보물 발행 키 (M9) — 기존 promo 키 패턴과 동일.
+  const treasureSigner = keystore.signerForSlot('TREASURE', 'treasureKey');
   // 스팟 보물 리저브 키 (M12) — 예치 코인의 소각 수령 주소. 이 키는 절대 서명·소비하지
-  // 않는다(코인은 리저브에 영구 봉인=소각). 공개키(주소)만 사용된다. KEK로 봉인 저장.
-  const spotReserveSigner = keystore.loadOrCreateSigner('spotReserveKey');
+  // 않는다(코인은 리저브에 영구 봉인=소각). 공개키(주소)만 사용된다.
+  // ★시드에서 유도되므로 재배포해도 **같은 주소**가 나온다 — 아니면 이미 봉인된 예치
+  //   코인이 고아가 된다(예치 잔고 회계는 그래도 DB와 함께 죽는다 — 남는 위험).
+  const spotReserveSigner = keystore.signerForSlot('SPOT_RESERVE', 'spotReserveKey');
   // 회원 증서 루트 키 — 회원 번호↔기기 공개키를 결속 서명한다 (보안 감사 C-2).
-  const membershipRootSigner = keystore.loadOrCreateSigner('membershipRootKey');
+  const membershipRootSigner = keystore.signerForSlot('MEMBERSHIP_ROOT', 'membershipRootKey');
   // 배포 서명 키 — /keys·/courses·/limits/flagged 응답 본문에 _sig를 붙여 MITM의
-  // 발행키 교체·소명 목록 조작·코스 주입을 차단한다 (보안 감사 H-3). KEK로 봉인 저장.
-  const distSigner = keystore.loadOrCreateSigner('distKey');
+  // 발행키 교체·소명 목록 조작·코스 주입을 차단한다 (보안 감사 H-3).
+  // ★이 키가 지갑에 TOFU로 핀되는 바로 그 키다. 시드가 지키려는 것이 이것이다.
+  const distSigner = keystore.signerForSlot('DISTRIBUTION', 'distKey');
 
   /**
    * ★발행 키 이름을 공개키에서 유도한다 (규격 9.2 I-1).
@@ -271,16 +296,64 @@ export function buildApp(
    * 기동하면 옛 증서가 서버에서도 지갑에서도 `UNKNOWN_MEMBERSHIP_ROOT`가 됐다(적대검증
    * F1 재현). 지금은 검증 측이 옛 이름을 **공개키로 해소**하므로(`isTrustedKeyBinding`)
    * 배포 순서가 무엇이든 옛 증서·옛 GRANT가 검증된다.
+   *
+   * ── ★2026-07-27 — **이력을 시드에서 재구성한다.** 시드 방식의 진짜 이득이 여기다 ──
+   *
+   * 앞선 설계의 구멍: 이력이 kv(= 휘발성 DB)에 있었다. append-only 규칙은 코드에 있는데
+   * **매체가 휘발성**이라 재시작 한 번이면 이력이 빈 배열로 돌아갔다. 즉 "회전해도 옛
+   * 코인이 죽지 않는다"(75adfd5)는 이 호스팅 위에서 사실이 아니었다.
+   *
+   * 시드가 있으면 세대 0..N의 공개키를 **언제든 다시 유도**할 수 있으므로, 기동 때마다
+   * 전부 다시 적는다. 이력이 지워져도 다음 기동에 그대로 복원된다 = 이력이 DB에서
+   * 독립한다. 옛 세대로 발급된 증서·GRANT가 계속 검증된다.
+   *
+   * 은퇴 키(시드 도입 전의 무작위 키)도 kv에 남아 있으면 함께 싣는다 — 그 키로 서명된
+   * 옛 증서가 이 배포에서 계속 검증되어야 하기 때문이다. 개인키는 더 이상 쓰이지 않는다.
    */
-  for (const [keyId, signer, purpose] of [
-    [keyIds.promo, promoSigner, 'ANGEL_BONUS'],
-    [keyIds.claim, claimSigner, 'COMMUNITY_CLAIM'],
-    [keyIds.reward, rewardSigner, 'COMMUNITY_REWARD'],
-    [keyIds.treasure, treasureSigner, 'TREASURE'],
-    [keyIds.membershipRoot, membershipRootSigner, 'MEMBERSHIP_ROOT'],
-    [keyIds.distribution, distSigner, 'DISTRIBUTION'],
-  ] as const) {
-    recordPublicKey(db, { keyId, publicKey: signer.publicKeyHex, purpose });
+  const KEY_SLOT_TABLE = [
+    ['ANGEL_BONUS', 'promoKey', promoSigner],
+    ['COMMUNITY_CLAIM', 'claimKey', claimSigner],
+    ['COMMUNITY_REWARD', 'rewardKey', rewardSigner],
+    ['TREASURE', 'treasureKey', treasureSigner],
+    ['MEMBERSHIP_ROOT', 'membershipRootKey', membershipRootSigner],
+    ['DISTRIBUTION', 'distKey', distSigner],
+  ] as const;
+  for (const [purpose, kvKey, signer] of KEY_SLOT_TABLE) {
+    // ① 은퇴 키(있으면) 먼저 — 가장 오래된 것이 이력 앞에 온다.
+    const retired = keystore.retiredPublicKey(kvKey);
+    if (retired && retired !== signer.publicKeyHex) {
+      recordPublicKey(db, { keyId: deriveKeyId(purpose, retired), publicKey: retired, purpose });
+    }
+    // ② 세대 0..N (시드 경로). 시드가 없으면 빈 배열이므로 ③이 현행 키를 적는다.
+    for (const { publicKeyHex } of keystore.publicKeyGenerations(purpose)) {
+      recordPublicKey(db, { keyId: deriveKeyId(purpose, publicKeyHex), publicKey: publicKeyHex, purpose });
+    }
+    // ③ 현행 키 (휘발 경로에서 유일한 등재 경로 — 시드 경로에서는 ②가 이미 적었다).
+    recordPublicKey(db, { keyId: deriveKeyId(purpose, signer.publicKeyHex), publicKey: signer.publicKeyHex, purpose });
+  }
+  // ★기동 로그 — 조용히 실패하지 않게 (제3조). Render 로그에서 한눈에 보여야 한다.
+  if (keystore.keySource === 'SEED') {
+    if (!process.env.VITEST) {
+      console.log(
+        `[keys] 시드 유도 · 세대 ${keystore.generation} · 배포키 ${keyIds.distribution}` +
+          ' — 재배포해도 같은 키가 나옵니다.',
+      );
+    }
+  } else if (!process.env.VITEST) {
+    // 테스트는 시드 없이 서버를 수백 번 세운다 — 거기서 배너를 찍으면 진짜 경고가
+    // 소음에 묻힌다. 운영 로그에서는 반드시 보여야 하므로 VITEST에서만 뺀다.
+    console.warn(
+      '\n' +
+        '┌───────────────────────────────────────────────────────────────┐\n' +
+        '│ ★★★ 경고: 발행 키가 이 인스턴스 한정 무작위입니다 ★★★        │\n' +
+        '│ SHVIL_ROOT_SEED 환경변수가 없습니다.                          │\n' +
+        '│ 다음 재배포·재시작에 발행 키·배포 키가 전부 바뀝니다.         │\n' +
+        '│ 이미 설치된 지갑은 코스·신뢰 키·소명 목록 갱신이             │\n' +
+        '│ 재설치 전까지 끊깁니다(TOFU 핀 불일치).                       │\n' +
+        '│ → Render 환경변수에 SHVIL_ROOT_SEED를 넣으세요.               │\n' +
+        '│   상태 확인: GET /health 의 keySource                         │\n' +
+        '└───────────────────────────────────────────────────────────────┘\n',
+    );
   }
   // 이력 kv는 평문 JSON이라 DB 쓰기 권한만으로 항목을 끼워 넣을 수 있다(적대검증 재현).
   // 지우지는 않는다 — 지우면 옛 이름이 사라져 옛 코인이 죽는다. 기동 시 드러내기만 한다.
@@ -795,6 +868,56 @@ export function buildApp(
   });
 
   // ── 공개 정보 ─────────────────────────────────────────────────
+
+  /**
+   * ★상태 점검 — **발행 키가 어디서 왔는지 밖에서 보이게 한다** (제3조 정직화).
+   *
+   * 이번 사고의 원인은 서버가 조용히 새 발행 키를 만든 것이었다. 조용했다는 것이
+   * 핵심이다 — 아무도 몰랐고, 아는 방법도 없었다. 그래서 이 라우트를 만든다.
+   *
+   * `keySource`가 `EPHEMERAL_RANDOM`이면 **다음 재배포에 이 서버의 발행 권위가 사라지고,
+   * 이미 설치된 지갑의 동기화가 영구히 끊긴다.** 그 사실이 `warnings`에 한국어로 실린다.
+   *
+   * 비밀은 나가지 않는다: 시드·KEK·개인키는 물론이고 시드의 **길이나 해시조차** 싣지
+   * 않는다. 실리는 것은 이미 `/keys`로 공개되는 공개키 이름과, 출처 구분값뿐이다.
+   */
+  app.get('/health', async () => {
+    const warnings: string[] = [];
+    if (keystore.keySource === 'EPHEMERAL_RANDOM') {
+      warnings.push(
+        '★발행 키가 이 인스턴스 한정 무작위입니다 (SHVIL_ROOT_SEED 없음). ' +
+          '다음 재배포·재시작에 모든 발행 키가 바뀌고, 이미 설치된 지갑은 코스·신뢰 키·' +
+          '소명 목록 갱신이 영구히 끊깁니다. Render 환경변수에 SHVIL_ROOT_SEED를 넣으세요.',
+      );
+    }
+    if (devMode) {
+      warnings.push('DEV MODE가 켜져 있습니다 (SHVIL_DEV_MODE=1) — OTP 코드가 응답에 노출됩니다.');
+    }
+    if (odd.length > 0) {
+      warnings.push(`규격형이 아닌 공개키 이력 항목 ${odd.length}개 — DB가 직접 수정되었을 수 있습니다.`);
+    }
+    return {
+      ok: true,
+      // 'SEED' = 재배포해도 같은 키 / 'EPHEMERAL_RANDOM' = 재배포하면 사라지는 키.
+      keySource: keystore.keySource,
+      keyGeneration: keystore.generation,
+      // 지갑이 TOFU로 핀하는 바로 그 키의 이름 — 폰 화면·종이의 값과 대조할 수 있다.
+      distKeyId: keyIds.distribution,
+      distPublicKey: distSigner.publicKeyHex,
+      /**
+       * ★폰 「서버 열쇠」 화면과 **글자 하나까지 같은 형식**의 지문.
+       *
+       * 예전에는 여기 소문자 64자만 있고 폰은 대문자 16자를 보여줬다. 형식이 다르면
+       * 사람은 대조를 포기하고 옆에 있는 쉬운 값(이름)을 본다 — 적대검증 ①-b가 파고든
+       * 바로 그 틈이다. 시드 생성기가 종이에 적게 하는 값도 이 값이다.
+       */
+      distKeyFingerprint: publicKeyFingerprint(distSigner.publicKeyHex),
+      membershipRootKeyId: keyIds.membershipRoot,
+      archivedKeyCount: archivedPublicKeys(db).length,
+      devMode,
+      warnings,
+    };
+  });
 
   // 현행 프로모 키 1개 (레거시 경로). 이름은 유도값이다 — 지갑이 같은 유도식으로
   // 검산할 수 있어야 한다(규격 I-3). 이력 전체는 `/keys`에 있다.
