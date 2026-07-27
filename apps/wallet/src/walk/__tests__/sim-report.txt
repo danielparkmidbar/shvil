@@ -1,0 +1,369 @@
+2-A km 208.3 (raw 8755): 창 5 ON 5 (100.00%) 이탈 중앙 8.1m 최대 19.3m [OOOOO]
+2-A km 52.5 (raw 1775): 창 7 ON 7 (100.00%) 이탈 중앙 5.7m 최대 19.3m [OOOOOOO]
+2-A km 91.7 (raw 3605): 창 11 ON 11 (100.00%) 이탈 중앙 6.9m 최대 19.7m [OOOOOOOOOOO]
+2-A km 614.9 (raw 25355): 창 46 ON 46 (100.00%) 이탈 중앙 5.1m 최대 18.7m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 785.2 (raw 31765): 창 41 ON 41 (100.00%) 이탈 중앙 6.0m 최대 20.0m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 349.1 (raw 15105): 창 8 ON 8 (100.00%) 이탈 중앙 6.3m 최대 19.3m [OOOOOOOO]
+2-A km 875.8 (raw 35505): 창 10 ON 10 (100.00%) 이탈 중앙 7.6m 최대 19.6m [OOOOOOOOOO]
+2-A km 228.7 (raw 9790): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 18.1m [OOOOOOOOOOOOOOOOO]
+2-A km 767.9 (raw 31220): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 20.2m [OOOOOOOOOOOOOOOOO]
+2-A → 가장 굽은 구간에서도 인정률 최저 100.0%
+2-B 원본→배포선 편차: 중앙 3.80m p95 14.67 p99 18.19 최대 20.34m | >20m 18점 >30m 0 >50m 0
+2-B → 회랑 50 m 중 단순화가 먹는 최악값 20.3 m, 남는 GPS 여유 29.7 m
+2-C 최장 선분 3805 m (idx 5065) / 2위 3270 m
+6-A accuracy 45 m: 창 212 / 방출거리 12.65 km → 12.6 SHV
+6-A accuracy 55 m: 창 0 / 방출거리 0.00 km → 0 SHV (maxAccuracyM=50 이므로 전 픽스 폐기)
+6-B 정확도 미달 픽스 개수별 인정 거리 (minFixesPerWindow=3)
+   폐기  0/12 → 창 20개 / 방출 1191 m (온전할 때 1100 m 기준 108%)
+   폐기  3/12 → 창 20개 / 방출 1174 m (온전할 때 1100 m 기준 107%)
+   폐기  6/12 → 창 20개 / 방출 498 m (온전할 때 1100 m 기준 45%)
+   폐기  9/12 → 창 20개 / 방출 200 m (온전할 때 1100 m 기준 18%)
+   폐기 10/12 → 창 0개 / 방출 0 m (온전할 때 1100 m 기준 0%)
+2-C 아라바 성긴 구간 실제 길 (원본 17.7 km)
+   창 295 | ON_COURSE 295 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.3m p95 8.8m p99 12.3m 최대 17.3m / 회랑밖 픽스 0.00%
+   실제 걸은 17.70 km → 창이 방출한 거리 17.69 km (창 경계 누락 0.04%) (2026ms)
+2-C tier열 [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+3-A 접근 시작점 거리 801 m
+3-A 창 27 tier열 [xxxxxxxxxxxxxOOOOOOOOOOOOOO] (O=ON_COURSE x=OFF_COURSE .=DAILY_LIFE)
+3-A 첫 창 OFF_COURSE / 마지막 창 ON_COURSE / ON 비율 51.85%
+3-B 창 34 tier열 [OOOOOOOOOOOOOOOOOOOOOOxxxxxxxxxxxx]
+3-B 첫 창 ON_COURSE / 마지막 창 OFF_COURSE (끝점에서 801 m 이탈)
+3-C 끝점→3 km 이탈: tier열 [Oxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx................]
+3-C 등장 tier ON_COURSE,OFF_COURSE,DAILY_LIFE / 마지막 DAILY_LIFE
+4-A 인덱스차>20 & 150 m 이내 선분 쌍: 0개
+4-B 헤어핀(배포 idx 1213 / 원본 9912) 창 69 ON 100.00% courseId shvil-israel 난이도 10
+4-C 이스라엘 구간 courseId=shvil-israel ✓ / 분당 구간 courseId=bundang-bulgoksan
+7-A 2.5 km/h (무거운 배낭)      픽스간격 7.20s · 창 8픽스 | 걸은 76.56 km → 방출 76.33 km (누락 0.31%) → 0.0 SHV | ON 100.00%
+9-A 오차 없음                    걸은 117.2 km → 방출 116.8 km (-0.3%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.0 km/h (일반 종주)       픽스간격 6.00s · 창 9픽스 | 걸은 76.55 km → 방출 76.32 km (누락 0.30%) → 62.5 SHV | ON 100.00%
+9-A σ5 m ρ0.98 (양호)          걸은 117.2 km → 방출 119.4 km (1.9%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.6 km/h (빠른 걸음)       픽스간격 5.00s · 창 12픽스 | 걸은 76.56 km → 방출 76.32 km (누락 0.31%) → 51.8 SHV | ON 100.00%
+7-A 5.0 km/h (평지 속보)       픽스간격 5.00s · 창 12픽스 | 걸은 76.50 km → 방출 75.93 km (누락 0.74%) → 40.0 SHV | ON 100.00%
+7-A → 누락률 ≈ 픽스간격 / 60초. 느리게 걸을수록 손해가 커진다.
+9-A σ10 m ρ0.98 (보통)         걸은 117.2 km → 방출 127.8 km (9.0%) | ON 100.00% | 기각창 18/1953 (0.92%) TOO_FAST×9 STEP_DISTANCE_MISMATCH×9
+9-A σ15 m ρ0.98 (나쁨)         걸은 117.2 km → 방출 139.9 km (19.4%) | ON 99.74% | 기각창 65/1953 (3.33%) TOO_FAST×40 STEP_DISTANCE_MISMATCH×23 VEHICLE×2
+9-A σ10 m ρ0.90 (다중경로)       걸은 117.2 km → 방출 153.0 km (30.5%) | ON 100.00% | 기각창 73/1953 (3.74%) STEP_DISTANCE_MISMATCH×44 TOO_FAST×28 VEHICLE×1
+9-A σ15 m ρ0.90 (협곡)         걸은 117.2 km → 방출 185.7 km (58.5%) | ON 100.00% | 기각창 976/1953 (49.97%) TOO_FAST×558 STEP_DISTANCE_MISMATCH×413 VEHICLE×5
+9-A σ15 m ρ0.70 (심한 흔들림)     걸은 117.2 km → 방출 259.3 km (121.2%) | ON 100.00% | 기각창 1920/1953 (98.31%) VEHICLE×146 TOO_FAST×1705 STEP_DISTANCE_MISMATCH×69
+9-A → 창 속도는 (부풀린 거리)/(창 시간). 3.6 km/h 로 걸어도 부풀림이 +67%면 6 km/h 컷에 걸린다.
+9-B 2.5 km/h (σ12 ρ0.9): 방출/걸은 1.403 | 기각창 99.97% STEP_DISTANCE_MISMATCH×506 CADENCE_OUT_OF_RANGE×2413 TOO_FAST×10 | ON 100.00%
+9-B 3.6 km/h (σ12 ρ0.9): 방출/걸은 1.412 | 기각창 16.39% STEP_DISTANCE_MISMATCH×200 TOO_FAST×118 VEHICLE×2 | ON 100.00%
+9-B 5 km/h (σ12 ρ0.9): 방출/걸은 1.245 | 기각창 57.33% TOO_FAST×805 VEHICLE×1 | ON 100.00%
+5-A 완주 (진짜 길 1,080 km, 픽스 5초/5m · 창 12픽스 = walkService 설정)
+   창 18011 | ON_COURSE 18011 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.5m p95 13.6m p99 17.2m 최대 20.1m / 회랑밖 픽스 0.00%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1077.95 km (창 경계 누락 0.25%) (94397ms)
+5-A 완주 발행량
+   기대치(1 km = 1 SHV, ×1.0): 걸은 거리 1080.7 km → 1080.7 SHV
+   창이 실제로 방출한 거리 1078.0 km (창 경계 누락 0.25%)
+   60일          18.0 km/일 → 1077.9 SHV | 정산일수 60 상한도달일 0 주간최대 126/300 SHV | 기각 없음
+   45일          24.0 km/일 → 1077.9 SHV | 정산일수 45 상한도달일 0 주간최대 168/300 SHV | 기각 없음
+   30일          36.0 km/일 → 1077.9 SHV | 정산일수 30 상한도달일 0 주간최대 252/300 SHV | 기각 없음
+   25일          43.2 km/일 → 1000.0 SHV | 정산일수 25 상한도달일 25 주간최대 280/300 SHV | 기각 없음
+   20일(비현실)     54.0 km/일 → 800.0 SHV | 정산일수 20 상한도달일 20 주간최대 280/300 SHV | 기각 없음
+5-A ★60일 완주 = 1077.9 SHV (1,055 대비 102.2% / 실제 걸은 1081 km 대비 99.7%)
+5-B 1초 간격(1Hz) 60픽스              걸은 98.5 km → 방출 98.4 km | 누락 0.02% (이론 1/60 = 1.67%)
+5-B 5초 간격 12픽스 ← 운영 설정           걸은 98.5 km → 방출 98.2 km | 누락 0.29% (이론 1/12 = 8.33%)
+5-B 10초 간격 6픽스                   걸은 98.5 km → 방출 97.8 km | 누락 0.67% (이론 1/6 = 16.67%)
+8-A 횡방향 이탈별 인정률 (표본 155 km)
+   + 0 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +10 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +20 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +25 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +30 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +35 m → ON_COURSE 98.28% (회랑밖 픽스 1.2%) → 80 SHV
+   +40 m → ON_COURSE 92.44% (회랑밖 픽스 5.5%) → 80 SHV
+   +45 m → ON_COURSE 81.09% (회랑밖 픽스 15.1%) → 80 SHV
+   +50 m → ON_COURSE 48.74% (회랑밖 픽스 42.6%) → 55 SHV
+   +55 m → ON_COURSE 23.15% (회랑밖 픽스 68.6%) → 22 SHV
+   +60 m → ON_COURSE 12.94% (회랑밖 픽스 80.7%) → 10 SHV
+5-B 15초 간격 4픽스                   걸은 98.5 km → 방출 97.4 km | 누락 1.09% (이론 1/4 = 25.00%)
+5-B → 1,080 km 완주 기준 운영 설정(5초/12픽스)의 누락은 약 90 km = 90 SHV.
+5-D +20 m 전 구간: ON_COURSE 100.00% 이탈 중앙 19.7m 최대 40.0m → 60일 1097.9 SHV | 기각 STEP_DISTANCE_MISMATCH×260 TOO_FAST×424 VEHICLE×10
+5-D +50 m 전 구간: ON_COURSE 50.26% 이탈 중앙 49.0m 최대 70.0m → 60일 439.7 SHV | 기각 TOO_FAST×2961 VEHICLE×681 STEP_DISTANCE_MISMATCH×704
+5-C 완주 + 드리프트 σ=15 m
+   창 18011 | ON_COURSE 17985 (99.86%) OFF_COURSE 26 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 10.5m p95 31.1m p99 41.2m 최대 65.1m / 회랑밖 픽스 0.18%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1706.47 km (창 경계 누락 -57.91%) (106294ms)
+5-C → 60일 776.9 SHV | 정산일수 60 | 기각 TOO_FAST×5017 STEP_DISTANCE_MISMATCH×3806 VEHICLE×30
+5-A 완주 (진짜 길 1,080 km, 픽스 5초/5m · 창 12픽스 = walkService 설정)
+   창 18011 | ON_COURSE 18011 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.5m p95 13.6m p99 17.2m 최대 20.1m / 회랑밖 픽스 0.00%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1077.95 km (창 경계 누락 0.25%) (102122ms)
+5-A 완주 발행량
+   기대치(1 km = 1 SHV, ×1.0): 걸은 거리 1080.7 km → 1080.7 SHV
+   창이 실제로 방출한 거리 1078.0 km (창 경계 누락 0.25%)
+   60일          18.0 km/일 → 1077.9 SHV | 정산일수 60 상한도달일 0 주간최대 126/300 SHV | 기각 없음
+   45일          24.0 km/일 → 1077.9 SHV | 정산일수 45 상한도달일 0 주간최대 168/300 SHV | 기각 없음
+   30일          36.0 km/일 → 1077.9 SHV | 정산일수 30 상한도달일 0 주간최대 252/300 SHV | 기각 없음
+   25일          43.2 km/일 → 1000.0 SHV | 정산일수 25 상한도달일 25 주간최대 280/300 SHV | 기각 없음
+   20일(비현실)     54.0 km/일 → 800.0 SHV | 정산일수 20 상한도달일 20 주간최대 280/300 SHV | 기각 없음
+5-A ★60일 완주 = 1077.9 SHV (1,055 대비 102.2% / 실제 걸은 1081 km 대비 99.7%)
+2-A km 208.3 (raw 8755): 창 5 ON 5 (100.00%) 이탈 중앙 8.1m 최대 19.3m [OOOOO]
+2-A km 52.5 (raw 1775): 창 7 ON 7 (100.00%) 이탈 중앙 5.7m 최대 19.3m [OOOOOOO]
+2-A km 91.7 (raw 3605): 창 11 ON 11 (100.00%) 이탈 중앙 6.9m 최대 19.7m [OOOOOOOOOOO]
+2-A km 614.9 (raw 25355): 창 46 ON 46 (100.00%) 이탈 중앙 5.1m 최대 18.7m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 785.2 (raw 31765): 창 41 ON 41 (100.00%) 이탈 중앙 6.0m 최대 20.0m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 349.1 (raw 15105): 창 8 ON 8 (100.00%) 이탈 중앙 6.3m 최대 19.3m [OOOOOOOO]
+2-A km 875.8 (raw 35505): 창 10 ON 10 (100.00%) 이탈 중앙 7.6m 최대 19.6m [OOOOOOOOOO]
+2-A km 228.7 (raw 9790): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 18.1m [OOOOOOOOOOOOOOOOO]
+2-A km 767.9 (raw 31220): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 20.2m [OOOOOOOOOOOOOOOOO]
+2-A → 가장 굽은 구간에서도 인정률 최저 100.0%
+2-B 원본→배포선 편차: 중앙 3.80m p95 14.67 p99 18.19 최대 20.34m | >20m 18점 >30m 0 >50m 0
+2-B → 회랑 50 m 중 단순화가 먹는 최악값 20.3 m, 남는 GPS 여유 29.7 m
+2-C 최장 선분 3805 m (idx 5065) / 2위 3270 m
+6-A accuracy 45 m: 창 212 / 방출거리 12.65 km → 12.6 SHV
+6-A accuracy 55 m: 창 0 / 방출거리 0.00 km → 0 SHV (maxAccuracyM=50 이므로 전 픽스 폐기)
+6-B 정확도 미달 픽스 개수별 인정 거리 (minFixesPerWindow=3)
+   폐기  0/12 → 창 20개 / 방출 1191 m (온전할 때 1100 m 기준 108%)
+   폐기  3/12 → 창 20개 / 방출 1174 m (온전할 때 1100 m 기준 107%)
+   폐기  6/12 → 창 20개 / 방출 498 m (온전할 때 1100 m 기준 45%)
+   폐기  9/12 → 창 20개 / 방출 200 m (온전할 때 1100 m 기준 18%)
+   폐기 10/12 → 창 0개 / 방출 0 m (온전할 때 1100 m 기준 0%)
+2-C 아라바 성긴 구간 실제 길 (원본 17.7 km)
+   창 295 | ON_COURSE 295 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.3m p95 8.8m p99 12.3m 최대 17.3m / 회랑밖 픽스 0.00%
+   실제 걸은 17.70 km → 창이 방출한 거리 17.69 km (창 경계 누락 0.04%) (2125ms)
+2-C tier열 [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+3-A 접근 시작점 거리 801 m
+3-A 창 27 tier열 [xxxxxxxxxxxxxOOOOOOOOOOOOOO] (O=ON_COURSE x=OFF_COURSE .=DAILY_LIFE)
+3-A 첫 창 OFF_COURSE / 마지막 창 ON_COURSE / ON 비율 51.85%
+3-B 창 34 tier열 [OOOOOOOOOOOOOOOOOOOOOOxxxxxxxxxxxx]
+3-B 첫 창 ON_COURSE / 마지막 창 OFF_COURSE (끝점에서 801 m 이탈)
+3-C 끝점→3 km 이탈: tier열 [Oxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx................]
+3-C 등장 tier ON_COURSE,OFF_COURSE,DAILY_LIFE / 마지막 DAILY_LIFE
+4-A 인덱스차>20 & 150 m 이내 선분 쌍: 0개
+4-B 헤어핀(배포 idx 1213 / 원본 9912) 창 69 ON 100.00% courseId shvil-israel 난이도 10
+4-C 이스라엘 구간 courseId=shvil-israel ✓ / 분당 구간 courseId=bundang-bulgoksan
+7-A 2.5 km/h (무거운 배낭)      픽스간격 7.20s · 창 8픽스 | 걸은 76.56 km → 방출 76.33 km (누락 0.31%) → 0.0 SHV | ON 100.00%
+9-A 오차 없음                    걸은 117.2 km → 방출 116.8 km (-0.3%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.0 km/h (일반 종주)       픽스간격 6.00s · 창 9픽스 | 걸은 76.55 km → 방출 76.32 km (누락 0.30%) → 62.5 SHV | ON 100.00%
+9-A σ5 m ρ0.98 (양호)          걸은 117.2 km → 방출 119.4 km (1.9%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.6 km/h (빠른 걸음)       픽스간격 5.00s · 창 12픽스 | 걸은 76.56 km → 방출 76.32 km (누락 0.31%) → 51.8 SHV | ON 100.00%
+7-A 5.0 km/h (평지 속보)       픽스간격 5.00s · 창 12픽스 | 걸은 76.50 km → 방출 75.93 km (누락 0.74%) → 40.0 SHV | ON 100.00%
+7-A → 누락률 ≈ 픽스간격 / 60초. 느리게 걸을수록 손해가 커진다.
+9-A σ10 m ρ0.98 (보통)         걸은 117.2 km → 방출 127.8 km (9.0%) | ON 100.00% | 기각창 18/1953 (0.92%) TOO_FAST×9 STEP_DISTANCE_MISMATCH×9
+9-A σ15 m ρ0.98 (나쁨)         걸은 117.2 km → 방출 139.9 km (19.4%) | ON 99.74% | 기각창 65/1953 (3.33%) TOO_FAST×40 STEP_DISTANCE_MISMATCH×23 VEHICLE×2
+9-A σ10 m ρ0.90 (다중경로)       걸은 117.2 km → 방출 153.0 km (30.5%) | ON 100.00% | 기각창 73/1953 (3.74%) STEP_DISTANCE_MISMATCH×44 TOO_FAST×28 VEHICLE×1
+9-A σ15 m ρ0.90 (협곡)         걸은 117.2 km → 방출 185.7 km (58.5%) | ON 100.00% | 기각창 976/1953 (49.97%) TOO_FAST×558 STEP_DISTANCE_MISMATCH×413 VEHICLE×5
+9-A σ15 m ρ0.70 (심한 흔들림)     걸은 117.2 km → 방출 259.3 km (121.2%) | ON 100.00% | 기각창 1920/1953 (98.31%) VEHICLE×146 TOO_FAST×1705 STEP_DISTANCE_MISMATCH×69
+9-A → 창 속도는 (부풀린 거리)/(창 시간). 3.6 km/h 로 걸어도 부풀림이 +67%면 6 km/h 컷에 걸린다.
+9-B 2.5 km/h (σ12 ρ0.9): 방출/걸은 1.403 | 기각창 99.97% STEP_DISTANCE_MISMATCH×506 CADENCE_OUT_OF_RANGE×2413 TOO_FAST×10 | ON 100.00%
+9-B 3.6 km/h (σ12 ρ0.9): 방출/걸은 1.412 | 기각창 16.39% STEP_DISTANCE_MISMATCH×200 TOO_FAST×118 VEHICLE×2 | ON 100.00%
+9-B 5 km/h (σ12 ρ0.9): 방출/걸은 1.245 | 기각창 57.33% TOO_FAST×805 VEHICLE×1 | ON 100.00%
+5-A 완주 (진짜 길 1,080 km, 픽스 5초/5m · 창 12픽스 = walkService 설정)
+   창 18011 | ON_COURSE 18011 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.5m p95 13.6m p99 17.2m 최대 20.1m / 회랑밖 픽스 0.00%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1077.95 km (창 경계 누락 0.25%) (82389ms)
+5-A 완주 발행량
+   기대치(1 km = 1 SHV, ×1.0): 걸은 거리 1080.7 km → 1080.7 SHV
+   창이 실제로 방출한 거리 1078.0 km (창 경계 누락 0.25%)
+   60일          18.0 km/일 → 1077.9 SHV | 정산일수 60 상한도달일 0 주간최대 126/300 SHV | 기각 없음
+   45일          24.0 km/일 → 1077.9 SHV | 정산일수 45 상한도달일 0 주간최대 168/300 SHV | 기각 없음
+   30일          36.0 km/일 → 1077.9 SHV | 정산일수 30 상한도달일 0 주간최대 252/300 SHV | 기각 없음
+   25일          43.2 km/일 → 1000.0 SHV | 정산일수 25 상한도달일 25 주간최대 280/300 SHV | 기각 없음
+   20일(비현실)     54.0 km/일 → 800.0 SHV | 정산일수 20 상한도달일 20 주간최대 280/300 SHV | 기각 없음
+5-A ★60일 완주 = 1077.9 SHV (1,055 대비 102.2% / 실제 걸은 1081 km 대비 99.7%)
+5-B 1초 간격(1Hz) 60픽스              걸은 98.5 km → 방출 98.4 km | 누락 0.02% (이론 1/60 = 1.67%)
+5-B 5초 간격 12픽스 ← 운영 설정           걸은 98.5 km → 방출 98.2 km | 누락 0.29% (이론 1/12 = 8.33%)
+5-B 10초 간격 6픽스                   걸은 98.5 km → 방출 97.8 km | 누락 0.67% (이론 1/6 = 16.67%)
+5-B 15초 간격 4픽스                   걸은 98.5 km → 방출 97.4 km | 누락 1.09% (이론 1/4 = 25.00%)
+5-B → 1,080 km 완주 기준 운영 설정(5초/12픽스)의 누락은 약 90 km = 90 SHV.
+8-A 횡방향 이탈별 인정률 (표본 155 km)
+   + 0 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +10 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +20 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +25 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +30 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +35 m → ON_COURSE 98.28% (회랑밖 픽스 1.2%) → 80 SHV
+   +40 m → ON_COURSE 92.44% (회랑밖 픽스 5.5%) → 80 SHV
+   +45 m → ON_COURSE 81.09% (회랑밖 픽스 15.1%) → 80 SHV
+   +50 m → ON_COURSE 48.74% (회랑밖 픽스 42.6%) → 55 SHV
+   +55 m → ON_COURSE 23.15% (회랑밖 픽스 68.6%) → 22 SHV
+   +60 m → ON_COURSE 12.94% (회랑밖 픽스 80.7%) → 10 SHV
+2-A km 208.3 (raw 8755): 창 5 ON 5 (100.00%) 이탈 중앙 8.1m 최대 19.3m [OOOOO]
+2-A km 52.5 (raw 1775): 창 7 ON 7 (100.00%) 이탈 중앙 5.7m 최대 19.3m [OOOOOOO]
+2-A km 91.7 (raw 3605): 창 11 ON 11 (100.00%) 이탈 중앙 6.9m 최대 19.7m [OOOOOOOOOOO]
+2-A km 614.9 (raw 25355): 창 46 ON 46 (100.00%) 이탈 중앙 5.1m 최대 18.7m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 785.2 (raw 31765): 창 41 ON 41 (100.00%) 이탈 중앙 6.0m 최대 20.0m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 349.1 (raw 15105): 창 8 ON 8 (100.00%) 이탈 중앙 6.3m 최대 19.3m [OOOOOOOO]
+2-A km 875.8 (raw 35505): 창 10 ON 10 (100.00%) 이탈 중앙 7.6m 최대 19.6m [OOOOOOOOOO]
+2-A km 228.7 (raw 9790): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 18.1m [OOOOOOOOOOOOOOOOO]
+2-A km 767.9 (raw 31220): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 20.2m [OOOOOOOOOOOOOOOOO]
+2-A → 가장 굽은 구간에서도 인정률 최저 100.0%
+2-B 원본→배포선 편차: 중앙 3.80m p95 14.67 p99 18.19 최대 20.34m | >20m 18점 >30m 0 >50m 0
+2-B → 회랑 50 m 중 단순화가 먹는 최악값 20.3 m, 남는 GPS 여유 29.7 m
+2-C 최장 선분 3805 m (idx 5065) / 2위 3270 m
+6-A accuracy 45 m: 창 212 / 방출거리 12.65 km → 12.6 SHV
+6-A accuracy 55 m: 창 0 / 방출거리 0.00 km → 0 SHV (maxAccuracyM=50 이므로 전 픽스 폐기)
+6-B 정확도 미달 픽스 개수별 인정 거리 (minFixesPerWindow=3)
+   폐기  0/12 → 창 20개 / 방출 1191 m (온전할 때 1100 m 기준 108%)
+   폐기  3/12 → 창 20개 / 방출 1174 m (온전할 때 1100 m 기준 107%)
+   폐기  6/12 → 창 20개 / 방출 498 m (온전할 때 1100 m 기준 45%)
+   폐기  9/12 → 창 20개 / 방출 200 m (온전할 때 1100 m 기준 18%)
+   폐기 10/12 → 창 0개 / 방출 0 m (온전할 때 1100 m 기준 0%)
+2-C 아라바 성긴 구간 실제 길 (원본 17.7 km)
+   창 295 | ON_COURSE 295 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.3m p95 8.8m p99 12.3m 최대 17.3m / 회랑밖 픽스 0.00%
+   실제 걸은 17.70 km → 창이 방출한 거리 17.69 km (창 경계 누락 0.04%) (2695ms)
+2-C tier열 [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+3-A 접근 시작점 거리 801 m
+3-A 창 27 tier열 [xxxxxxxxxxxxxOOOOOOOOOOOOOO] (O=ON_COURSE x=OFF_COURSE .=DAILY_LIFE)
+3-A 첫 창 OFF_COURSE / 마지막 창 ON_COURSE / ON 비율 51.85%
+3-B 창 34 tier열 [OOOOOOOOOOOOOOOOOOOOOOxxxxxxxxxxxx]
+3-B 첫 창 ON_COURSE / 마지막 창 OFF_COURSE (끝점에서 801 m 이탈)
+3-C 끝점→3 km 이탈: tier열 [Oxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx................]
+3-C 등장 tier ON_COURSE,OFF_COURSE,DAILY_LIFE / 마지막 DAILY_LIFE
+4-A 인덱스차>20 & 150 m 이내 선분 쌍: 0개
+4-B 헤어핀(배포 idx 1213 / 원본 9912) 창 69 ON 100.00% courseId shvil-israel 난이도 10
+4-C 이스라엘 구간 courseId=shvil-israel ✓ / 분당 구간 courseId=bundang-bulgoksan
+7-A 2.5 km/h (무거운 배낭)      픽스간격 7.20s · 창 8픽스 | 걸은 76.56 km → 방출 76.33 km (누락 0.31%) → 0.0 SHV | ON 100.00%
+9-A 오차 없음                    걸은 117.2 km → 방출 116.8 km (-0.3%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.0 km/h (일반 종주)       픽스간격 6.00s · 창 9픽스 | 걸은 76.55 km → 방출 76.32 km (누락 0.30%) → 62.5 SHV | ON 100.00%
+9-A σ5 m ρ0.98 (양호)          걸은 117.2 km → 방출 119.4 km (1.9%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.6 km/h (빠른 걸음)       픽스간격 5.00s · 창 12픽스 | 걸은 76.56 km → 방출 76.32 km (누락 0.31%) → 51.8 SHV | ON 100.00%
+7-A 5.0 km/h (평지 속보)       픽스간격 5.00s · 창 12픽스 | 걸은 76.50 km → 방출 75.93 km (누락 0.74%) → 40.0 SHV | ON 100.00%
+7-A → 누락률 ≈ 픽스간격 / 60초. 느리게 걸을수록 손해가 커진다.
+9-A σ10 m ρ0.98 (보통)         걸은 117.2 km → 방출 127.8 km (9.0%) | ON 100.00% | 기각창 18/1953 (0.92%) TOO_FAST×9 STEP_DISTANCE_MISMATCH×9
+9-A σ15 m ρ0.98 (나쁨)         걸은 117.2 km → 방출 139.9 km (19.4%) | ON 99.74% | 기각창 65/1953 (3.33%) TOO_FAST×40 STEP_DISTANCE_MISMATCH×23 VEHICLE×2
+9-A σ10 m ρ0.90 (다중경로)       걸은 117.2 km → 방출 153.0 km (30.5%) | ON 100.00% | 기각창 73/1953 (3.74%) STEP_DISTANCE_MISMATCH×44 TOO_FAST×28 VEHICLE×1
+9-A σ15 m ρ0.90 (협곡)         걸은 117.2 km → 방출 185.7 km (58.5%) | ON 100.00% | 기각창 976/1953 (49.97%) TOO_FAST×558 STEP_DISTANCE_MISMATCH×413 VEHICLE×5
+9-A σ15 m ρ0.70 (심한 흔들림)     걸은 117.2 km → 방출 259.3 km (121.2%) | ON 100.00% | 기각창 1920/1953 (98.31%) VEHICLE×146 TOO_FAST×1705 STEP_DISTANCE_MISMATCH×69
+9-A → 창 속도는 (부풀린 거리)/(창 시간). 3.6 km/h 로 걸어도 부풀림이 +67%면 6 km/h 컷에 걸린다.
+9-B 2.5 km/h (σ12 ρ0.9): 방출/걸은 1.403 | 기각창 99.97% STEP_DISTANCE_MISMATCH×506 CADENCE_OUT_OF_RANGE×2413 TOO_FAST×10 | ON 100.00%
+5-D +20 m 전 구간: ON_COURSE 100.00% 이탈 중앙 19.7m 최대 40.0m → 60일 1097.9 SHV | 기각 STEP_DISTANCE_MISMATCH×260 TOO_FAST×424 VEHICLE×10
+9-B 3.6 km/h (σ12 ρ0.9): 방출/걸은 1.412 | 기각창 16.39% STEP_DISTANCE_MISMATCH×200 TOO_FAST×118 VEHICLE×2 | ON 100.00%
+9-B 5 km/h (σ12 ρ0.9): 방출/걸은 1.245 | 기각창 57.33% TOO_FAST×805 VEHICLE×1 | ON 100.00%
+5-A 완주 (진짜 길 1,080 km, 픽스 5초/5m · 창 12픽스 = walkService 설정)
+   창 18011 | ON_COURSE 18011 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.5m p95 13.6m p99 17.2m 최대 20.1m / 회랑밖 픽스 0.00%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1077.95 km (창 경계 누락 0.25%) (95619ms)
+5-A 완주 발행량
+   기대치(1 km = 1 SHV, ×1.0): 걸은 거리 1080.7 km → 1080.7 SHV
+   창이 실제로 방출한 거리 1078.0 km (창 경계 누락 0.25%)
+   60일          18.0 km/일 → 1077.9 SHV | 정산일수 60 상한도달일 0 주간최대 126/300 SHV | 기각 없음
+   45일          24.0 km/일 → 1077.9 SHV | 정산일수 45 상한도달일 0 주간최대 168/300 SHV | 기각 없음
+   30일          36.0 km/일 → 1077.9 SHV | 정산일수 30 상한도달일 0 주간최대 252/300 SHV | 기각 없음
+   25일          43.2 km/일 → 1000.0 SHV | 정산일수 25 상한도달일 25 주간최대 280/300 SHV | 기각 없음
+   20일(비현실)     54.0 km/일 → 800.0 SHV | 정산일수 20 상한도달일 20 주간최대 280/300 SHV | 기각 없음
+5-A ★60일 완주 = 1077.9 SHV (1,055 대비 102.2% / 실제 걸은 1081 km 대비 99.7%)
+5-B 1초 간격(1Hz) 60픽스              걸은 98.5 km → 방출 98.4 km | 누락 0.02% (이론 1/60 = 1.67%)
+5-B 5초 간격 12픽스 ← 운영 설정           걸은 98.5 km → 방출 98.2 km | 누락 0.29% (이론 1/12 = 8.33%)
+5-B 10초 간격 6픽스                   걸은 98.5 km → 방출 97.8 km | 누락 0.67% (이론 1/6 = 16.67%)
+5-B 15초 간격 4픽스                   걸은 98.5 km → 방출 97.4 km | 누락 1.09% (이론 1/4 = 25.00%)
+5-B → 1,080 km 완주 기준 운영 설정(5초/12픽스)의 누락은 약 90 km = 90 SHV.
+8-A 횡방향 이탈별 인정률 (표본 155 km)
+   + 0 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +10 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +20 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +25 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +30 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +35 m → ON_COURSE 98.28% (회랑밖 픽스 1.2%) → 80 SHV
+   +40 m → ON_COURSE 92.44% (회랑밖 픽스 5.5%) → 80 SHV
+   +45 m → ON_COURSE 81.09% (회랑밖 픽스 15.1%) → 80 SHV
+   +50 m → ON_COURSE 48.74% (회랑밖 픽스 42.6%) → 55 SHV
+   +55 m → ON_COURSE 23.15% (회랑밖 픽스 68.6%) → 22 SHV
+   +60 m → ON_COURSE 12.94% (회랑밖 픽스 80.7%) → 10 SHV
+5-D +50 m 전 구간: ON_COURSE 50.26% 이탈 중앙 49.0m 최대 70.0m → 60일 439.7 SHV | 기각 TOO_FAST×2961 VEHICLE×681 STEP_DISTANCE_MISMATCH×704
+5-D +20 m 전 구간: ON_COURSE 100.00% 이탈 중앙 19.7m 최대 40.0m → 60일 1097.9 SHV | 기각 STEP_DISTANCE_MISMATCH×260 TOO_FAST×424 VEHICLE×10
+5-C 완주 + 드리프트 σ=15 m
+   창 18011 | ON_COURSE 17985 (99.86%) OFF_COURSE 26 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 10.5m p95 31.1m p99 41.2m 최대 65.1m / 회랑밖 픽스 0.18%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1706.47 km (창 경계 누락 -57.91%) (88476ms)
+5-C → 60일 776.9 SHV | 정산일수 60 | 기각 TOO_FAST×5017 STEP_DISTANCE_MISMATCH×3806 VEHICLE×30
+5-D +50 m 전 구간: ON_COURSE 50.26% 이탈 중앙 49.0m 최대 70.0m → 60일 439.7 SHV | 기각 TOO_FAST×2961 VEHICLE×681 STEP_DISTANCE_MISMATCH×704
+5-C 완주 + 드리프트 σ=15 m
+   창 18011 | ON_COURSE 17985 (99.86%) OFF_COURSE 26 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 10.5m p95 31.1m p99 41.2m 최대 65.1m / 회랑밖 픽스 0.18%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1706.47 km (창 경계 누락 -57.91%) (120311ms)
+5-C → 60일 776.9 SHV | 정산일수 60 | 기각 TOO_FAST×5017 STEP_DISTANCE_MISMATCH×3806 VEHICLE×30
+2-A km 208.3 (raw 8755): 창 5 ON 5 (100.00%) 이탈 중앙 8.1m 최대 19.3m [OOOOO]
+2-A km 52.5 (raw 1775): 창 7 ON 7 (100.00%) 이탈 중앙 5.7m 최대 19.3m [OOOOOOO]
+2-A km 91.7 (raw 3605): 창 11 ON 11 (100.00%) 이탈 중앙 6.9m 최대 19.7m [OOOOOOOOOOO]
+2-A km 614.9 (raw 25355): 창 46 ON 46 (100.00%) 이탈 중앙 5.1m 최대 18.7m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 785.2 (raw 31765): 창 41 ON 41 (100.00%) 이탈 중앙 6.0m 최대 20.0m [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+2-A km 349.1 (raw 15105): 창 8 ON 8 (100.00%) 이탈 중앙 6.3m 최대 19.3m [OOOOOOOO]
+2-A km 875.8 (raw 35505): 창 10 ON 10 (100.00%) 이탈 중앙 7.6m 최대 19.6m [OOOOOOOOOO]
+2-A km 228.7 (raw 9790): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 18.1m [OOOOOOOOOOOOOOOOO]
+2-A km 767.9 (raw 31220): 창 17 ON 17 (100.00%) 이탈 중앙 4.4m 최대 20.2m [OOOOOOOOOOOOOOOOO]
+2-A → 가장 굽은 구간에서도 인정률 최저 100.0%
+2-B 원본→배포선 편차: 중앙 3.80m p95 14.67 p99 18.19 최대 20.34m | >20m 18점 >30m 0 >50m 0
+2-B → 회랑 50 m 중 단순화가 먹는 최악값 20.3 m, 남는 GPS 여유 29.7 m
+2-C 최장 선분 3805 m (idx 5065) / 2위 3270 m
+6-A accuracy 45 m: 창 212 / 방출거리 12.65 km → 12.6 SHV
+6-A accuracy 55 m: 창 0 / 방출거리 0.00 km → 0 SHV (maxAccuracyM=50 이므로 전 픽스 폐기)
+6-B 정확도 미달 픽스 개수별 인정 거리 (minFixesPerWindow=3)
+   폐기  0/12 → 창 20개 / 방출 1191 m (온전할 때 1100 m 기준 108%)
+   폐기  3/12 → 창 20개 / 방출 1174 m (온전할 때 1100 m 기준 107%)
+   폐기  6/12 → 창 20개 / 방출 498 m (온전할 때 1100 m 기준 45%)
+   폐기  9/12 → 창 20개 / 방출 200 m (온전할 때 1100 m 기준 18%)
+   폐기 10/12 → 창 0개 / 방출 0 m (온전할 때 1100 m 기준 0%)
+2-C 아라바 성긴 구간 실제 길 (원본 17.7 km)
+   창 295 | ON_COURSE 295 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.3m p95 8.8m p99 12.3m 최대 17.3m / 회랑밖 픽스 0.00%
+   실제 걸은 17.70 km → 창이 방출한 거리 17.69 km (창 경계 누락 0.04%) (2269ms)
+2-C tier열 [OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO]
+3-A 접근 시작점 거리 801 m
+3-A 창 27 tier열 [xxxxxxxxxxxxxOOOOOOOOOOOOOO] (O=ON_COURSE x=OFF_COURSE .=DAILY_LIFE)
+3-A 첫 창 OFF_COURSE / 마지막 창 ON_COURSE / ON 비율 51.85%
+3-B 창 34 tier열 [OOOOOOOOOOOOOOOOOOOOOOxxxxxxxxxxxx]
+3-B 첫 창 ON_COURSE / 마지막 창 OFF_COURSE (끝점에서 801 m 이탈)
+3-C 끝점→3 km 이탈: tier열 [Oxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx................]
+3-C 등장 tier ON_COURSE,OFF_COURSE,DAILY_LIFE / 마지막 DAILY_LIFE
+4-A 인덱스차>20 & 150 m 이내 선분 쌍: 0개
+4-B 헤어핀(배포 idx 1213 / 원본 9912) 창 69 ON 100.00% courseId shvil-israel 난이도 10
+4-C 이스라엘 구간 courseId=shvil-israel ✓ / 분당 구간 courseId=bundang-bulgoksan
+7-A 2.5 km/h (무거운 배낭)      픽스간격 7.20s · 창 8픽스 | 걸은 76.56 km → 방출 76.33 km (누락 0.31%) → 0.0 SHV | ON 100.00%
+9-A 오차 없음                    걸은 117.2 km → 방출 116.8 km (-0.3%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.0 km/h (일반 종주)       픽스간격 6.00s · 창 9픽스 | 걸은 76.55 km → 방출 76.32 km (누락 0.30%) → 62.5 SHV | ON 100.00%
+9-A σ5 m ρ0.98 (양호)          걸은 117.2 km → 방출 119.4 km (1.9%) | ON 100.00% | 기각창 0/1953 (0.00%) 없음
+7-A 3.6 km/h (빠른 걸음)       픽스간격 5.00s · 창 12픽스 | 걸은 76.56 km → 방출 76.32 km (누락 0.31%) → 51.8 SHV | ON 100.00%
+7-A 5.0 km/h (평지 속보)       픽스간격 5.00s · 창 12픽스 | 걸은 76.50 km → 방출 75.93 km (누락 0.74%) → 40.0 SHV | ON 100.00%
+7-A → 누락률 ≈ 픽스간격 / 60초. 느리게 걸을수록 손해가 커진다.
+9-A σ10 m ρ0.98 (보통)         걸은 117.2 km → 방출 127.8 km (9.0%) | ON 100.00% | 기각창 18/1953 (0.92%) TOO_FAST×9 STEP_DISTANCE_MISMATCH×9
+9-A σ15 m ρ0.98 (나쁨)         걸은 117.2 km → 방출 139.9 km (19.4%) | ON 99.74% | 기각창 65/1953 (3.33%) TOO_FAST×40 STEP_DISTANCE_MISMATCH×23 VEHICLE×2
+9-A σ10 m ρ0.90 (다중경로)       걸은 117.2 km → 방출 153.0 km (30.5%) | ON 100.00% | 기각창 73/1953 (3.74%) STEP_DISTANCE_MISMATCH×44 TOO_FAST×28 VEHICLE×1
+9-A σ15 m ρ0.90 (협곡)         걸은 117.2 km → 방출 185.7 km (58.5%) | ON 100.00% | 기각창 976/1953 (49.97%) TOO_FAST×558 STEP_DISTANCE_MISMATCH×413 VEHICLE×5
+9-A σ15 m ρ0.70 (심한 흔들림)     걸은 117.2 km → 방출 259.3 km (121.2%) | ON 100.00% | 기각창 1920/1953 (98.31%) VEHICLE×146 TOO_FAST×1705 STEP_DISTANCE_MISMATCH×69
+9-A → 창 속도는 (부풀린 거리)/(창 시간). 3.6 km/h 로 걸어도 부풀림이 +67%면 6 km/h 컷에 걸린다.
+9-B 2.5 km/h (σ12 ρ0.9): 방출/걸은 1.403 | 기각창 99.97% STEP_DISTANCE_MISMATCH×506 CADENCE_OUT_OF_RANGE×2413 TOO_FAST×10 | ON 100.00%
+9-B 3.6 km/h (σ12 ρ0.9): 방출/걸은 1.412 | 기각창 16.39% STEP_DISTANCE_MISMATCH×200 TOO_FAST×118 VEHICLE×2 | ON 100.00%
+9-B 5 km/h (σ12 ρ0.9): 방출/걸은 1.245 | 기각창 57.33% TOO_FAST×805 VEHICLE×1 | ON 100.00%
+5-A 완주 (진짜 길 1,080 km, 픽스 5초/5m · 창 12픽스 = walkService 설정)
+   창 18011 | ON_COURSE 18011 (100.00%) OFF_COURSE 0 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 3.5m p95 13.6m p99 17.2m 최대 20.1m / 회랑밖 픽스 0.00%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1077.95 km (창 경계 누락 0.25%) (83545ms)
+5-A 완주 발행량
+   기대치(1 km = 1 SHV, ×1.0): 걸은 거리 1080.7 km → 1080.7 SHV
+   창이 실제로 방출한 거리 1078.0 km (창 경계 누락 0.25%)
+   60일          18.0 km/일 → 1077.9 SHV | 정산일수 60 상한도달일 0 주간최대 126/300 SHV | 기각 없음
+   45일          24.0 km/일 → 1077.9 SHV | 정산일수 45 상한도달일 0 주간최대 168/300 SHV | 기각 없음
+   30일          36.0 km/일 → 1077.9 SHV | 정산일수 30 상한도달일 0 주간최대 252/300 SHV | 기각 없음
+   25일          43.2 km/일 → 1000.0 SHV | 정산일수 25 상한도달일 25 주간최대 280/300 SHV | 기각 없음
+   20일(비현실)     54.0 km/일 → 800.0 SHV | 정산일수 20 상한도달일 20 주간최대 280/300 SHV | 기각 없음
+5-A ★60일 완주 = 1077.9 SHV (1,055 대비 102.2% / 실제 걸은 1081 km 대비 99.7%)
+5-B 1초 간격(1Hz) 60픽스              걸은 98.5 km → 방출 98.4 km | 누락 0.02% (이론 1/60 = 1.67%)
+5-B 5초 간격 12픽스 ← 운영 설정           걸은 98.5 km → 방출 98.2 km | 누락 0.29% (이론 1/12 = 8.33%)
+5-B 10초 간격 6픽스                   걸은 98.5 km → 방출 97.8 km | 누락 0.67% (이론 1/6 = 16.67%)
+5-B 15초 간격 4픽스                   걸은 98.5 km → 방출 97.4 km | 누락 1.09% (이론 1/4 = 25.00%)
+5-B → 1,080 km 완주 기준 운영 설정(5초/12픽스)의 누락은 약 90 km = 90 SHV.
+8-A 횡방향 이탈별 인정률 (표본 155 km)
+   + 0 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +10 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +20 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +25 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +30 m → ON_COURSE 100.00% (회랑밖 픽스 0.0%) → 80 SHV
+   +35 m → ON_COURSE 98.28% (회랑밖 픽스 1.2%) → 80 SHV
+   +40 m → ON_COURSE 92.44% (회랑밖 픽스 5.5%) → 80 SHV
+   +45 m → ON_COURSE 81.09% (회랑밖 픽스 15.1%) → 80 SHV
+   +50 m → ON_COURSE 48.74% (회랑밖 픽스 42.6%) → 55 SHV
+   +55 m → ON_COURSE 23.15% (회랑밖 픽스 68.6%) → 22 SHV
+   +60 m → ON_COURSE 12.94% (회랑밖 픽스 80.7%) → 10 SHV
+5-D +20 m 전 구간: ON_COURSE 100.00% 이탈 중앙 19.7m 최대 40.0m → 60일 1097.9 SHV | 기각 STEP_DISTANCE_MISMATCH×260 TOO_FAST×424 VEHICLE×10
+5-D +50 m 전 구간: ON_COURSE 50.26% 이탈 중앙 49.0m 최대 70.0m → 60일 439.7 SHV | 기각 TOO_FAST×2961 VEHICLE×681 STEP_DISTANCE_MISMATCH×704
+5-C 완주 + 드리프트 σ=15 m
+   창 18011 | ON_COURSE 17985 (99.86%) OFF_COURSE 26 DAILY_LIFE 0
+   폴리라인 이탈거리: 중앙 10.5m p95 31.1m p99 41.2m 최대 65.1m / 회랑밖 픽스 0.18%
+   실제 걸은 1080.66 km → 창이 방출한 거리 1706.47 km (창 경계 누락 -57.91%) (88660ms)
+5-C → 60일 776.9 SHV | 정산일수 60 | 기각 TOO_FAST×5017 STEP_DISTANCE_MISMATCH×3806 VEHICLE×30

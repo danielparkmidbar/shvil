@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { SHVIL_ISRAEL_NORTH_SAMPLE } from '@shvil/shared';
+import { BUNDANG_BULGOKSAN_SAMPLE, SHVIL_ISRAEL } from '@shvil/shared';
 import { ApiError, type ClaimEntry, type FlaggedMemberEntry } from '../core/api';
 import { flagReasonText } from '../core/flagReasonText';
 import {
@@ -68,7 +68,10 @@ export function CommunityScreen() {
   useEffect(() => {
     void (async () => {
       const cached = await loadCachedCourses().catch(() => null);
-      const official = (cached && cached.length > 0 ? cached : [SHVIL_ISRAEL_NORTH_SAMPLE]).map((c) => ({
+      // 폴백은 서버 BUILTIN_COURSES와 같은 것이어야 한다 — 여기 없는 courseId를
+      // 고르게 두면 발행 라우트가 UNKNOWN_COURSE로 거부해 정직한 사람이 막힌다.
+      const fallback = [SHVIL_ISRAEL, BUNDANG_BULGOKSAN_SAMPLE];
+      const official = (cached && cached.length > 0 ? cached : fallback).map((c) => ({
         courseId: c.courseId,
         name: c.name,
         candidate: false,

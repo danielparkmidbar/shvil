@@ -27,7 +27,17 @@ import { wallet } from './walletService';
 
 const SERVER_URL_KEY = 'serverUrl.v1';
 const KEYS_INFO_CACHE = 'keysInfo.v1';
-const COURSES_CACHE = 'courses.v1';
+/**
+ * ★v1 → v2 (2026-07-27). 이미 설치된 지갑의 kv에는 옛 배포본, 즉 courseId
+ * 'shvil-israel'에 **11점·6.72km 샘플 폴리라인**이 들어 있다. 캐시는 내장 데이터보다
+ * 우선하므로(walkService), 키를 그대로 두면 그 지갑은 서버에 붙기 전까지 계속
+ * 가짜 선을 기준으로 판정한다 — 실물 트레일 위를 걸어도 1km 이상 벗어난 것으로
+ * 나와 전부 "코스 밖"이 된다. 키를 올려 옛 캐시를 무시하면 내장 실물 폴리라인으로
+ * 폴백하므로, 오프라인이어도 "설치하고 걸으면 끝"이 성립한다.
+ * (부작용: 캐시에 있던 커뮤니티 승격 코스는 다음 성공적인 syncCourses까지 안 보인다.
+ *  틀린 기준으로 계속 판정하는 것보다 낫다 — 헌법 제3조.)
+ */
+const COURSES_CACHE = 'courses.v2';
 const ANGELS_CACHE = 'angels.v1';
 const TREASURES_CACHE = 'treasures.v1';
 

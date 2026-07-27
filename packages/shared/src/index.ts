@@ -18,6 +18,10 @@ export * from './humanLimits';
 export * from './qr';
 export * from './encoding';
 export * from './courses';
+// 실물 세계 트레일 폴리라인 (생성 파일). 지갑도 오프라인 폴백으로 쓰므로
+// 번들 비용(소스 약 153KB / 힙 약 0.8MB)을 감수하고 index에서 내보낸다 —
+// 서버 캐시가 없을 때 실물 코스를 모르면 "설치하고 걸으면 끝"이 깨진다.
+export * from './worldCourses';
 export * from './messaging';
 export * from './booking';
 export * from './thanksCard';

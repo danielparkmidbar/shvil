@@ -223,13 +223,53 @@ describe('③ 1회용 지시 — 도용·재사용·만료 차단', () => {
   });
 });
 
+/**
+ * ★이 두 검사만 별도 인스턴스를 쓴다 (2026-07-27 간헐 실패 수정).
+ *
+ * 위 인스턴스는 걸음당 1ms라 지시 하나의 최소 수행 시간이 수십 ms밖에 안 된다.
+ * 전체 스위트를 병렬로 돌리면 요청 왕복이 그 시간을 넘겨 **"즉시 응답"이 즉시가
+ * 아니게 되고**, 봇이 통과해 버려 검사가 뒤집힌다 (실측: 전체 실행 4회 중 2회 실패).
+ * 걸음당 60ms로 창을 넉넉히 벌린다 — 검사하는 내용은 그대로이고, 오히려 봇이
+ * 넘어야 할 창이 넓어진다. 대신 ⑤의 대기가 실제로 1~2초 걸린다.
+ */
 describe('④⑤ 자동화 차단 — 즉시 응답·무차별 재시도', () => {
+  const STRICT_MS_PER_STEP = 60;
+  const strict = buildApp({ dbPath: ':memory:', devMode: true, presenceMinMsPerStep: STRICT_MS_PER_STEP });
+  let sMerchant: TestIdentity;
+  let sGuest: TestIdentity;
+
+  beforeAll(async () => {
+    await strict.ready();
+    sMerchant = await register(strict, '+972-55-9101-001', 'cafe@strict.io', '갈릴리 카페(엄격)');
+    sGuest = await register(strict, '+972-55-9101-002', 'g1@strict.io', '손님(엄격)');
+  });
+
+  afterAll(async () => {
+    await strict.close();
+  });
+
+  async function setup(spotId: string, startAt: number): Promise<ChallengeRes> {
+    const now = Date.now();
+    const created = await signedInject(strict, sMerchant, 'POST', '/spot', {
+      spotId,
+      regionId: 'israel-national',
+      displayName: '갈릴리 카페',
+      location: { lat: 33.231, lon: 35.651 },
+      perClaimDshv: 50,
+      validFrom: now - DAY,
+      validUntil: now + DAY,
+    });
+    expect(created.statusCode).toBe(200);
+    const reserve = (created.json() as { reservePublicKey: string }).reservePublicKey;
+    const burn = createTransfer(mintWalkCoinFor(sMerchant, 10, startAt), sMerchant.signer, reserve, Date.now());
+    expect((await signedInject(strict, sMerchant, 'POST', '/spot/deposit', { spotId, coins: [burn] })).statusCode).toBe(200);
+    return (await signedInject(strict, sGuest, 'POST', '/spot/challenge', { spotId })).json() as ChallengeRes;
+  }
+
   it('★지시를 받자마자 즉시 응답하면 거부된다 (물리적으로 불가능한 속도)', async () => {
-    const reserve = await createSpot('spot-pres-fast', 50);
-    await fund('spot-pres-fast', reserve, 10, T0 + 10 * DAY);
-    const ch = (await getChallenge(guest, 'spot-pres-fast')).json() as ChallengeRes;
+    const ch = await setup('spot-pres-fast', T0 + 10 * DAY);
     // 기다리지 않고 곧바로 완벽한 답을 제출 — 봇의 전형적 행동.
-    const res = await signedInject(app, guest, 'POST', '/spot/claim', {
+    const res = await signedInject(strict, sGuest, 'POST', '/spot/claim', {
       spotId: 'spot-pres-fast',
       challengeId: ch.challengeId,
       legs: perform(ch.legs),
@@ -239,18 +279,17 @@ describe('④⑤ 자동화 차단 — 즉시 응답·무차별 재시도', () =>
   });
 
   it('실패한 지시는 즉시 소비된다 — 같은 지시로 값을 바꿔 재시도할 수 없다', async () => {
-    const reserve = await createSpot('spot-pres-retry', 50);
-    await fund('spot-pres-retry', reserve, 10, T0 + 11 * DAY);
-    const ch = (await getChallenge(guest, 'spot-pres-retry')).json() as ChallengeRes;
+    const ch = await setup('spot-pres-retry', T0 + 11 * DAY);
     // 1차: 너무 빨라 실패 → 지시 소비됨
-    await signedInject(app, guest, 'POST', '/spot/claim', {
+    const first = await signedInject(strict, sGuest, 'POST', '/spot/claim', {
       spotId: 'spot-pres-retry',
       challengeId: ch.challengeId,
       legs: perform(ch.legs),
     });
+    expect((first.json() as { error: string }).error).toBe('SPOT_PRESENCE_TOO_FAST');
     // 2차: 이번엔 제대로 기다려도 같은 지시는 이미 죽었다.
-    await walkFor(ch.legs);
-    const res = await signedInject(app, guest, 'POST', '/spot/claim', {
+    await new Promise((r) => setTimeout(r, presenceMinDurationMs(ch.legs, STRICT_MS_PER_STEP) + 50));
+    const res = await signedInject(strict, sGuest, 'POST', '/spot/claim', {
       spotId: 'spot-pres-retry',
       challengeId: ch.challengeId,
       legs: perform(ch.legs),

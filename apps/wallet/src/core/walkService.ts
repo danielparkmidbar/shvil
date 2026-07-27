@@ -12,7 +12,7 @@
 import * as Location from 'expo-location';
 import { Pedometer } from 'expo-sensors';
 import { CorridorEngine } from '../walk/corridorEngine';
-import { BUNDANG_BULGOKSAN_SAMPLE, SAMPLE_ANGELS, SHVIL_ISRAEL_NORTH_SAMPLE } from '../walk/data/shvilIsraelSample';
+import { BUNDANG_BULGOKSAN_SAMPLE, SAMPLE_ANGELS, SHVIL_ISRAEL } from '../walk/data/shvilIsraelSample';
 import { loadCachedAngels, loadCachedCourses } from './directory';
 import { treasureService } from './treasureService';
 import { wallet } from './walletService';
@@ -58,9 +58,12 @@ class WalkService {
         : SAMPLE_ANGELS;
     this.#engine = new CorridorEngine(
       // 오프라인 폴백에도 분당–불곡산(닫힌 시험 코스)을 포함 — 서버 캐시가 없어도 걷기 가능.
+      // ★폴백은 실물 폴리라인(SHVIL_ISRAEL)이어야 한다. 예전 샘플은 실제 트레일에서
+      //  1km 이상 떨어져 있어서, 서버에 못 붙은 하이커가 트레일 위를 걸어도 전부
+      //  "코스 밖"이 됐다 — "설치하고 걸으면 끝"(0층)이 깨지는 지점이다.
       cachedCourses && cachedCourses.length > 0
         ? cachedCourses
-        : [SHVIL_ISRAEL_NORTH_SAMPLE, BUNDANG_BULGOKSAN_SAMPLE],
+        : [SHVIL_ISRAEL, BUNDANG_BULGOKSAN_SAMPLE],
       angelPoints,
     );
 

@@ -62,7 +62,7 @@ import { MockChainAdapter, type ChainAdapter } from './chain';
 import { registerMarket } from './market';
 import { registerCommunity } from './community';
 // 배포 코스 목록의 단일 진실 원천 — /courses와 발행 라우트가 같은 함수를 본다.
-import { distributedCourses } from './courses';
+import { createCoursesDistributor } from './courses';
 import { registerGuestbook } from './guestbook';
 import { registerRatings } from './ratings';
 import { registerCompanions } from './companions';
@@ -537,19 +537,14 @@ export function buildApp(
 
   // ── 코스 데이터 배포 (원본: shvilist.org 코스 등록부 — M4 연동) ──
 
-  app.get('/courses', async () =>
-    // 배포 서명(_sig) 부착 (보안 감사 H-3). 기존 소비자는 {courses}만 읽어 하위 호환.
-    signDistribution(
-      // 기본 코스 + 코스 등록부에서 공식 승격된 코스 (지시서 6장 3절).
-      // ★이 목록이 곧 "서버가 아는 코스"다 — 발행 라우트(/certificates·/claims)의
-      // 코스 대조도 같은 함수(courses.ts)를 본다. 어긋나면 앱에 보이는 코스인데
-      // 서버가 거부하는 상황이 생겨 정직한 사용자가 막힌다.
-      { courses: distributedCourses(db) },
-      distSigner,
-      keyIds.distribution,
-      Date.now(),
-    ),
-  );
+  // 기본 코스 + 코스 등록부에서 공식 승격된 코스 (지시서 6장 3절)에 배포 서명(_sig)을
+  // 붙여 돌려준다 (보안 감사 H-3). 기존 소비자는 {courses}만 읽어 하위 호환.
+  // ★이 목록이 곧 "서버가 아는 코스"다 — 발행 라우트(/certificates·/claims)의 코스
+  // 대조도 같은 함수(courses.ts)를 본다. 어긋나면 앱에 보이는 코스인데 서버가 거부하는
+  // 상황이 생겨 정직한 사용자가 막힌다.
+  // 서명 결과는 등록부가 바뀔 때까지 재사용한다 (본문 178KB — courses.ts 주석 참조).
+  const coursesDistribution = createCoursesDistributor(db, distSigner, keyIds.distribution);
+  app.get('/courses', async () => coursesDistribution());
 
   /**
    * 세계 트레일 지역 카탈로그 (다니엘 쌤 방향 — 150개국 확장).

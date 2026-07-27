@@ -25,11 +25,13 @@ import {
   hashObject,
   isFlagReasonCode,
   signDistribution,
+  validateCoursePolyline,
+  validateCourseSegments,
   type SignedGrant,
   type Signer,
 } from '@shvil/shared';
 // 발행 라우트의 코스 대조는 GET /courses 배포 목록과 **같은 함수**를 쓴다 (courses.ts).
-import { isKnownCourse } from './courses';
+import { isKnownCourse, knownCourseIds } from './courses';
 
 export interface CommunityMemberRow {
   member_id: string;
@@ -103,8 +105,46 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
     if (!body.name || !Array.isArray(body.polyline) || body.polyline.length < 2) {
       return reply.code(400).send({ error: 'name and polyline (>= 2 points) required' });
     }
+    /**
+     * ★코스 기하 검증 (2026-07-27) — 여기까지는 polyline이 배열인지만 봤고
+     *  `segments`는 `unknown[]`으로 받아 **검증 없이** JSON으로 저장·배포했다.
+     *
+     *  실행으로 확인된 누수: `corridorHalfWidthM: 50000`을 실은 200m짜리 코스를
+     *  제안·승격시키면 `corridorHalfWidthAt`이 그 값을 그대로 써서 **반경 50km 안
+     *  어디서나 ON_COURSE**가 됐다 (트레일에서 45km 떨어진 도심 포함).
+     *  `difficultyTenths: 99`도 그대로 배포됐다 — 발행 시점 클램프(×4.0)가 있어
+     *  경제 피해는 상한이 있었지만 WalkSample에는 99가 실려 나갔다.
+     *  승격에는 사람 검토가 없다(완주 기록 100건은 자기신고 정수다). 그러므로
+     *  이 경계가 **코인이 생성되는 땅**을 지키는 유일한 지점이다.
+     *
+     *  값을 조용히 고치지 않고 거부한다 — 제안자가 낸 것과 다른 코스가 배포되면
+     *  그것도 정직화 위반이다. 코드만 보내고 문장은 클라이언트 사전 몫(noUiStrings).
+     */
+    const polylineError = validateCoursePolyline(body.polyline);
+    if (polylineError) {
+      return reply.code(400).send({ error: 'invalid course polyline', code: polylineError });
+    }
+    const segments =
+      body.segments ?? [{ fromIdx: 0, toIdx: body.polyline.length - 1, terrain: 'OPEN', difficultyTenths: 10 }];
+    const segmentError = validateCourseSegments(segments, body.polyline.length);
+    if (segmentError) {
+      return reply.code(400).send({ error: 'invalid course segments', code: segmentError });
+    }
     if (db.prepare('SELECT 1 FROM course_proposals WHERE course_id = ?').get(body.courseId)) {
       return reply.code(409).send({ error: 'courseId already proposed' });
+    }
+    /**
+     * ★배포 중인 courseId는 재사용할 수 없다 (2026-07-27).
+     *
+     * 여기까지는 `course_proposals` 안에서만 중복을 봤다. 그래서 내장 코스와 같은
+     * ID('shvil-israel')로 제안해 승격시키면 `distributedCourses`가 **같은 ID의 코스
+     * 둘**을 내보내고, 회랑 엔진(`#judgeFix`)이 두 폴리라인 중 가까운 쪽을 골라
+     * 난이도 계수를 매긴다 — 즉 자기 집 앞에 ×4.0 구간을 심을 수 있었다.
+     * 위폐가 아니라 **요율 위조**이며, 같은 자리에서 사람마다 보상이 갈린다(제3조).
+     * 대조 기준은 여기서도 배포 목록 그 자체다.
+     */
+    if (knownCourseIds(db).has(body.courseId)) {
+      return reply.code(409).send({ error: 'courseId already distributed' });
     }
     db.prepare(
       `INSERT INTO course_proposals (course_id, name, proposer_member, polyline_json, segments_json, status, created_at)
@@ -114,7 +154,7 @@ export function registerCommunity(app: FastifyInstance, ctx: CommunityContext): 
       body.name,
       member.member_id,
       JSON.stringify(body.polyline),
-      JSON.stringify(body.segments ?? [{ fromIdx: 0, toIdx: body.polyline.length - 1, terrain: 'OPEN', difficultyTenths: 10 }]),
+      JSON.stringify(segments),
       Date.now(),
     );
     return { courseId: body.courseId, status: 'CANDIDATE' };

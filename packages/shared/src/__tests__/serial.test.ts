@@ -74,14 +74,54 @@ describe('normalizeSerial — 손으로 옮겨 적은 입력', () => {
     expect(normalizeSerial(confused)).toBe(serial);
   });
 
+  /**
+   * ★체크 문자는 32값(Crockford Base32 한 글자)이다. 따라서 **한 글자 오타를
+   *  약 1/32 = 3.1 % 확률로 놓친다** — 이것은 구현 결함이 아니라 형식의 성질이다
+   *  (serial.ts 주석: "체크 문자는 오타를 즉시 잡기 위한 것이지 위조 방어가 아니다").
+   *
+   *  이 성질 때문에 예전 판(무작위 코인 하나 + 첫 글자 뒤집기)은 3.1 % 확률로
+   *  간헐 실패했다(실측). 그래서 두 가지로 나눈다:
+   *   (1) **결정적 검사** — 체크 문자가 실제로 달라지는 오타를 골라 반드시 거부되는지.
+   *   (2) **성질 검사** — 검출률을 실제로 재서 대역에 있는지 (숨기지 않고 못박는다).
+   */
   it('오타(체크 문자 불일치)는 조용히 통과시키지 않는다', () => {
-    const coin = mintCoinFor('m-alice', alice);
-    const serial = coinSerial(coin);
-    // 본문 한 글자를 다른 유효 문자로 바꾼다.
+    const serial = coinSerial(mintCoinFor('m-alice', alice));
     const body = serial.replace(/-/g, '').slice(3, 3 + SERIAL_BODY_LENGTH);
-    const flip = body[0] === 'A' ? 'B' : 'A';
-    const typo = `SHV-${flip}${body.slice(1, 5)}-${body.slice(5, 10)}-${body.slice(10, 15)}-${serial.slice(-1)}`;
-    expect(normalizeSerial(typo)).toBeNull();
+    const check = serial.slice(-1);
+    const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    // 체크 문자가 실제로 바뀌는 한 글자 오타를 하나 고른다 (반드시 존재한다).
+    let typo: string | null = null;
+    for (const ch of alphabet) {
+      if (ch === body[0]) continue;
+      const candidate = `SHV-${ch}${body.slice(1, 5)}-${body.slice(5, 10)}-${body.slice(10, 15)}-${check}`;
+      if (normalizeSerial(candidate) === null) {
+        typo = candidate;
+        break;
+      }
+    }
+    expect(typo).not.toBeNull();
+    expect(normalizeSerial(typo!)).toBeNull();
+  });
+
+  it('★한 글자 오타 검출률을 실측해 못박는다 (체크 문자 32값 → 약 96.9 %)', () => {
+    const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    let tried = 0;
+    let caught = 0;
+    for (let i = 0; i < 60; i++) {
+      const serial = serialFromCoinId(`typo-probe-${i}`);
+      const body = serial.replace(/-/g, '').slice(3, 3 + SERIAL_BODY_LENGTH);
+      const check = serial.slice(-1);
+      for (const pos of [0, 7, 14]) {
+        const ch = alphabet[(alphabet.indexOf(body[pos]!) + 7) % 32]!;
+        const b = body.slice(0, pos) + ch + body.slice(pos + 1);
+        tried++;
+        if (normalizeSerial(`SHV-${b.slice(0, 5)}-${b.slice(5, 10)}-${b.slice(10, 15)}-${check}`) === null) caught++;
+      }
+    }
+    const rate = caught / tried;
+    // 이론 31/32 = 96.875 %. 표본 180개라 오차 대역을 넉넉히 잡는다.
+    expect(rate).toBeGreaterThan(0.9);
+    expect(rate).toBeLessThanOrEqual(1);
   });
 
   it('길이가 다르면 null', () => {

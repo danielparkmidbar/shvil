@@ -4,6 +4,9 @@ import { CorridorEngine, type GpsFix } from '../corridorEngine';
 import { haversineM, type GeoPoint } from '../geo';
 import { SAMPLE_ANGELS, SHVIL_ISRAEL_NORTH_SAMPLE } from '../data/shvilIsraelSample';
 
+// 회랑 엔진 단위 테스트는 구간 경계(개활지 ×1.0 / 산악 ×1.5)를 인덱스로 짚어야 하므로
+// 배포되지 않는 테스트 픽스처를 쓴다. 실물(SHVIL_ISRAEL)은 5,569점 단일 구간이라
+// 구간별 요율 분기를 검증할 수 없다.
 const COURSE = SHVIL_ISRAEL_NORTH_SAMPLE;
 const T0 = Date.parse('2026-07-01T06:00:00Z');
 
@@ -46,7 +49,7 @@ describe('코스 회랑 판정 (지시서 2.2 / 프로토콜 1.5)', () => {
     const sample = runWindow(newEngine(), COURSE.polyline[0]!, COURSE.polyline[1]!);
     expect(sample).not.toBeNull();
     expect(sample!.tier).toBe('ON_COURSE');
-    expect(sample!.courseId).toBe('shvil-israel');
+    expect(sample!.courseId).toBe('shvil-israel-sample');
     expect(sample!.difficultyTenths).toBe(10); // 개활지 구간 ×1.0
     expect(sample!.distanceM).toBeGreaterThan(70);
   });
